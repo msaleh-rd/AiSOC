@@ -143,17 +143,20 @@ class CompoundingMemory:
     async def record_verdict(
         self,
         tenant_id: str,
-        alert_signature: str,
-        verdict: str,
+        alert_signature: str | None = None,
+        verdict: str = "true_positive",
         confidence: float = 0.0,
         investigation_id: str | None = None,
+        *,
+        signature: str | None = None,
     ) -> None:
         """Write a resolved investigation's verdict into institutional memory.
 
         Best-effort — never raises.  Called by ``outcomes.record_outcome()``
         so every resolution feeds the distillation pipeline.
         """
-        key = f"compounding:{alert_signature}"
+        sig = alert_signature or signature or ""
+        key = f"compounding:{sig}"
         try:
             existing = await institutional_get(tenant_id, key)
             if isinstance(existing, dict):
@@ -172,13 +175,13 @@ class CompoundingMemory:
             await institutional_set(
                 tenant_id,
                 key,
-                {"alert_signature": alert_signature, "entries": entries},
-                tags=["compounding_memory", alert_signature],
+                {"alert_signature": sig, "entries": entries},
+                tags=["compounding_memory", sig],
             )
         except Exception as exc:  # noqa: BLE001 — best-effort
             logger.debug(
                 "compounding_memory.record_verdict_failed",
-                signature=str(alert_signature).replace("\r", "").replace("\n", " ")[:200],
+                signature=str(sig).replace("\r", "").replace("\n", " ")[:200],
                 error=str(exc).replace("\r", "").replace("\n", " ")[:200],
             )
 
@@ -246,6 +249,15 @@ class CompoundingMemory:
         # prior_confidence 1.0 (always confirmed) → +MAX; 0.0 (always FP) → -MAX; 0.5 → 0.0
         adjustment = (prior.prior_confidence - 0.5) * (2 * MAX_ADJUSTMENT)
         return max(-MAX_ADJUSTMENT, min(MAX_ADJUSTMENT, round(adjustment, 4)))
+
+    def get_adjustment(
+        self,
+        alert_signature: str,
+        current_confidence: float = 0.0,
+    ) -> float:
+        """Return confidence adjusted by historical verdict prior."""
+        nudge = self.get_memory_verdict_adjustment(alert_signature)
+        return max(0.0, min(1.0, round(current_confidence + nudge, 4)))
 
     def get_exemplars(self, alert_signature: str) -> list[str]:
         """Return up to DEFAULT_EXEMPLAR_BANK_SIZE investigation IDs for the
