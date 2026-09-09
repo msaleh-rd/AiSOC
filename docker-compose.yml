@@ -698,6 +698,13 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        # apps/web/Dockerfile defaults NEXT_PUBLIC_DEMO_MODE to "true" for the
+        # public tryaisoc.com demo. A local/self-hosted docker-compose stack
+        # is a real deployment, not the public demo, so disable it here —
+        # this turns off the "demo data resets daily" banner, the
+        # "Self-host AiSOC" CTA, and the read-only write-blocking UI.
+        NEXT_PUBLIC_DEMO_MODE: ""
     image: ghcr.io/beenuar/aisoc-web:${AISOC_VERSION:-latest}
     pull_policy: missing
     container_name: aisoc-web
