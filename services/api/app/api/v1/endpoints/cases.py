@@ -38,16 +38,16 @@ import os
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from app.api.v1.deps import AuthUser, DBSession
+from app.api.v1.deps import AuthUser, DBSession, require_permission
 from app.core.logging import safe_log_value
 from app.services.case_fanout import (
     FanoutResult,
@@ -436,21 +436,29 @@ async def list_cases(
 
 
 @router.post("", response_model=CaseResponse, status_code=status.HTTP_201_CREATED, summary="Create case")
-async def create_case(body: CreateCaseRequest, db: DBSession, user: AuthUser) -> CaseResponse:
+async def create_case(
+    body: CreateCaseRequest,
+    db: DBSession,
+    user: Annotated[AuthUser, Depends(require_permission("cases:write"))],
+) -> CaseResponse:
     import json as _json
 
     case_id = uuid.uuid4()
     now = datetime.now(UTC)
+    # `case_number` is the identifier the console routes on (/cases/INC-RT-001).
+    # Migration 028 left the column nullable with no default, so it has to be
+    # assigned here or the case is unreachable by anything but its raw UUID.
+    case_number = f"CASE-{case_id.hex[:8].upper()}"
     # Note: PostgreSQL ``::type`` casts inside text() confuse SQLAlchemy's
     # bind-parameter parser; use ``CAST(:param AS TYPE)`` so the bind survives
     # the round-trip (see also Batch 2 / hunts.py for the same gotcha).
     q = text("""
         INSERT INTO aisoc_cases (
-            id, tenant_id, title, description, severity, status, assignee,
+            id, tenant_id, case_number, title, description, severity, status, assignee,
             mitre_techniques, alert_ids, compliance_frameworks, tags,
             sla_due_at, opened_at, created_at, updated_at, created_by
         ) VALUES (
-            :id, :tenant_id, :title, :description, :severity, 'new', :assignee,
+            :id, :tenant_id, :case_number, :title, :description, :severity, 'new', :assignee,
             CAST(:mitre AS JSONB), CAST(:alert_ids AS UUID[]),
             CAST(:frameworks AS TEXT[]), CAST(:tags AS JSONB),
             :sla, :now, :now, :now, :user
@@ -458,6 +466,7 @@ async def create_case(body: CreateCaseRequest, db: DBSession, user: AuthUser) ->
     """).bindparams(
         id=case_id,
         tenant_id=user.tenant_id,
+        case_number=case_number,
         title=body.title,
         description=body.description,
         severity=body.severity,

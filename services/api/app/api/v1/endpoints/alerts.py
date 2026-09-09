@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -149,6 +149,29 @@ class AlertUpdateRequest(BaseModel):
     tags: list[str] | None = None
     assigned_to_id: uuid.UUID | None = None
     case_id: uuid.UUID | None = None
+
+
+class AlertCreateRequest(BaseModel):
+    """Analyst-authored alert from the console's New Alert form.
+
+    Distinct from :class:`AlertSubmitRequest`, which synthesises an alert from a
+    batch of OCSF events. Here the analyst supplies the fields directly.
+    """
+
+    title: str = Field(..., min_length=3, max_length=500)
+    severity: Literal["info", "low", "medium", "high", "critical"]
+    description: str | None = None
+    category: str | None = None
+    status: Literal["new", "triaged", "investigating", "resolved", "false_positive"] = "new"
+    priority: int | None = Field(default=None, ge=0, le=100)
+    connector_type: str | None = None
+    mitre_techniques: list[str] = Field(default_factory=list)
+    affected_hosts: list[str] = Field(default_factory=list)
+    affected_ips: list[str] = Field(default_factory=list)
+    affected_users: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    case_id: uuid.UUID | None = None
+    event_time: datetime | None = None
 
 
 class AlertStatsResponse(BaseModel):
@@ -674,6 +697,58 @@ async def list_alerts(
         page_size=page_size,
         pages=(total + page_size - 1) // page_size,
     )
+
+
+@router.post("", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)
+async def create_alert(
+    payload: AlertCreateRequest,
+    current_user: Annotated[AuthUser, Depends(require_permission("alerts:write"))],
+    db: TenantDBSession,
+) -> AlertResponse:
+    """Create an alert from analyst-supplied fields.
+
+    The console's New Alert form targets this rather than ``/submit``, which
+    expects a batch of OCSF events. Timestamps collapse to a single
+    ``event_time`` because a hand-authored alert observes one moment.
+    """
+    now = datetime.now(UTC)
+    event_time = payload.event_time or now
+
+    alert = Alert(
+        tenant_id=current_user.tenant_id,
+        title=payload.title,
+        description=payload.description,
+        severity=payload.severity,
+        status=payload.status,
+        priority=(
+            payload.priority
+            if payload.priority is not None
+            # Same severity→priority ladder the OCSF synthesis path uses.
+            else _SEVERITY_PRIORITY.get(payload.severity, 50)
+        ),
+        category=payload.category,
+        mitre_techniques=payload.mitre_techniques,
+        connector_type=payload.connector_type or "manual",
+        affected_hosts=payload.affected_hosts,
+        affected_ips=payload.affected_ips,
+        affected_users=payload.affected_users,
+        tags=payload.tags,
+        case_id=payload.case_id,
+        raw_event={"source": "console", "created_by": str(current_user.user_id)},
+        event_time=event_time,
+        first_seen=event_time,
+        last_seen=event_time,
+    )
+    db.add(alert)
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("Failed to create alert")
+        raise HTTPException(status_code=503, detail="Database error") from exc
+    await db.refresh(alert)
+
+    return AlertResponse.model_validate(alert)
 
 
 @router.get("/stats", response_model=AlertStatsResponse)

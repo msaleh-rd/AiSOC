@@ -837,6 +837,47 @@ export const alertsApi = {
     return normalizeAlert(raw);
   },
 
+  /** Analyst-authored alert. Distinct from the OCSF `/alerts/submit` path. */
+  create: async (data: {
+    title: string;
+    severity: Alert['severity'];
+    description?: string;
+    category?: string;
+    status?: Alert['status'];
+    priority?: number;
+    connectorType?: string;
+    mitreTechniques?: string[];
+    affectedHosts?: string[];
+    affectedIps?: string[];
+    affectedUsers?: string[];
+    tags?: string[];
+    caseId?: string;
+  }) => {
+    // The API schema is snake_case and does not enable populate_by_name, so
+    // camelCase keys would be silently dropped.
+    const body: Record<string, unknown> = {
+      title: data.title,
+      severity: data.severity,
+    };
+    if (data.description !== undefined) body.description = data.description;
+    if (data.category !== undefined) body.category = data.category;
+    if (data.status !== undefined) body.status = data.status;
+    if (data.priority !== undefined) body.priority = data.priority;
+    if (data.connectorType !== undefined) body.connector_type = data.connectorType;
+    if (data.mitreTechniques !== undefined) body.mitre_techniques = data.mitreTechniques;
+    if (data.affectedHosts !== undefined) body.affected_hosts = data.affectedHosts;
+    if (data.affectedIps !== undefined) body.affected_ips = data.affectedIps;
+    if (data.affectedUsers !== undefined) body.affected_users = data.affectedUsers;
+    if (data.tags !== undefined) body.tags = data.tags;
+    if (data.caseId !== undefined) body.case_id = data.caseId;
+
+    const raw = await request<unknown>('/api/v1/alerts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return normalizeAlert(raw);
+  },
+
   update: async (id: string, data: Partial<Alert>) => {
     const raw = await request<unknown>(`/api/v1/alerts/${id}`, {
       method: 'PATCH',

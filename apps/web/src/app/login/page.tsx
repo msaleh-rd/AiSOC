@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { authApi } from '@/lib/api';
+import { isDemoMode } from '@/lib/demoMode';
 
 type Phase = 'idle' | 'pending' | 'success' | 'error';
 
@@ -51,6 +52,7 @@ function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
   const next = sanitizeNext(search?.get('next'));
+  const demoMode = isDemoMode();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -120,30 +122,33 @@ function LoginInner() {
               Sign in to Intelligence SOC
             </h1>
             <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
-              Open-source AI SOC console. Use the demo credentials below or
-              your own tenant&rsquo;s account.
+              {demoMode
+                ? 'Open-source AI SOC console. Use the demo credentials below or your own tenant’s account.'
+                : 'Sign in with your tenant account.'}
             </p>
           </div>
 
-          {/* Demo banner */}
-          <div className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-4 py-3 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium text-indigo-300">Public demo</p>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  <code className="text-zinc-300">demo@tryaisoc.com</code> /{' '}
-                  <code className="text-zinc-300">aisoc-demo</code>
-                </p>
+          {/* Demo credentials — hosted demo only */}
+          {demoMode && (
+            <div className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-4 py-3 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-indigo-300">Public demo</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    <code className="text-zinc-300">demo@tryaisoc.com</code> /{' '}
+                    <code className="text-zinc-300">aisoc-demo</code>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={useDemo}
+                  className="shrink-0 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 hover:bg-indigo-500/20 transition"
+                >
+                  Use demo
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={useDemo}
-                className="shrink-0 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 hover:bg-indigo-500/20 transition"
-              >
-                Use demo
-              </button>
             </div>
-          </div>
+          )}
 
           {/* Form */}
           <form onSubmit={submit} className="space-y-4" noValidate>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import useSWR from 'swr';
@@ -9,6 +9,7 @@ import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { EmptyState, EmptyStateIcons } from '@/components/ui/EmptyState';
 import { SavedViewsBar } from '@/components/saved-views/SavedViewsBar';
+import { NewCaseModal } from './NewCaseModal';
 
 // WS-F3 — the saved-views API stores an opaque filter blob per view, so we
 // flatten the three filter slices Cases tracks today into a single shape the
@@ -23,32 +24,6 @@ type CaseFilterSnapshot = {
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 // Deterministic mock data — no Date.now() or Math.random() to avoid SSR hydration mismatches.
-const MOCK_CASE_BASE = new Date('2026-05-06T12:00:00Z').getTime();
-const MOCK_CASES: Case[] = Array.from({ length: 18 }, (_, i) => ({
-  id: `case-${1000 + i}`,
-  title: [
-    'Ransomware incident on finance workstations',
-    'Suspected APT lateral movement campaign',
-    'Credential stuffing attack against portal',
-    'Data exfiltration via cloud storage abuse',
-    'Supply chain compromise investigation',
-    'Insider threat: anomalous data access',
-    'Phishing campaign targeting executives',
-    'Cryptominer on dev server cluster',
-    'Brute-force attack on VPN endpoints',
-    'Unauthorized cloud resource provisioning',
-  ][i % 10],
-  status: (['open', 'in_progress', 'resolved', 'closed'] as Case['status'][])[i % 4],
-  severity: (['critical', 'high', 'medium', 'low'] as Case['severity'][])[i % 4],
-  assignee: ['alice@company.com', 'bob@company.com', 'carol@company.com', undefined][i % 4],
-  alertCount: ((i * 13 + 7) % 30) + 1,
-  createdAt: new Date(MOCK_CASE_BASE - i * 7200000).toISOString(),
-  updatedAt: new Date(MOCK_CASE_BASE - i * 1800000).toISOString(),
-  tags: [['ransomware', 'finance'], ['apt', 'lateral'], ['credential', 'portal'], ['exfil', 'cloud']][i % 4],
-}));
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const SEVERITY_CONFIG = {
   critical: { label: 'Critical', className: 'text-red-400 bg-red-500/10 border-red-500/20' },
   high: { label: 'High', className: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
@@ -153,20 +128,13 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const [severityFilter, setSeverityFilter] = useState<Case['severity'] | 'all'>('all');
   const [search, setSearch] = useState('');
 
-  const fallback: CasesResponse = initialCases ?? {
-    cases: MOCK_CASES,
-    total: MOCK_CASES.length,
-    page: 1,
-    pageSize: MOCK_CASES.length,
-  };
-
-  const { data: casesData, isLoading } = useSWR(
+  const { data: casesData, isLoading, mutate } = useSWR(
     ['cases', statusFilter, severityFilter],
     () => casesApi.list({ status: statusFilter !== 'all' ? statusFilter : undefined }),
-    {
-      fallbackData: fallback,
-    }
+    initialCases ? { fallbackData: initialCases } : undefined,
   );
+
+  const [createOpen, setCreateOpen] = useState(false);
 
   const cases = (casesData?.cases || []).filter((c) => {
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -174,7 +142,7 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
     return true;
   });
 
-  const allCases = casesData?.cases ?? MOCK_CASES;
+  const allCases = casesData?.cases ?? [];
   const statCounts = {
     all: allCases.length,
     open: allCases.filter(c => c.status === 'open').length,
@@ -193,18 +161,15 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            disabled
-            title="Case creation wizard is planned for v1.1"
-            className="flex items-center gap-2 bg-gray-700 text-gray-400 text-sm font-medium px-4 py-2 rounded-lg cursor-not-allowed select-none"
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             New Case
           </button>
-          <span className="text-xs font-medium rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5">
-            Planned for v1.1
-          </span>
         </div>
       </div>
 
@@ -318,6 +283,12 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           {cases.map((c) => <CaseCard key={c.id} c={c} />)}
         </div>
       )}
+
+      <NewCaseModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => void mutate()}
+      />
     </div>
   );
 }

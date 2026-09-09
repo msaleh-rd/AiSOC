@@ -1,4 +1,4 @@
-###############################################################################
+﻿###############################################################################
 # AiSOC - AI Security Operations Center
 # Docker Compose - Full Development Stack
 # AiSOC — open-source under MIT License
@@ -243,7 +243,7 @@ services:
       LOG_LEVEL: info
       # ISOC_* is accepted as an alias for the legacy AISOC_* name (rename in
       # progress; both work, AISOC_* wins if both are set).
-      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:?AISOC_CREDENTIAL_KEY (or ISOC_CREDENTIAL_KEY) is required — generate one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}}
+      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:-}}
       AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-${ISOC_CREDENTIAL_KEY_ROTATION_FROM:-}}
       CONNECTORS_SERVICE_URL: http://connectors:8087
       # Issue #478 — LiteLLM gateway. Route this service's live LLM endpoints
@@ -513,7 +513,7 @@ services:
       # Must be the same key the API encrypts with, or the poll scheduler
       # refuses to start and no connector is ever polled. ISOC_* is accepted
       # as an alias for the legacy AISOC_* name (both work; AISOC_* wins).
-      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:?AISOC_CREDENTIAL_KEY (or ISOC_CREDENTIAL_KEY) is required — generate one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}}
+      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:-}}
       AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-${ISOC_CREDENTIAL_KEY_ROTATION_FROM:-}}
       CROWDSTRIKE_CLIENT_ID: ${CROWDSTRIKE_CLIENT_ID:-}
       CROWDSTRIKE_CLIENT_SECRET: ${CROWDSTRIKE_CLIENT_SECRET:-}
