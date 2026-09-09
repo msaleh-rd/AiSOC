@@ -49,6 +49,7 @@ from app.core.cost_telemetry import CostTracker
 from app.graph.runner import default_budget, run_escalation
 from app.investigator import ledger as ledger_module
 from app.llm.factory import llm_override
+from app.memory.distillation import build_signature_for_state
 from app.memory.outcomes import AI, lookup_prior, record_outcome, should_auto_suppress
 from app.models.state import AgentStatus, InvestigationState
 from app.routing.model_router import is_deterministic_mode
@@ -423,6 +424,7 @@ class FusedAlertTriageWorker:
                     confidence=float(confidence or 0.0),
                     author=AI,
                     alert_id=(state.raw_alert or {}).get("id"),
+                    alert_signature=build_signature_for_state(state, classification=str(verdict)),
                 )
                 _METRICS["outcome_written"] += 1
 
@@ -492,6 +494,7 @@ class FusedAlertTriageWorker:
                 confidence=confidence,
                 author=author,
                 alert_id=(state.raw_alert or {}).get("id"),
+                alert_signature=build_signature_for_state(state, classification=disposition),
             )
         with contextlib.suppress(Exception):
             await ledger_module.record_suppression(

@@ -36,6 +36,7 @@ from app.agents.dispositions import (
 from app.investigator.prompt_sanitizer import sanitize_text, wrap_untrusted
 from app.llm import safe_ainvoke
 from app.llm.factory import make_chat_model
+from app.memory.distillation import build_signature_for_state, compounding_memory
 from app.models.state import AgentStatus, InvestigationState
 from app.prompt_serialization import format_extra_fields_for_llm
 from app.prompting.envelope import make_nonce, scan_evidence_fields, system_rule
@@ -279,6 +280,25 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
         f"LLM confidence: {confidence:.2f}",
         f"Rationale: {rationale}",
     ]
+
+    # --- Compounding memory: nudge confidence using historical verdict priors
+    # for this alert signature, before the auto-close threshold check below
+    # so a recurring known-FP pattern actually lowers auto-close likelihood
+    # (and vice versa for a recurring confirmed-TP pattern). Best-effort.
+    try:
+        signature = build_signature_for_state(state, classification=verdict)
+        await compounding_memory.ensure_fresh(str(state.tenant_id))
+        adjustment = compounding_memory.get_memory_verdict_adjustment(
+            signature, tenant_id=str(state.tenant_id)
+        )
+        if adjustment:
+            confidence = max(0.0, min(1.0, confidence + adjustment))
+            state.confidence = confidence
+            state.confidence_basis.append(
+                f"Compounding memory: {adjustment:+.2f} for signature '{signature}'"
+            )
+    except Exception as exc:  # noqa: BLE001 — memory lookup is best-effort
+        logger.debug("auto_triage.compounding_memory_lookup_failed", error=str(exc)[:200])
 
     state.add_finding(f"Auto-triage: verdict={verdict}, confidence={confidence:.2f}, latency={elapsed_ms}ms")
     state.add_finding(f"Auto-triage rationale: {rationale}")

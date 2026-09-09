@@ -98,3 +98,45 @@ async def test_runner_merges_node_outputs_into_final_state(monkeypatch):
     assert result.confidence == 0.7
     assert "ioc malicious" in result.findings
     assert isinstance(result.run_id, uuid.UUID)
+
+
+async def test_run_full_investigation_uses_fixed_graph_by_default(monkeypatch):
+    """AISOC_AGENT_SUPERVISED_MODE unset/off must keep using the existing
+    fixed pipeline graph — no behavior change for current deployments."""
+    monkeypatch.delenv("AISOC_AGENT_SUPERVISED_MODE", raising=False)
+    captured: dict = {}
+
+    async def _fake_run(graph, state, *, budget, persist, seq_start):  # noqa: ANN001
+        captured["graph"] = graph
+        return state
+
+    monkeypatch.setattr(runner_mod, "_run", _fake_run)
+
+    from app.graph import workflow
+
+    await runner_mod.run_full_investigation(_state(), persist=False)
+    assert captured["graph"] is workflow.investigation_graph
+
+
+async def test_run_full_investigation_uses_supervised_graph_when_flagged(monkeypatch):
+    """AISOC_AGENT_SUPERVISED_MODE=1 must route to the supervised ReAct
+    graph and thread InvestigationBudget.max_tool_calls into
+    state.max_iterations so the supervisor's own budget-stop check is
+    driven by the runner's actual configured budget."""
+    monkeypatch.setenv("AISOC_AGENT_SUPERVISED_MODE", "1")
+    captured: dict = {}
+
+    async def _fake_run(graph, state, *, budget, persist, seq_start):  # noqa: ANN001
+        captured["graph"] = graph
+        captured["max_iterations"] = state.max_iterations
+        return state
+
+    monkeypatch.setattr(runner_mod, "_run", _fake_run)
+
+    from app.graph import workflow
+
+    await runner_mod.run_full_investigation(
+        _state(), persist=False, budget=InvestigationBudget(max_tool_calls=4)
+    )
+    assert captured["graph"] is workflow.get_supervised_graph()
+    assert captured["max_iterations"] == 4

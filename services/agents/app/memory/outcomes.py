@@ -50,8 +50,18 @@ async def record_outcome(
     confidence: float,
     author: str = AI,
     alert_id: Any = None,
+    alert_signature: str | None = None,
 ) -> dict[str, Any]:
-    """Write/refresh the per-signature outcome prior. Best-effort (never raises)."""
+    """Write/refresh the per-signature outcome prior. Best-effort (never raises).
+
+    ``signature`` is the exact-alert dedup fingerprint used for auto-suppression
+    of repeat alerts. ``alert_signature`` (when given) is the broader
+    classification:tactic:technique key from
+    ``app.memory.distillation.build_signature_for_state`` used for the
+    compounding-memory prior — a different, coarser grouping than the dedup
+    fingerprint. Falls back to ``signature`` when not given, for backward
+    compatibility with existing callers.
+    """
     disposition = normalize_disposition(disposition, default="needs_review")
     key = outcome_key(signature)
     now = datetime.now(UTC).isoformat()
@@ -95,7 +105,7 @@ async def record_outcome(
 
         await compounding_memory.record_verdict(
             tenant_id,
-            signature,
+            alert_signature or signature,
             verdict=disposition,
             confidence=confidence,
             investigation_id=str(alert_id) if alert_id else None,

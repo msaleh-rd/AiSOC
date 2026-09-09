@@ -65,14 +65,25 @@ class TestCausalGraphBuilder:
     def test_known_dependencies(self) -> None:
         events = [
             _make_event("service-a", risk=0.5),
-            _make_event("service-b", risk=0.5),
+            # Far outside the temporal (300s) and co-occurrence (60s) windows
+            # so the only edge between these two entities is the explicit
+            # dependency edge, isolating what we want to assert here.
+            _make_event("service-b", risk=0.5, minutes_offset=30),
         ]
         builder = CausalGraphBuilder()
         graph = builder.build_from_events(
             events,
             known_dependencies={"service-a": ["service-b"]},
         )
-        assert graph.has_edge("service-a", "service-b")
+        # "service-a depends on service-b" means service-b (the dependency)
+        # is the upstream cause and service-a (the dependent) is the
+        # downstream effect, so the edge must point service-b -> service-a
+        # to stay consistent with the cause -> effect convention used by the
+        # temporal-inference edges.
+        assert graph.has_edge("service-b", "service-a")
+        assert graph["service-b"]["service-a"]["relationship"] == "dependency"
+        assert not graph.has_edge("service-a", "service-b")
+
 
     def test_node_attributes(self) -> None:
         events = [
@@ -154,3 +165,53 @@ class TestPageRankRCA:
         config = CausalFactors(direct_dependency_boost=3.0)
         rca = PageRankRCA(config=config)
         assert rca.config.direct_dependency_boost == 3.0
+
+    def test_root_cause_favours_causal_chain_over_isolated_high_risk_bystander(self) -> None:
+        """Regression test for the target-entity/edge-direction bug fixes.
+
+        A linear causal chain (root -> mid -> target) exists alongside an
+        isolated "bystander" entity with a higher raw risk score but no
+        causal path to the target. A correct RCA must still prefer an
+        entity that is actually upstream of the target over the highest-risk
+        entity in isolation.
+        """
+        events = [
+            _make_event("root", "initial access", risk=0.6, minutes_offset=0),
+            _make_event("mid", "exploit", risk=0.6, minutes_offset=1),
+            _make_event("target", "impact", risk=0.5, minutes_offset=2),
+            # Far outside the temporal/co-occurrence windows and not part of
+            # any known dependency, so it stays disconnected from the chain.
+            _make_event("bystander", "unrelated anomaly", risk=0.95, minutes_offset=120),
+        ]
+        builder = CausalGraphBuilder()
+        graph = builder.build_from_events(events)
+        assert not graph.has_edge("bystander", "target")
+        assert not graph.has_edge("target", "bystander")
+
+        rca = PageRankRCA()
+        result = rca.analyze(graph, target_entity="target", events=events)
+
+        assert result.root_cause_entity in {"root", "mid"}
+        assert result.root_cause_entity != "bystander"
+        assert result.root_cause_entity != "target"
+
+    def test_criticality_uses_successors_not_predecessors(self) -> None:
+        """A hub entity with many downstream dependents should score its
+        successor-count criticality bonus from out-edges, not in-edges."""
+        events = [
+            _make_event("hub", "lateral movement", risk=0.5, minutes_offset=0),
+            # >60s from hub so no bidirectional co-occurrence edge forms
+            # (only the one-directional temporal hub -> leaf edge).
+            _make_event("leaf-1", risk=0.4, minutes_offset=2),
+            _make_event("leaf-2", risk=0.4, minutes_offset=2),
+            _make_event("leaf-3", risk=0.4, minutes_offset=2),
+        ]
+        builder = CausalGraphBuilder()
+        graph = builder.build_from_events(events)
+
+        # hub precedes all three leaves, so it has 3 successors (dependents)
+        # and 0 predecessors.
+        assert len(list(graph.successors("hub"))) == 3
+        assert len(list(graph.predecessors("hub"))) == 0
+
+

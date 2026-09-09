@@ -33,6 +33,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Background distillation engine that turns confirmed triage and analyst
   verdicts into signature-keyed priors with Bayesian adjustment, confidence
   modifiers, and few-shot exemplar retrieval for future triage runs.
+- **The 6 features above are now wired into production and bug-fixed, not
+  just implemented in isolation.** RCA switched from a custom power-iteration
+  PageRank to real `nx.pagerank()`, fixed a reversed dependency-edge direction
+  (criticality now scores by descendants, not predecessors) and a wrong
+  target-entity selection (now derived from the actual alert entity, not
+  "first event"). Swarm `tokens_spent` now reflects real LiteLLM `usage`
+  instead of a hardcoded constant, and gained a MITRE tactic-diversity
+  complexity signal. The ReAct supervisor loop
+  (`AISOC_AGENT_SUPERVISED_MODE`, default off) is now actually selectable by
+  `run_full_investigation()`, enforces `max_tool_calls`, sanitises
+  hallucinated target entities, and logs goal drift. Compounding memory is now
+  tenant-scoped (fixing a cross-tenant leak in the previous flat-dict design)
+  and is wired into live `triage_agent`/`auto_triage_agent` confidence
+  scoring, closing the loop end-to-end. A new
+  `GraphOrchestratorAdapter` (`services/agents/app/graph/adapter.py`, behind
+  `AISOC_INVESTIGATE_USE_GRAPH`, default off) makes this pipeline reachable
+  from the real Case Workspace `/cases/{id}/investigate` path for the first
+  time — previously it was only reachable via a separate, unused API. The
+  Case Workspace UI gained a Root Cause Analysis card that renders when
+  `rca_findings` is present.
+- **Optional Temporal.io durability overlay (`services/agents/app/temporal/`).**
+  An `InvestigationWorkflow` re-implements the same 5-phase investigation
+  sequence as durable Temporal activities (reusing the existing LangGraph node
+  functions, not duplicating logic), with an adaptive re-investigation loop,
+  a human-in-the-loop approval gate (`workflow.wait_condition`, 1-hour
+  timeout), and queryable live progress. Reachable via
+  `TemporalOrchestratorAdapter` behind `AISOC_AGENT_TEMPORAL_MODE` (default
+  off) and the new `temporal` Docker Compose profile (off by default;
+  `docker compose --profile temporal up`). Zero impact on the default
+  in-process path — `temporalio` is an optional dependency
+  (`poetry install -E temporal`).
 
 ### Changed
 

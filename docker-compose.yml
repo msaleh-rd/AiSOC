@@ -655,6 +655,104 @@ services:
       - aisoc
     restart: unless-stopped
 
+  # ─── Temporal.io overlay (optional durability layer for investigations) ───
+  # Off by default — gated behind the `temporal` profile. Opt in with
+  # `docker compose --profile temporal up` and set
+  # AISOC_AGENT_TEMPORAL_MODE=1 on the `agents` service to route
+  # /investigate through the durable `InvestigationWorkflow`. The in-process
+  # LangGraph pipeline (including supervised mode) remains the default and
+  # is completely unaffected when this profile isn't enabled. See
+  # services/agents/app/temporal/.
+  temporal:
+    profiles: ["temporal"]
+    image: temporalio/auto-setup:1.24.2
+    container_name: aisoc-temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: aisoc
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-aisoc_dev_secret}
+      POSTGRES_SEEDS: postgres
+    ports:
+      - "127.0.0.1:7233:7233"
+    networks:
+      - aisoc
+    restart: unless-stopped
+
+  temporal-admin-tools:
+    profiles: ["temporal"]
+    image: temporalio/admin-tools:1.24.2
+    container_name: aisoc-temporal-admin-tools
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    networks:
+      - aisoc
+    stdin_open: true
+    tty: true
+
+  temporal-ui:
+    profiles: ["temporal"]
+    image: temporalio/ui:2.31.2
+    container_name: aisoc-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "127.0.0.1:8233:8080"
+    networks:
+      - aisoc
+    restart: unless-stopped
+
+  agents-temporal-worker:
+    # Runs the same agents image as a Temporal worker process
+    # (`python -m app.temporal.worker`) instead of the FastAPI server,
+    # consuming the `aisoc-investigations` task queue. Gated behind the same
+    # `temporal` profile as the server above.
+    profiles: ["temporal"]
+    build:
+      context: ./services/agents
+      dockerfile: Dockerfile
+    image: ghcr.io/beenuar/aisoc-agents:${AISOC_VERSION:-latest}
+    pull_policy: missing
+    container_name: aisoc-agents-temporal-worker
+    entrypoint: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aisoc:${POSTGRES_PASSWORD:-aisoc_dev_secret}@postgres:5432/aisoc
+      REDIS_URL: redis://:redis_dev_secret@redis:6379/4
+      CORE_API_URL: http://api:8000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      QDRANT_URL: http://qdrant:6333
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4j_dev_secret
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://litellm:4000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-${LITELLM_MASTER_KEY:-sk-aisoc-local}}
+      OPENAI_MODEL: ${OPENAI_MODEL:-aisoc-copilot}
+      LLM_GATEWAY_URL: http://litellm:4000/v1
+      ATTCK_DATA_PATH: /app/data/enterprise-attack.json
+      AISOC_TEMPORAL_HOST: temporal:7233
+    networks:
+      - aisoc
+    restart: unless-stopped
+
   realtime:
     build:
       context: ./services/realtime

@@ -267,7 +267,16 @@ async def perform_rca_node(state: dict) -> dict:
 
         # Build events from compressed_events or entities.
         events = [normalise_event(e) for e in (s.compressed_events or s.entities or [])]
-        target = events[0].entity_id if events else "unknown"
+        # The RCA target must be the entity actually experiencing the alert
+        # (e.g. the affected host/user from the original alert), not an
+        # arbitrary event's entity — picking events[0] could select an
+        # attacker IP or unrelated entity depending on event ordering.
+        if s.raw_alert:
+            target = normalise_event(s.raw_alert).entity_id
+        elif events:
+            target = events[0].entity_id
+        else:
+            target = "unknown"
 
         builder = CausalGraphBuilder()
         graph = builder.build_from_events(events)

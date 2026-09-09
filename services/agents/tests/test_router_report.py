@@ -185,6 +185,53 @@ def test_markdown_renders_without_info_dict() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Root cause analysis section (graph pipeline only)
+# ---------------------------------------------------------------------------
+
+
+def test_markdown_skips_rca_section_when_findings_empty() -> None:
+    """Router/investigator states never populate ``rca_findings`` — skip cleanly."""
+    state = _build_state()
+    md = render_router_report_md(state)
+
+    assert "## Root Cause Analysis" not in md
+
+
+def test_markdown_renders_rca_section_when_populated() -> None:
+    """The graph pipeline's ``rca_findings`` dict renders as a table."""
+    state = _build_state(
+        rca_findings={
+            "root_cause_entity": "user:alice@example.com",
+            "target_entity": "host:web-01",
+            "confidence": 0.91,
+            "confidence_level": "high",
+            "attack_type": "credential_compromise",
+            "estimated_blast_radius": 4,
+            "remediation_complexity": "moderate",
+            "pagerank_scores": {"user:alice@example.com": 0.42},
+        }
+    )
+    md = render_router_report_md(state)
+
+    assert "## Root Cause Analysis" in md
+    assert "| Root cause | user:alice@example.com |" in md
+    assert "| Attack type | credential_compromise |" in md
+    assert "| Confidence | 0.91 |" in md
+    assert "| Confidence level | high |" in md
+    assert "| Estimated blast radius | 4 |" in md
+    assert "| Remediation complexity | moderate |" in md
+
+
+def test_markdown_rca_section_escapes_html_in_root_cause() -> None:
+    """RCA fields are attacker-influenced (entity names) — must be escaped."""
+    state = _build_state(rca_findings={"root_cause_entity": "<script>alert(1)</script>"})
+    md = render_router_report_md(state)
+
+    assert "<script>" not in md
+    assert "&lt;script&gt;" in md
+
+
+# ---------------------------------------------------------------------------
 # HTML shape
 # ---------------------------------------------------------------------------
 

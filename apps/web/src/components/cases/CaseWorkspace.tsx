@@ -998,6 +998,7 @@ function InvestigationPanel({
   const recon = data?.recon as Record<string, unknown> | undefined;
   const forensic = data?.forensic as Record<string, unknown> | undefined;
   const responder = data?.responder as Record<string, unknown> | undefined;
+  const rcaFindings = data?.rca_findings as Record<string, unknown> | undefined;
   const auditLog = liveSteps.length > 0
     ? liveSteps
     : (data?.audit_log as Array<{ kind: string; agent: string; summary: string }>) ?? [];
@@ -1087,6 +1088,35 @@ function InvestigationPanel({
             </span>
           )}
         </div>
+
+        {rcaFindings != null && Object.keys(rcaFindings).length > 0 && (
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/40 p-4 space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-rose-300">Root Cause Analysis</h4>
+            {rcaFindings.root_cause_entity != null && (
+              <p className="text-xs text-slate-300">
+                <span className="text-slate-500">Root cause: </span>{String(rcaFindings.root_cause_entity)}
+              </p>
+            )}
+            {rcaFindings.attack_type != null && (
+              <p className="text-xs text-slate-400">
+                <span className="text-slate-500">Attack type: </span>{String(rcaFindings.attack_type)}
+              </p>
+            )}
+            {typeof rcaFindings.confidence === 'number' && (
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-full rounded-full bg-rose-500" style={{ width: `${(rcaFindings.confidence as number) * 100}%` }} />
+                </div>
+                <span className="text-[11px] text-slate-400">{Math.round((rcaFindings.confidence as number) * 100)}% confidence</span>
+              </div>
+            )}
+            {typeof rcaFindings.estimated_blast_radius === 'number' && (
+              <p className="text-[11px] text-slate-500">
+                Estimated blast radius: <span className="text-slate-300">{String(rcaFindings.estimated_blast_radius)} entities</span>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {auditLog.length > 0 && (

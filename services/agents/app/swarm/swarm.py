@@ -22,6 +22,7 @@ the LLM is unavailable.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -87,7 +88,9 @@ def _evaluate(hypothesis: Hypothesis, signal: dict, budget: int) -> HypothesisRe
         evidence=evidence,
         contradictions=contradictions,
         technique_hits=tech_hits,
-        tokens_spent=min(budget, 200),  # deterministic agents are cheap
+        # Deterministic agents make no LLM call, so their real cost is zero —
+        # not a fabricated placeholder.
+        tokens_spent=0,
     )
 
 
@@ -124,10 +127,16 @@ async def _generate_hypotheses_llm(
     signal: dict,
     *,
     max_hypotheses: int = 5,
-) -> list[Hypothesis]:
+) -> tuple[list[Hypothesis], int]:
     """Generate competing hypotheses from the signal context using LiteLLM.
 
     Falls back to the static HYPOTHESES list if the LLM is unavailable.
+
+    Returns:
+        A tuple of ``(hypotheses, total_tokens)`` where ``total_tokens`` is
+        the real ``prompt_tokens + completion_tokens`` reported by the
+        LiteLLM response's ``usage`` field for this single generation call
+        (``0`` when the fallback path is used, since no LLM call succeeded).
     """
     entities_summary = ""
     entities = signal.get("entities") or []
@@ -180,6 +189,12 @@ async def _generate_hypotheses_llm(
             )
             resp.raise_for_status()
             data = resp.json()
+            usage = data.get("usage") or {}
+            total_tokens = int(
+                usage.get("total_tokens")
+                or (usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0))
+                or 0
+            )
             content = data["choices"][0]["message"]["content"]
             parsed = json.loads(content)
 
@@ -199,8 +214,8 @@ async def _generate_hypotheses_llm(
                 ))
 
             if generated:
-                logger.info("swarm.llm_hypotheses_generated", count=len(generated))
-                return generated
+                logger.info("swarm.llm_hypotheses_generated", count=len(generated), tokens=total_tokens)
+                return generated, total_tokens
 
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -208,8 +223,8 @@ async def _generate_hypotheses_llm(
             error=str(exc).replace("\r", "").replace("\n", " ")[:200],
         )
 
-    # Fallback to static hypotheses.
-    return HYPOTHESES[:max_hypotheses]
+    # Fallback to static hypotheses. No LLM call succeeded, so no real cost.
+    return HYPOTHESES[:max_hypotheses], 0
 
 
 async def _score_hypothesis_llm(
@@ -250,7 +265,10 @@ async def _score_hypothesis_llm(
         evidence=[f"technique:{t}" for t in sorted(observed_techniques & supporting)],
         contradictions=contradictions,
         technique_hits=sorted(observed_techniques & supporting),
-        tokens_spent=min(budget, 500),
+        # Scoring itself makes no LLM call — the real cost is the single
+        # shared generation call, attributed across hypotheses by the caller
+        # (run_swarm_llm) once the true usage total is known.
+        tokens_spent=0,
     )
 
 
@@ -268,9 +286,19 @@ async def run_swarm_llm(
     if not _is_llm_enabled():
         return await run_swarm(signal, max_agents=max_agents, per_agent_budget=per_agent_budget)
 
-    hypotheses = await _generate_hypotheses_llm(signal, max_hypotheses=max_agents)
-    results = await asyncio.gather(*[
+    hypotheses, generation_tokens = await _generate_hypotheses_llm(signal, max_hypotheses=max_agents)
+    results = list(await asyncio.gather(*[
         _score_hypothesis_llm(h, signal, per_agent_budget) for h in hypotheses
-    ])
-    return list(results)
+    ]))
+
+    # Attribute the real token cost of the single shared generation call
+    # across the hypotheses it produced, instead of a fabricated fixed
+    # constant per hypothesis — scoring itself makes no further LLM calls.
+    if results and generation_tokens > 0:
+        share, remainder = divmod(generation_tokens, len(results))
+        results = [
+            dataclasses.replace(r, tokens_spent=share + (remainder if i == 0 else 0))
+            for i, r in enumerate(results)
+        ]
+    return results
 
