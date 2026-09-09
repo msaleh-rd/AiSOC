@@ -15,7 +15,7 @@ CI enforces.
 from app.swarm.complexity import ComplexityAssessment, assess_complexity
 from app.swarm.debate import DebateOutcome, RankedHypothesis, hold_debate
 from app.swarm.hypotheses import HYPOTHESES, Hypothesis
-from app.swarm.swarm import HypothesisResult, run_swarm, run_swarm_sync
+from app.swarm.swarm import HypothesisResult, run_swarm, run_swarm_llm, run_swarm_sync
 
 __all__ = [
     "assess_complexity",
@@ -23,6 +23,7 @@ __all__ = [
     "HYPOTHESES",
     "Hypothesis",
     "run_swarm",
+    "run_swarm_llm",
     "run_swarm_sync",
     "HypothesisResult",
     "hold_debate",
