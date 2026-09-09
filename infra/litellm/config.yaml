@@ -22,49 +22,64 @@
 # for the `openai/*` lines — the alias names stay identical, so AiSOC is unaware
 # of the switch. When no live model is reachable AiSOC still degrades to its
 # deterministic offline path (the `deterministic` floor in model_pins.py).
+#
+# Current deployment: every alias below points at a single remote LM Studio /
+# vLLM box serving an OpenAI-compatible API (LM_STUDIO_URL, default
+# http://10.7.75.103:1234/v1 — see docker-compose.yml's litellm service and
+# .env). LM Studio ignores the api_key value entirely, so LM_STUDIO_API_KEY can
+# be any non-empty string. Point every alias at a different model by editing
+# the `model:` line for that alias only — the alias name is what AiSOC code
+# asks for, so nothing else needs to change.
 
 model_list:
   # ── Auto-triage: high volume, cheap+fast. ─────────────────────────────────────
   - model_name: aisoc-triage
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Recon / enrichment reasoning. ─────────────────────────────────────────────
   - model_name: aisoc-recon
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Deep investigation: the multi-step reasoning path — worth a stronger model.
   - model_name: aisoc-investigation
     litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Contextual copilot: interactive analyst Q&A. ──────────────────────────────
   - model_name: aisoc-copilot
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Summaries: alert/incident condensation. ───────────────────────────────────
   - model_name: aisoc-summary
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Reports: analyst-facing write-ups — quality over cost. ────────────────────
   - model_name: aisoc-report
     litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Natural-language generation: NL→query / NL→detection translation. ─────────
   - model_name: aisoc-nl
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
+      model: os.environ/LLM_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
 
   # ── Local / air-gapped example (Ollama) ───────────────────────────────────────
   # Duplicate any alias above with a local backend to keep the call on-prem. The

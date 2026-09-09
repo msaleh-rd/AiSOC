@@ -577,7 +577,7 @@ async def _llm_summary(
         import httpx
 
         base = llm_config.base_url.rstrip("/")
-        url = f"{base}/v1/chat/completions"
+        url = f"{base}/chat/completions"
         model = llm_config.model
 
         tech_lines = [f"- {t['id']} {t['name']} ({', '.join(t.get('tactic_names') or []) or 'unknown tactic'})" for t in mitre_techs]
@@ -613,11 +613,11 @@ async def _llm_summary(
             },
         ]
 
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             resp = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {llm_config.api_key}"},
-                json={"model": model, "messages": messages, "max_tokens": 320},
+                json={"model": model, "messages": messages, "max_tokens": 900},
             )
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"].strip()

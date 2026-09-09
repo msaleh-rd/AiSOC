@@ -9,6 +9,8 @@ import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { EmptyState, EmptyStateIcons } from '@/components/ui/EmptyState';
 import { SavedViewsBar } from '@/components/saved-views/SavedViewsBar';
+import { NewCaseModal } from '@/components/cases/NewCaseModal';
+import { useSWRConfig } from 'swr';
 
 // WS-F3 — the saved-views API stores an opaque filter blob per view, so we
 // flatten the three filter slices Cases tracks today into a single shape the
@@ -152,6 +154,8 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [severityFilter, setSeverityFilter] = useState<Case['severity'] | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [newCaseOpen, setNewCaseOpen] = useState(false);
+  const { mutate } = useSWRConfig();
 
   const fallback: CasesResponse = initialCases ?? {
     cases: MOCK_CASES,
@@ -193,18 +197,14 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            disabled
-            title="Case creation wizard is planned for v1.1"
-            className="flex items-center gap-2 bg-gray-700 text-gray-400 text-sm font-medium px-4 py-2 rounded-lg cursor-not-allowed select-none"
+            onClick={() => setNewCaseOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             New Case
           </button>
-          <span className="text-xs font-medium rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5">
-            Planned for v1.1
-          </span>
         </div>
       </div>
 
@@ -318,6 +318,12 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           {cases.map((c) => <CaseCard key={c.id} c={c} />)}
         </div>
       )}
+
+      <NewCaseModal
+        open={newCaseOpen}
+        onClose={() => setNewCaseOpen(false)}
+        onCreated={() => mutate(['cases', statusFilter, severityFilter])}
+      />
     </div>
   );
 }
