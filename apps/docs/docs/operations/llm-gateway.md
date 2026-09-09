@@ -36,31 +36,56 @@ gateway is never on the critical path for a baseline triage.
 The shipped aliases mirror Intelligence SOC's workloads. They live in
 `infra/litellm/config.yaml`:
 
-| Alias                 | Workload                                   | Shipped default   |
-| --------------------- | ------------------------------------------ | ----------------- |
-| `aisoc-triage`        | Auto-triage of fused alerts (high volume)  | `gpt-4o-mini`     |
-| `aisoc-recon`         | Recon / enrichment reasoning               | `gpt-4o-mini`     |
-| `aisoc-investigation` | Deep multi-step investigation              | `gpt-4o`          |
-| `aisoc-copilot`       | Contextual analyst copilot                 | `gpt-4o-mini`     |
-| `aisoc-summary`       | Alert / incident summaries                 | `gpt-4o-mini`     |
-| `aisoc-report`        | Analyst-facing report write-ups            | `gpt-4o`          |
-| `aisoc-nl`            | NL→query / NL→detection translation        | `gpt-4o-mini`     |
+| Alias                 | Workload                                   |
+| --------------------- | ------------------------------------------ |
+| `aisoc-triage`        | Auto-triage of fused alerts (high volume)  |
+| `aisoc-recon`         | Recon / enrichment reasoning               |
+| `aisoc-investigation` | Deep multi-step investigation              |
+| `aisoc-copilot`       | Contextual analyst copilot                 |
+| `aisoc-summary`       | Alert / incident summaries                 |
+| `aisoc-report`        | Analyst-facing report write-ups            |
+| `aisoc-nl`            | NL→query / NL→detection translation        |
 
-The "shipped default" is only the *example* mapping in the config — the whole
-point is that you change it. The alias names stay constant.
+Each alias's `litellm_params.model` is itself an env var
+(`os.environ/LLM_MODEL` by default) rather than a hardcoded literal, so you can
+swap the model every alias serves by changing **one** env var and restarting
+the `litellm` container — no `config.yaml` edit. To split workloads across
+different models again (cheap model for triage, stronger one for
+investigation), replace the shared `LLM_MODEL` reference with per-alias
+literals or per-alias env vars in `config.yaml` — just keep the alias
+*names* unchanged (a CI test asserts they match `model_pins.py` roles).
+
+`router_settings.fallbacks` in `config.yaml` also defines cross-alias
+degradation (e.g. `aisoc-investigation` falls back to `aisoc-triage`) so a
+single model outage degrades quality before dropping to the deterministic
+floor.
 
 ## Enable the gateway
 
 The `litellm` service is defined in `docker-compose.yml` and starts with the
-stack. To route Intelligence SOC through it, set in your `.env`:
+stack. **Two separate keys are required** — they serve different purposes and
+must not share a variable name:
 
 ```bash
-LITELLM_MASTER_KEY=<a-strong-key>          # Intelligence SOC authenticates to the gateway with this
-OPENAI_API_KEY=<your-real-provider-key>    # LiteLLM uses this to reach the upstream model
-OPENAI_BASE_URL=http://litellm:4000/v1     # send Intelligence SOC's calls to the gateway
-# and set Intelligence SOC's client key to the gateway key:
-# OPENAI_API_KEY=${LITELLM_MASTER_KEY}     # (in the Intelligence SOC services' environment)
+LITELLM_MASTER_KEY=<a-strong-key>          # Intelligence SOC's services authenticate to the gateway with this
+OPENAI_API_KEY=${LITELLM_MASTER_KEY}       # (set in the app services' environment; docker-compose.yml already
+                                            #  defaults it to LITELLM_MASTER_KEY via ${OPENAI_API_KEY:-${LITELLM_MASTER_KEY:-...}})
+OPENAI_BASE_URL=http://litellm:4000/v1     # send Intelligence SOC's calls to the gateway (agents + api services)
+
+# Upstream provider credential — a DIFFERENT key, used only by the litellm
+# container itself to reach the real backend. For a local/remote LM Studio or
+# vLLM box (the shipped default), LM Studio ignores the value, so any
+# non-empty string works:
+LM_STUDIO_URL=http://<your-lm-studio-host>:1234/v1
+LM_STUDIO_API_KEY=lm-studio
+LLM_MODEL=openai/gpt-oss-20b               # the model every alias currently serves — change this to swap models
 ```
+
+`docker-compose.yml` already wires `OPENAI_BASE_URL`/`OPENAI_API_KEY`/
+`OPENAI_MODEL` with sensible defaults for the `litellm`, `agents`, and `api`
+services, so gateway routing is **on by default** in this stack — you only
+need to override `LM_STUDIO_URL` / `LLM_MODEL` (or point `config.yaml` at a
+different provider entirely) to change what's actually served.
 
 Intelligence SOC now requests a task **alias** for every live call, so an alias only
 resolves when it reaches the gateway. If you don't run the gateway, pin each
@@ -74,7 +99,13 @@ AISOC_MODEL_PIN_INVESTIGATION=gpt-4o
 
 With neither the gateway nor pin overrides configured, Intelligence SOC uses its
 deterministic offline path. (`OPENAI_MODEL` still applies to the separate
-"explain this alert" / BYOK path.)
+"explain this alert" / BYOK path — it must be a valid gateway alias, e.g.
+`aisoc-copilot`, whenever `OPENAI_BASE_URL` points at the gateway.)
+
+For the full request-flow algorithm (alias resolution, BYOK layering,
+air-gap enforcement, reasoning-model token budgets), see
+[the LLM routing architecture doc](../../../../docs/architecture/llm-routing-and-gateway.md).
+
 
 ## Re-point a task to a local model
 

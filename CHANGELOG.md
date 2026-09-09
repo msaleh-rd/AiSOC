@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ReAct Supervisor Loop (`services/agents/app/orchestrator/supervisor.py`).**
+  Autonomous observe → reason → act loop that monitors forensic gaps on the
+  investigation blackboard (`InvestigationState`) and dynamically routes next
+  steps (evidence gathering, compression, root-cause analysis, playbook
+  execution, finalization) with per-action loop caps, fallback heuristics, and
+  feature-flag gating (`AISOC_SUPERVISED_INVESTIGATION_ENABLED`).
+- **7-Stage Alert Noise Compression Pipeline (`services/agents/app/compression/`).**
+  Seven-stage pipeline (temporal filter, entity correlator, behavioural filter,
+  event deduplicator, graph analyser, risk scorer, and abstraction engine) that
+  reduces redundant telemetry before LLM triage while preserving critical
+  investigative context.
+- **Causal Graph & PageRank RCA Engine (`services/agents/app/rca/`).**
+  NetworkX-based causal graph construction with custom edge weighting
+  (temporal proximity, entity shared, technique sequence, risk differential)
+  and power-iteration PageRank for automated root-cause identification, blast
+  radius estimation, and remediation complexity assessment.
+- **LLM-Backed Investigation Swarm (`services/agents/app/swarm/`).**
+  Dynamic competing-hypotheses generation with structured LLM calls via LiteLLM,
+  complexity gating, parallel hypothesis evaluation, debate adjudication, and
+  deterministic fallback.
+- **Compounding Memory & Outcome Distillation (`services/agents/app/memory/distillation.py`).**
+  Background distillation engine that turns confirmed triage and analyst
+  verdicts into signature-keyed priors with Bayesian adjustment, confidence
+  modifiers, and few-shot exemplar retrieval for future triage runs.
+
 ### Changed
 
 - **Product renamed from "AiSOC" to "Intelligence SOC".** Display text across

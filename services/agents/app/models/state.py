@@ -92,6 +92,20 @@ class InvestigationState(BaseModel):
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
 
+    # ---- Supervisor / ReAct loop fields (v8.1) ----
+    # Extracted entities (the "blackboard" the supervisor observes).
+    entities: list[dict[str, Any]] = Field(default_factory=list)
+    # Output from the 7-stage compression pipeline.
+    compressed_events: list[dict[str, Any]] = Field(default_factory=list)
+    # Output from the PageRank RCA engine.
+    rca_findings: dict[str, Any] = Field(default_factory=dict)
+    # Per-action iteration counter (e.g. {"gather_evidence": 2, "perform_rca": 1}).
+    action_counts: dict[str, int] = Field(default_factory=dict)
+    # Supervisor decision audit trail (appended by each supervisor step).
+    supervisor_history: list[dict[str, Any]] = Field(default_factory=list)
+    # Maximum iterations per action type before the supervisor force-advances.
+    max_action_iterations: int = 3
+
     def add_finding(self, finding: str) -> None:
         self.findings.append(finding)
 

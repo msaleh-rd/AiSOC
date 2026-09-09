@@ -87,6 +87,22 @@ async def record_outcome(
         )
     except Exception as exc:  # noqa: BLE001 — memory write is best-effort
         logger.debug("outcome_memory.write_failed", signature=signature, error=str(exc))
+
+    # Feed the compounding-memory distillation pipeline so cross-investigation
+    # learning accumulates.  Best-effort — never raises.
+    try:
+        from app.memory.distillation import compounding_memory  # noqa: PLC0415
+
+        await compounding_memory.record_verdict(
+            tenant_id,
+            signature,
+            verdict=disposition,
+            confidence=confidence,
+            investigation_id=str(alert_id) if alert_id else None,
+        )
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
+
     return value
 
 

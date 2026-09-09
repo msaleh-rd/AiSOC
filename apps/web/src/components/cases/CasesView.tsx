@@ -127,6 +127,8 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [severityFilter, setSeverityFilter] = useState<Case['severity'] | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [newCaseOpen, setNewCaseOpen] = useState(false);
+  const { mutate } = useSWRConfig();
 
   const { data: casesData, isLoading, mutate } = useSWR(
     ['cases', statusFilter, severityFilter],

@@ -679,7 +679,7 @@ async def _call_llm_for_summary(
     """
     started = time.monotonic()
     base = llm_config.base_url.rstrip("/")
-    url = f"{base}/v1/chat/completions"
+    url = f"{base}/chat/completions"
 
     prompt_alert = {
         "title": alert.title,
@@ -753,11 +753,11 @@ async def _call_llm_for_summary(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             resp = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {llm_config.api_key}"},
-                json={"model": llm_config.model, "messages": messages, "max_tokens": 360},
+                json={"model": llm_config.model, "messages": messages, "max_tokens": 900},
             )
             resp.raise_for_status()
             payload = resp.json()
