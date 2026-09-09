@@ -269,10 +269,36 @@ integrations don't break; the funnel-stage framing is documented per-agent in
 
 ### 5.2 Supervised mode (`app/orchestrator/supervisor.py`)
 
-A feature-flagged supervisory loop that, when enabled, invokes the deeper
-evidence-gathering / compression / swarm / RCA machinery below on top of the
-base four-stage funnel — the base funnel always runs; supervision adds
-depth for cases that warrant it.
+A feature-flagged ReAct-style observe→reason→act loop that, when enabled,
+invokes the deeper evidence-gathering / compression / swarm / RCA machinery
+below on top of the base four-stage funnel — the base funnel always runs;
+supervision adds depth for cases that warrant it. `decide()` implements:
+
+```
+1. if iteration_count >= max_iterations:
+       return finalize_response          # hard budget stop, bypasses the
+                                          # "finalize needs findings" guard
+2. target_entities := _sanitize_entities(proposed_targets, state)
+       # drops any entity the LLM proposed acting on that isn't actually
+       # present in state.entities / raw_alert (hostname, username, src_ip,
+       # dst_ip, entity_id, entity) — a hallucinated pivot target is
+       # silently dropped, never acted on
+3. _detect_goal_drift(current_goal, state.supervisor_history[0])
+       # heuristic vocabulary-overlap check against the ORIGINAL alert
+       # context; logs a warning on drift, never blocks — advisory only
+4. return the validated next action (gather_evidence | run_swarm |
+       perform_rca | compress_events | finalize_response)
+```
+
+`app/graph/runner.py::run_full_investigation()` is the single call site that
+selects the graph to run: it reads `AISOC_AGENT_SUPERVISED_MODE` (default
+off) and picks `get_supervised_graph()` over the fixed `investigation_graph`
+when enabled, threading `InvestigationBudget.max_tool_calls` into
+`state.max_iterations` so the supervisor's own budget-stop check (step 1
+above) is driven by the same budget the runner enforces via its wall-clock
+`asyncio.timeout`. Enabling the flag changes no behavior for existing
+deployments until explicitly opted into — see §5.8 for why this graph was,
+for a time, unreachable from the production UI despite being fully wired.
 
 ### 5.3 Model routing (escalation ladder)
 
@@ -320,19 +346,138 @@ stage rather than presenting compression as a black box.
 
 RCA is **PageRank-based causal inference**, not an LLM prompt:
 `causal_graph.py` builds a directed graph of candidate causal relationships
-between observed events (who/what preceded what), and
-`pagerank_scorer.py` runs PageRank over that graph to rank which upstream
-event is most likely the root cause — the same algorithm class used for
-web-page authority ranking, applied here to "which event caused the most
-downstream effects." This is deterministic and reproducible given the same
-causal graph, unlike an LLM-generated root-cause narrative.
+between observed events (who/what preceded what), and `pagerank_scorer.py`
+runs real `networkx.pagerank()` (the library's scipy-backed implementation,
+not a hand-rolled power-iteration loop) over that graph to rank which
+upstream event is most likely the root cause — the same algorithm class
+used for web-page authority ranking, applied here to "which event caused the
+most downstream effects." This is deterministic and reproducible given the
+same causal graph, unlike an LLM-generated root-cause narrative.
 
-### 5.6 Memory / distillation (`app/memory/`)
+Two correctness properties worth calling out explicitly, since both were
+bugs until they were fixed and pinned with regression tests
+(`tests/test_rca_pagerank.py`):
+
+- **Target-entity selection.** The entity RCA treats as "the symptom to
+  explain" is derived from the actual alert (`normalise_event(raw_alert).entity_id`),
+  not from "whichever event happens to be first in the events list" — the
+  latter silently picked an arbitrary bystander entity whenever event
+  ordering didn't match causal ordering.
+- **Dependency edge direction and criticality.** Edges run **cause → effect**
+  (`dependency_entity → dependent_entity`), matching how an attacker's
+  actions actually flow. Criticality ("how many things does this entity's
+  compromise put at risk") is computed from an entity's **successors**
+  (downstream dependents) — using predecessors here would have scored a
+  leaf/sink node as more critical than the hub causing it, backwards from
+  the intended "blast radius" semantics.
+
+### 5.6 Competing-hypothesis swarm (`app/swarm/`)
+
+For sufficiently complex alerts (gated by `complexity.py`'s
+`assess_complexity()` — technique count **and** distinct MITRE **tactic**
+count, since an alert touching one technique across many tactics is a
+different shape of complexity than many techniques in one tactic), the
+supervisor can dispatch `run_swarm_node`, which:
+
+```
+1. generate_hypotheses_llm(context)  → N competing root-cause hypotheses,
+       one real LiteLLM call; real token usage read from the response's
+       `usage` field (prompt + completion tokens), not a hardcoded estimate
+2. evaluate each hypothesis deterministically against the evidence
+       (tokens_spent=0 — no LLM call in this step)
+3. debate/adjudicate → winning hypothesis, with the step-1 token cost
+       attributed proportionally across the hypotheses it produced
+```
+
+The deterministic evaluation step never calls an LLM at all — only
+hypothesis *generation* costs tokens — so a swarm run's real cost is exactly
+one LLM round-trip, not one-per-hypothesis.
+
+### 5.7 Memory / distillation (`app/memory/`)
 
 `outcomes.py` records what actually happened after an agent's recommendation
 (was the case confirmed, dismissed, escalated); `distillation.py` compresses
-accumulated outcome history into reusable, smaller-footprint memory so past
-investigation patterns inform future ones without replaying full transcripts.
+accumulated outcome history into signature-keyed priors (`classification:tactic:technique`)
+so past investigation patterns inform future triage confidence without
+replaying full transcripts. Priors are **tenant-scoped**
+(`_tenant_priors: dict[tenant_id, dict[signature, SignaturePrior]]`) — an
+earlier flat, single-dict design overwrote all tenants' priors on every
+`distill()` call, which would have let one tenant's outcome history bias
+another tenant's triage confidence. `ensure_fresh(tenant_id, max_age_seconds)`
+auto-refreshes a tenant's priors on demand rather than requiring an external
+scheduler.
+
+The adjustment is wired into the **live** triage path, not just available
+for offline analysis: both `triage_agent.py` and `auto_triage_agent.py` call
+`get_memory_verdict_adjustment(signature, tenant_id)` after computing a
+baseline confidence, clamp the adjustment to ±0.10, and record the basis in
+`confidence_basis` for auditability — in `auto_triage_agent.py` this happens
+*before* the auto-close threshold check, so a repeated false-positive
+signature can actually suppress a future auto-close decision, not just
+annotate it after the fact.
+
+### 5.8 Orchestrator entry points and reachability
+
+Three independent orchestrators exist under `services/agents`, all
+registered behind one dispatcher, `app/api/investigate.py::_investigate_stream()`,
+which is what the Case Workspace UI's `POST /cases/{case_id}/investigate`
+actually calls (via `services/api`'s proxy):
+
+| Orchestrator | Selected by | Notes |
+|---|---|---|
+| `InvestigatorOrchestrator` (`app/investigator/`) | default | legacy recon/forensic/responder shape |
+| `RouterOrchestrator` (`app/orchestrator/router.py`) | `AISOC_INVESTIGATE_USE_ROUTER=1` | four-agent parallel/sequential fan-out (T2.2) |
+| `run_full_investigation()` via `GraphOrchestratorAdapter` (`app/graph/adapter.py`) | `AISOC_INVESTIGATE_USE_GRAPH=1` | the fixed/supervised LangGraph pipeline (§5.1–§5.2, §5.5–§5.7) |
+
+All default off except the legacy path, and flags are checked in priority
+order (graph > router > investigator) so an operator can opt in
+incrementally. This third entry exists because the LangGraph pipeline was,
+for a time, **only** reachable via a separate, simpler API
+(`app/api/router.py`'s `POST /investigations`) that the production UI never
+called — meaning the RCA/swarm/supervised-mode work above was fully wired
+and tested in isolation but invisible in the real product. `GraphOrchestratorAdapter`
+adapts `run_full_investigation()` (which only returns a final state, no
+per-node stream) to the same `stream_kwargs()` contract the other two
+orchestrators expose — one terminal `done` (or `error`) event carrying a
+rendered Markdown/HTML report (now with a Root Cause Analysis section, see
+`app/orchestrator/report.py`) plus the full state, including
+`rca_findings` / `supervisor_history` / `compressed_events` for cases that
+want to inspect the deeper machinery.
+
+### 5.9 Temporal.io durability overlay (optional, `app/temporal/`)
+
+A fourth, highest-priority orchestrator option (`AISOC_AGENT_TEMPORAL_MODE=1`,
+default off) that trades in-process execution for durable, replay-safe
+execution — useful for long-running investigations that must survive a
+worker restart or a multi-hour human-in-the-loop approval wait. It does not
+duplicate investigation logic: `InvestigationWorkflow` re-runs the same
+5-phase sequence (auto-triage → triage → evidence-gathering →
+compression → swarm → RCA) as **Temporal activities**, each of which is a
+thin wrapper delegating to the exact same node functions
+`app/graph/workflow.py` uses for the in-process graph.
+
+```
+1. run auto_triage; if it auto-closes the alert, return immediately
+2. loop (bounded by max_reinvestigations):
+       run triage → gather_evidence → compress_events → run_swarm → perform_rca
+       if confidence >= confidence_threshold: break
+3. if any proposed_action requires approval:
+       pause and wait_condition() on the `approve` signal (1h timeout,
+       defaults to rejecting the actions if no reviewer responds in time)
+4. run finalize_response; return the final state
+```
+
+Progress is queryable at any point (`get_progress` — phase, verdict,
+confidence, findings count) so `TemporalOrchestratorAdapter` can synthesize
+`step` events for the same streaming contract the other orchestrators use.
+The workflow only ever manipulates plain `dict` state (never constructs
+`InvestigationState` directly) to satisfy Temporal's deterministic-replay
+requirement, since that model's `run_id`/`started_at` fields use
+non-deterministic `default_factory` callables. Requires a running Temporal
+server + worker (`python -m app.temporal.worker`), both gated behind a
+`temporal` Docker Compose profile that's off by default; `temporalio` is an
+optional Poetry extra (`poetry install -E temporal`) with zero import-time
+cost on the default request path.
 
 ---
 
