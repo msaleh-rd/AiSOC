@@ -241,6 +241,9 @@ services:
       SECRET_KEY: dev_secret_key_change_in_production
       ENVIRONMENT: development
       LOG_LEVEL: info
+      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:?AISOC_CREDENTIAL_KEY is required — generate one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
+      AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-}
+      CONNECTORS_SERVICE_URL: http://connectors:8087
       # Issue #478 — LiteLLM gateway. Route this service's live LLM endpoints
       # (translation, hunts, KB, phishing, NL-detection) through the gateway by
       # setting OPENAI_BASE_URL=http://litellm:4000/v1 + OPENAI_API_KEY=$LITELLM_MASTER_KEY.
@@ -496,7 +499,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8088:8003"
+      - "127.0.0.1:8088:8087"
     # Phase A3 — the connector runtime is part of the default stack now (was
     # profile-gated). It idles harmlessly with no configured instances; a cold
     # `up` therefore ships the full ingest→detect→respond spine out of the box.
@@ -505,6 +508,10 @@ services:
       REDIS_URL: redis://:redis_dev_secret@redis:6379/6
       DATABASE_URL: postgresql+asyncpg://aisoc:${POSTGRES_PASSWORD:-aisoc_dev_secret}@postgres:5432/aisoc
       CORE_API_URL: http://api:8000
+      # Must be the same key the API encrypts with, or the poll scheduler
+      # refuses to start and no connector is ever polled.
+      AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:?AISOC_CREDENTIAL_KEY is required — generate one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
+      AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-}
       CROWDSTRIKE_CLIENT_ID: ${CROWDSTRIKE_CLIENT_ID:-}
       CROWDSTRIKE_CLIENT_SECRET: ${CROWDSTRIKE_CLIENT_SECRET:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}

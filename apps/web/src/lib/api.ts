@@ -169,46 +169,60 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
     if (qs) url += `?${qs}`;
   }
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    // Resolve at call-time so the tenant switcher takes effect on the very
-    // next fetch (no full page reload needed).
-    'X-Tenant-Id': getActiveTenantId(),
-    ...fetchOptions.headers,
+  const buildHeaders = (): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      // Resolve at call-time so the tenant switcher takes effect on the very
+      // next fetch (no full page reload needed).
+      'X-Tenant-Id': getActiveTenantId(),
+      ...fetchOptions.headers,
+    };
+
+    // Mobile responder PWA auth: if a passkey-issued JWT is present in
+    // localStorage, attach it as a Bearer token. The desktop console relies on
+    // cookies set by the API gateway, so this is purely additive.
+    if (typeof window !== 'undefined') {
+      try {
+        const existing =
+          (headers as Record<string, string>).Authorization ??
+          (headers as Record<string, string>).authorization;
+        if (!existing) {
+          const token = window.localStorage.getItem('aisoc.responder.accessToken');
+          if (token) {
+            (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+          }
+        }
+      } catch {
+        /* localStorage unavailable; ignore */
+      }
+    }
+    return headers;
   };
 
-  // Mobile responder PWA auth: if a passkey-issued JWT is present in
-  // localStorage, attach it as a Bearer token. The desktop console relies on
-  // cookies set by the API gateway, so this is purely additive.
-  if (typeof window !== 'undefined') {
+  const send = async (): Promise<Response> => {
     try {
-      const existing =
-        (headers as Record<string, string>).Authorization ??
-        (headers as Record<string, string>).authorization;
-      if (!existing) {
-        const token = window.localStorage.getItem('aisoc.responder.accessToken');
-        if (token) {
-          (headers as Record<string, string>).Authorization = `Bearer ${token}`;
-        }
-      }
-    } catch {
-      /* localStorage unavailable; ignore */
+      return await fetch(url, {
+        ...fetchOptions,
+        headers: buildHeaders(),
+        cache: 'no-store',
+      });
+    } catch (err) {
+      throw new ApiError(
+        `Network error talking to ${url}: ${(err as Error).message}`,
+        0,
+        '',
+      );
     }
-  }
+  };
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-      cache: 'no-store',
-    });
-  } catch (err) {
-    throw new ApiError(
-      `Network error talking to ${url}: ${(err as Error).message}`,
-      0,
-      '',
-    );
+  let response = await send();
+
+  // Access tokens are short-lived; without this the whole console hard-breaks
+  // on expiry even though a valid refresh token is sitting in localStorage.
+  if (response.status === 401 && path !== AUTH_REFRESH_PATH) {
+    if (await tryRefreshAccessToken()) {
+      response = await send();
+    }
   }
 
   if (!response.ok) {
@@ -224,6 +238,55 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
   // Some endpoints (the agent stream, NDJSON) might not be JSON. Callers that
   // need streams should use fetch() directly. Here we assume JSON.
   return (await response.json()) as T;
+}
+
+const AUTH_REFRESH_PATH = '/api/v1/auth/refresh';
+
+// Concurrent 401s must share one refresh, or each in-flight request burns a
+// rotation and the losers get logged out.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(AUTH_REFRESH_KEY);
+    } catch {
+      return false;
+    }
+    if (!stored) return false;
+
+    try {
+      const res = await fetch(`${API_BASE}${AUTH_REFRESH_PATH}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: stored }),
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        window.localStorage.removeItem(AUTH_TOKEN_KEY);
+        window.localStorage.removeItem(AUTH_REFRESH_KEY);
+        return false;
+      }
+      const tokens = (await res.json()) as TokenResponse;
+      window.localStorage.setItem(AUTH_TOKEN_KEY, tokens.access_token);
+      if (tokens.refresh_token) {
+        window.localStorage.setItem(AUTH_REFRESH_KEY, tokens.refresh_token);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -576,14 +639,26 @@ function normalizeAlert(raw: unknown): Alert {
       techniqueId: String(m.technique_id ?? m.techniqueId ?? ''),
     }));
   } else {
-    const techniques = pickArr<string>('mitre_techniques', 'mitreTechniques');
-    const tactics = pickArr<string>('mitre_tactics', 'mitreTactics');
+    // Entries are either bare technique IDs or ``{id, name}`` objects.
+    const techniques = pickArr<unknown>('mitre_techniques', 'mitreTechniques');
+    const tactics = pickArr<unknown>('mitre_tactics', 'mitreTactics');
+    const label = (v: unknown): { id: string; name: string } => {
+      if (v && typeof v === 'object') {
+        const o = v as Record<string, unknown>;
+        const id = String(o.id ?? o.technique_id ?? o.techniqueId ?? '');
+        return { id, name: String(o.name ?? o.technique ?? id) };
+      }
+      return { id: String(v ?? ''), name: String(v ?? '') };
+    };
     if (techniques && techniques.length > 0) {
-      mitreAttack = techniques.map((t, i) => ({
-        tactic: tactics?.[i] ? String(tactics[i]) : '',
-        technique: String(t),
-        techniqueId: String(t),
-      }));
+      mitreAttack = techniques.map((t, i) => {
+        const tech = label(t);
+        return {
+          tactic: tactics?.[i] !== undefined ? label(tactics[i]).name : '',
+          technique: tech.name,
+          techniqueId: tech.id,
+        };
+      });
     }
   }
 
@@ -724,17 +799,28 @@ export interface AlertFilters {
 
 export const alertsApi = {
   list: async (filters: AlertFilters = {}) => {
+    // AlertListResponse envelopes the rows as `items`; `page_size` is the
+    // query param FastAPI binds, so camelCase `pageSize` is silently dropped.
+    const { pageSize, ...rest } = filters;
+    const params = { ...rest } as Record<string, string>;
+    if (pageSize !== undefined) params.page_size = String(pageSize);
+
     const raw = await request<{
+      items?: unknown[];
       alerts?: unknown[];
       total?: number;
       page?: number;
       page_size?: number;
       pageSize?: number;
-    }>('/api/v1/alerts', {
-      params: filters as Record<string, string>,
-    });
+    }>('/api/v1/alerts', { params });
+
+    const rows = Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw.alerts)
+        ? raw.alerts
+        : [];
     return {
-      alerts: Array.isArray(raw.alerts) ? raw.alerts.map(normalizeAlert) : [],
+      alerts: rows.map(normalizeAlert),
       total: typeof raw.total === 'number' ? raw.total : 0,
       page: typeof raw.page === 'number' ? raw.page : 1,
       pageSize:

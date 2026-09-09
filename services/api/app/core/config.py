@@ -175,7 +175,7 @@ class Settings(BaseSettings):
     # e.g. ``http://localhost:8088`` when the connectors service is
     # exposed on the host. Empty disables proxying entirely (catalog and
     # test endpoints will return 503).
-    CONNECTORS_SERVICE_URL: str = "http://connectors:8003"
+    CONNECTORS_SERVICE_URL: str = "http://connectors:8087"
     CONNECTORS_SERVICE_TIMEOUT_SECONDS: float = 15.0
 
     # Public ingest base URL — surfaced in the wizard's "Reveal push URL"

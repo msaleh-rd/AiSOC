@@ -310,7 +310,7 @@ async def list_runs(
     """List recent investigation runs for the caller's tenant."""
     q = select(InvestigationRun).where(InvestigationRun.tenant_id == current_user.tenant_id)
     if case_id:
-        q = q.where(InvestigationRun.case_id == case_id)
+        q = q.where(InvestigationRun.case_id.in_(await _case_id_aliases(db, case_id)))
     if status_filter:
         q = q.where(InvestigationRun.status == status_filter)
     q = q.order_by(InvestigationRun.started_at.desc()).limit(limit)
@@ -318,6 +318,27 @@ async def list_runs(
     result = await db.execute(q)
     runs = result.scalars().all()
     return [_run_to_summary(r) for r in runs]
+
+
+async def _case_id_aliases(db: TenantDBSession, case_id: str) -> list[str]:
+    """Both identifiers a caller may hold for a case.
+
+    ``InvestigationRun.case_id`` is free-text, so runs may be keyed by either the
+    case UUID or its human case number. The console passes the UUID while the
+    agent writes the case number, so match on both.
+    """
+    aliases = {case_id}
+    row = (
+        await db.execute(
+            text(
+                "SELECT id::text AS uuid, case_number FROM aisoc_cases "
+                "WHERE id::text = :cid OR case_number = :cid LIMIT 1"
+            ).bindparams(cid=case_id)
+        )
+    ).mappings().first()
+    if row:
+        aliases.update(v for v in (row["uuid"], row["case_number"]) if v)
+    return list(aliases)
 
 
 @router.get("/costs/aggregate", response_model=CostAggregateResponse)

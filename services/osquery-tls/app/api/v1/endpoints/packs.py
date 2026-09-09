@@ -191,7 +191,7 @@ async def list_tenant_packs(
     ]
 
 
-@router.delete("/tenants/{tenant_id}/packs/{pack_id}", status_code=204)
+@router.delete("/tenants/{tenant_id}/packs/{pack_id}", status_code=204, response_model=None)
 async def remove_pack_assignment(
     tenant_id: str,
     pack_id: str,

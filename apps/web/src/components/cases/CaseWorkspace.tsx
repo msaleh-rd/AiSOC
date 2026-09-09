@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Case workspace.
@@ -60,97 +60,6 @@ const VALID_TABS: readonly WorkspaceTab[] = [
 
 function isWorkspaceTab(value: string | null): value is WorkspaceTab {
   return value !== null && (VALID_TABS as readonly string[]).includes(value);
-}
-
-// ─── Demo case ────────────────────────────────────────────────────────────────
-
-function buildDemoCase(id: string): Case {
-  const now = new Date('2026-05-06T12:00:00Z').getTime();
-  return {
-    id,
-    title: 'Suspected lateral movement from finance subnet',
-    description:
-      "Multiple high-severity alerts indicate an attacker pivoted from " +
-      "WIN-FIN-DB01 to BACKUP-SRV-12 using compromised service account credentials. " +
-      "Behavior consistent with T1021.002 (SMB/Windows Admin Shares).",
-    status: 'in_progress',
-    severity: 'critical',
-    assignee: 'sasha.lin@example.com',
-    alertIds: ['alert-9012', 'alert-9013', 'alert-9019', 'alert-9024'],
-    alertCount: 4,
-    tags: ['lateral-movement', 'credential-access', 'finance-subnet'],
-    mitre: ['T1021.002', 'T1078', 'T1003.001'],
-    createdBy: 'system',
-    createdAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(now - 12 * 60 * 1000).toISOString(),
-    dueAt: new Date(now + 18 * 60 * 60 * 1000).toISOString(),
-    timeline: [
-      {
-        id: 'tl-1',
-        type: 'created',
-        timestamp: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
-        title: 'Case created from correlation rule',
-        actor: 'system',
-        description:
-          'Rule "Lateral movement from privileged subnet" matched 3 alerts within 4 minutes.',
-      },
-      {
-        id: 'tl-2',
-        type: 'assigned',
-        timestamp: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
-        title: 'Assigned to Sasha Lin',
-        actor: 'andre.k',
-      },
-      {
-        id: 'tl-3',
-        type: 'agent',
-        timestamp: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
-        title: 'Auto-investigation completed',
-        actor: 'aisoc-agent',
-        description:
-          'Confirmed pivot via SMB. Recommend isolating WIN-FIN-DB01 and rotating service account creds.',
-      },
-      {
-        id: 'tl-4',
-        type: 'note',
-        timestamp: new Date(now - 90 * 60 * 1000).toISOString(),
-        title: 'Note added',
-        actor: 'sasha.lin',
-        description:
-          'IT confirmed the service account belongs to the legacy backup tool. ' +
-          'Proceeding to rotate creds and revoke session.',
-      },
-      {
-        id: 'tl-5',
-        type: 'status',
-        timestamp: new Date(now - 12 * 60 * 1000).toISOString(),
-        title: 'Status changed to In progress',
-        actor: 'sasha.lin',
-      },
-    ],
-    tasks: [
-      {
-        id: 'task-1',
-        title: 'Isolate WIN-FIN-DB01 from network',
-        status: 'done',
-        assignee: 'andre.k',
-        createdAt: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'task-2',
-        title: 'Rotate svc_backup credentials',
-        status: 'in_progress',
-        assignee: 'sasha.lin',
-        createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'task-3',
-        title: 'Forensic image of BACKUP-SRV-12',
-        status: 'todo',
-        createdAt: new Date(now - 60 * 60 * 1000).toISOString(),
-      },
-    ],
-  };
 }
 
 // ─── Style maps ───────────────────────────────────────────────────────────────
@@ -306,7 +215,6 @@ function TaskRow({ task, onChangeStatus }: TaskRowProps) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function CaseWorkspace({ caseId }: { caseId: string }) {
-  const [demoMode, setDemoMode] = useState(false);
   // Honor `?tab=…` so the hosted demo deeplink
   // (`/cases/INC-RT-001?tab=ledger`) lands visitors directly on the live
   // agent decision feed for the LockBit 3.0 ransomware showcase. Falls back
@@ -323,19 +231,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     { revalidateOnFocus: false, shouldRetryOnError: false },
   );
 
-  const useFallback = !!error;
-  const caseRecord: Case | undefined = useMemo(() => {
-    if (data) return data;
-    if (useFallback) return buildDemoCase(caseId);
-    return undefined;
-  }, [data, useFallback, caseId]);
-
-  // Track demo mode for the header banner. Calling setState during render is
-  // a React anti-pattern that can interact badly with hydration; defer to an
-  // effect so the first paint matches between server and client.
-  useEffect(() => {
-    if (useFallback && !demoMode) setDemoMode(true);
-  }, [useFallback, demoMode]);
+  const caseRecord: Case | undefined = data;
 
   // ─── Investigation state ───────────────────────────────────────────────────
   const [investigating, setInvestigating] = useState(false);
@@ -642,12 +538,6 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           <span className="text-slate-600">/</span>
           <span className="font-mono text-slate-400">{caseRecord.id}</span>
         </div>
-        {demoMode && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300 ring-1 ring-amber-500/30">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            Demo data — writes disabled
-          </span>
-        )}
       </div>
 
       {/* Header */}
