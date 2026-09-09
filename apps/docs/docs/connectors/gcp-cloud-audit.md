@@ -1,12 +1,12 @@
 ---
 sidebar_position: 5
 title: GCP Cloud Audit Logs
-description: Project-scope Admin Activity, Data Access, and System Event audit logs from Google Cloud into AiSOC.
+description: Project-scope Admin Activity, Data Access, and System Event audit logs from Google Cloud into Intelligence SOC.
 ---
 
 # GCP Cloud Audit Logs
 
-The GCP Cloud Audit connector streams **Cloud Logging audit log entries** from a single GCP project into AiSOC. This covers the three Google audit log types: **Admin Activity** (always on), **Data Access** (off by default for most services), and **System Event**.
+The GCP Cloud Audit connector streams **Cloud Logging audit log entries** from a single GCP project into Intelligence SOC. This covers the three Google audit log types: **Admin Activity** (always on), **Data Access** (off by default for most services), and **System Event**.
 
 ## What you get
 
@@ -39,7 +39,7 @@ Events are normalized with `category: cloud` and `cloud_provider: gcp`.
 1. Open the service account → **Keys → Add key → Create new key → JSON**.
 2. Download the JSON file. Treat it like a password — anyone with this file can read your audit logs.
 
-### 3. Add the connector in AiSOC
+### 3. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → GCP Cloud Audit Logs**.
 2. `project_id` = your Project ID (not the number).
@@ -55,7 +55,7 @@ Events are normalized with `category: cloud` and `cloud_provider: gcp`.
 
 ## Severity heuristics
 
-GCP audit logs do not carry a built-in severity; AiSOC infers from `methodName`:
+GCP audit logs do not carry a built-in severity; Intelligence SOC infers from `methodName`:
 
 | Pattern | Severity |
 |---|---|

@@ -1,6 +1,6 @@
-# Contributing to AiSOC
+# Contributing to Intelligence SOC
 
-Thank you for your interest in contributing to AiSOC! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to Intelligence SOC! This document provides guidelines for contributing to the project.
 
 ## Code of Conduct
 
@@ -8,7 +8,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ## Governance
 
-AiSOC is community-governed under the MIT license. See [`GOVERNANCE.md`](GOVERNANCE.md) for roles, decision-making, and how to become a maintainer, and [`MAINTAINERS.md`](MAINTAINERS.md) for the current maintainers.
+Intelligence SOC is community-governed under the MIT license. See [`GOVERNANCE.md`](GOVERNANCE.md) for roles, decision-making, and how to become a maintainer, and [`MAINTAINERS.md`](MAINTAINERS.md) for the current maintainers.
 
 ## Developer Certificate of Origin (DCO)
 
@@ -31,7 +31,7 @@ for a whole branch, `git rebase --signoff main`.
 
 ## Your first 30 minutes
 
-If you've never contributed to AiSOC before, here's the shortest path from
+If you've never contributed to Intelligence SOC before, here's the shortest path from
 "nice repo" to "merged PR":
 
 1. **Run the demo so you know what you're contributing to.** Either open
@@ -142,7 +142,7 @@ before/after delta in the PR body.
 
 1. Update your branch: `git fetch upstream && git rebase upstream/main`
 2. Run tests:
-   - `pnpm --filter @aisoc/web test` (web smoke tests)
+   - `pnpm --filter @isoc/web test` (web smoke tests)
    - `pytest services/<name>/tests/` for any Python service you touched
    - `( cd services/<name> && go test ./... )` for any Go service you touched
 3. Push to your fork: `git push origin feature/my-feature`
@@ -258,7 +258,7 @@ matches yours and copy from there.
 
 ## Community Marketplace
 
-The AiSOC marketplace is content-as-code. Anything in
+The Intelligence SOC marketplace is content-as-code. Anything in
 [`detections/`](detections/), [`playbooks/`](playbooks/), and
 [`plugins/`](plugins/) is automatically picked up by
 [`scripts/build_marketplace.py`](scripts/build_marketplace.py) and surfaced in
@@ -276,7 +276,7 @@ contributors:
 - Plugins → `plugins/community/<your-plugin-id>/`
 
 These show up in the Marketplace with a **Community** badge (versus the
-**Verified** badge on AiSOC-authored content). Core content lives directly
+**Verified** badge on Intelligence SOC-authored content). Core content lives directly
 under `detections/<category>/`, `playbooks/packs/v1/<category>/`, and
 `plugins/<plugin-id>/`.
 
@@ -318,7 +318,7 @@ under `detections/<category>/`, `playbooks/packs/v1/<category>/`, and
 ## Reporting Bugs
 
 Please use the GitHub issue tracker. Include:
-- AiSOC version
+- Intelligence SOC version
 - OS and environment
 - Steps to reproduce
 - Expected vs actual behavior
@@ -332,7 +332,7 @@ Hunt copy, six technical blog outlines (each ending in a reproducible command),
 and a category-level comparison dossier — plus a [press kit](docs/press/) with
 boilerplate and the logo kit. Everything is written to two rules: no
 superlatives, and synthetic-vs-measured is always labelled. If you write about
-AiSOC, verify each claim against the [benchmark page](apps/docs/docs/benchmark.md)
+Intelligence SOC, verify each claim against the [benchmark page](apps/docs/docs/benchmark.md)
 first.
 
 ## License

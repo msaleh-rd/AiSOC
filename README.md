@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="apps/web/public/logo-mark.svg" alt="AiSOC" width="120" />
+<img src="apps/web/public/logo-mark.svg" alt="Intelligence SOC" width="120" />
 
-# AiSOC
+# Intelligence SOC
 
 An open-source, self-hostable AI SOC. The agent's prompts, tool calls, and rationale are logged step-by-step and replayable. MIT-licensed.
 
@@ -21,7 +21,7 @@ An open-source, self-hostable AI SOC. The agent's prompts, tool calls, and ratio
 
 <br />
 
-<a href="apps/web/public/demo/"><img src="apps/web/public/demo-thumbnail.svg" alt="90-second AiSOC product walkthrough — agent investigating the seeded LockBit 3.0 case" width="720" /></a>
+<a href="apps/web/public/demo/"><img src="apps/web/public/demo-thumbnail.svg" alt="90-second Intelligence SOC product walkthrough — agent investigating the seeded LockBit 3.0 case" width="720" /></a>
 
 <sub><em>90-second walkthrough — agent investigates the seeded LockBit 3.0 case end-to-end. The rendered <code>.mp4</code> + <code>hero.gif</code> land with the v8.0 launch; the brief is in <a href="docs/demo/SCREENCAST_SHOTLIST.md">docs/demo/SCREENCAST_SHOTLIST.md</a>.</em></sub>
 
@@ -29,7 +29,7 @@ An open-source, self-hostable AI SOC. The agent's prompts, tool calls, and ratio
 
 ---
 
-## Try AiSOC in 60 seconds
+## Try Intelligence SOC in 60 seconds
 
 One command — no clone, no Docker, no keys (`npx aisoc` lands on npm with the v8.0 launch; today it builds from [`packages/aisoc-lite/`](packages/aisoc-lite/)):
 
@@ -42,12 +42,12 @@ The wedge CLI scores a batch of alerts to verdicts (escalate / review / suppress
 
 | If you have…                          | Run this                                                                                                 | What you get                                                                                       |
 |---------------------------------------|----------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| **Python 3.10+** (no Docker)          | `pip install -e packages/aisoc-sandbox && aisoc-sandbox demo`                                            | Offline agent investigation walked through Detect → Triage → Hunt → Respond and printed to stdout. **< 5 s.** No API key, no network. |
+| **Python 3.10+** (no Docker)          | `pip install -e packages/isoc-sandbox && aisoc-sandbox demo`                                            | Offline agent investigation walked through Detect → Triage → Hunt → Respond and printed to stdout. **< 5 s.** No API key, no network. |
 | **A browser** (zero install)          | [Open in Codespaces](https://codespaces.new/beenuar/AiSOC?quickstart=1)                                  | Browser IDE → `pnpm aisoc:demo --no-open` → click forwarded port `3000`. ~5 min cold.              |
 | **Docker + pnpm**                     | `git clone https://github.com/beenuar/AiSOC && cd AiSOC && pnpm aisoc:demo`                              | Local stack on Postgres + Redis + Kafka + api + agents + web. Browser opens at `INC-RT-001`.       |
 | **Nothing** (clean Linux/macOS/Win)   | `curl -fsSL https://raw.githubusercontent.com/beenuar/AiSOC/main/install.sh \| bash`                     | Bootstraps Docker, Node, pnpm, git for you; then runs `pnpm aisoc:demo`.                           |
 
-The first row is new: [`aisoc-sandbox`](packages/aisoc-sandbox/) is a zero-dependency, in-memory simulator of the agent funnel. Pick a [bundled scenario](packages/aisoc-sandbox/README.md#bundled-scenarios) (`lateral-movement`, `aws-credential-exfil`, `phishing-payload`, `kubernetes-privesc`, `github-token-theft`) or feed in your own JSON via `--file`. The other three rows boot the real stack and land you on `/cases/INC-RT-001?tab=ledger` — a LockBit 3.0 ransomware case mid-investigation, with the AI agent's prompts, tool calls, and rationale streaming into the [Investigation Ledger](apps/docs/docs/console/investigation-rail.md). Stop the real stack with `pnpm aisoc:demo:down`.
+The first row is new: [`aisoc-sandbox`](packages/isoc-sandbox/) is a zero-dependency, in-memory simulator of the agent funnel. Pick a [bundled scenario](packages/isoc-sandbox/README.md#bundled-scenarios) (`lateral-movement`, `aws-credential-exfil`, `phishing-payload`, `kubernetes-privesc`, `github-token-theft`) or feed in your own JSON via `--file`. The other three rows boot the real stack and land you on `/cases/INC-RT-001?tab=ledger` — a LockBit 3.0 ransomware case mid-investigation, with the AI agent's prompts, tool calls, and rationale streaming into the [Investigation Ledger](apps/docs/docs/console/investigation-rail.md). Stop the real stack with `pnpm aisoc:demo:down`.
 
 > **Does the demo still boot on `main`?** Every push runs [`compose-smoke`](https://github.com/beenuar/AiSOC/actions/workflows/compose-smoke.yml) (the same `pnpm aisoc:demo` path you'd run locally) and [`e2e`](https://github.com/beenuar/AiSOC/actions/workflows/e2e.yml) against the seeded console; nightly [`compose-smoke-nightly`](https://github.com/beenuar/AiSOC/actions/workflows/compose-smoke-nightly.yml) repeats it with cold caches. A red badge below is a release-blocker.
 >
@@ -59,9 +59,9 @@ Full multi-platform deploy guide is in [`apps/docs/docs/installation.md`](apps/d
 
 ---
 
-## What AiSOC is
+## What Intelligence SOC is
 
-AiSOC is a single self-hostable stack that ingests security events, correlates them, runs AI-driven investigation, and surfaces the result in a SOC console. The agent and the substrate are MIT-licensed, so you can read, fork, or replace either of them.
+Intelligence SOC is a single self-hostable stack that ingests security events, correlates them, runs AI-driven investigation, and surfaces the result in a SOC console. The agent and the substrate are MIT-licensed, so you can read, fork, or replace either of them.
 
 Three properties distinguish it from closed-source AI SOC vendors:
 
@@ -73,9 +73,9 @@ The orchestrator is a ~600-line LangGraph in [`services/agents/`](services/agent
 
 ---
 
-## How AiSOC compares
+## How Intelligence SOC compares
 
-| Capability | AiSOC | Wazuh | Splunk ES | Closed-source AI SOC |
+| Capability | Intelligence SOC | Wazuh | Splunk ES | Closed-source AI SOC |
 |---|---|---|---|---|
 | Open-source license | MIT | GPL-2 | proprietary | proprietary |
 | Self-hostable | yes | yes | enterprise-only | cloud-only |
@@ -87,7 +87,7 @@ The orchestrator is a ~600-line LangGraph in [`services/agents/`](services/agent
 | Data residency | your infra | your infra | partial | vendor cloud |
 | Pricing | $0 (self-host) | $0 (self-host) | per ingest GB | enterprise |
 
-Closed-source AI SOC vendors ship working products. AiSOC's contribution is making the agent itself open, the per-step decision trail readable, and the substrate gated by a public eval harness on every PR targeting `main` / `develop`.
+Closed-source AI SOC vendors ship working products. Intelligence SOC's contribution is making the agent itself open, the per-step decision trail readable, and the substrate gated by a public eval harness on every PR targeting `main` / `develop`.
 
 ---
 
@@ -189,7 +189,7 @@ A handful of headline capabilities — the rest are catalogued in [`apps/docs/do
 
 ## Use it from Claude, Cursor, or Cody
 
-AiSOC ships an [MCP server](https://modelcontextprotocol.io) (`services/mcp/`) so analysts can query alerts, run agent investigations, and replay every step the agent took without leaving the IDE or chat. The server exposes 13 tools — discovery, deep-dive, governed lake query, and the action / replay set that walks the agent decision ledger step-by-step.
+Intelligence SOC ships an [MCP server](https://modelcontextprotocol.io) (`services/mcp/`) so analysts can query alerts, run agent investigations, and replay every step the agent took without leaving the IDE or chat. The server exposes 13 tools — discovery, deep-dive, governed lake query, and the action / replay set that walks the agent decision ledger step-by-step.
 
 > **Status — monorepo source build today; npm publish lands in v8.0.** Full setup is in [`apps/docs/docs/integrations/mcp.md`](apps/docs/docs/integrations/mcp.md), which shows the today-vs-v8.0 invocations side by side.
 
@@ -203,7 +203,7 @@ Three contribution surfaces; each is one file plus optional fixtures, and CI val
 - **Connector.** Subclass `BaseConnector` in [`services/connectors/app/connectors/`](services/connectors/app/connectors/), register it in `_CONNECTOR_CLASSES`, and add a `plugins/<id>/plugin.yaml` manifest. The marketplace picks it up automatically. Walkthrough: [`apps/docs/docs/connectors/`](apps/docs/docs/connectors/).
 - **Playbook.** Drop a YAML under [`playbooks/`](playbooks/); [`validate-playbooks`](https://github.com/beenuar/AiSOC/actions/workflows/validate-playbooks.yml) gates the PR. Schema: [`playbook.schema.json`](playbook.schema.json).
 
-Plugin and detection SDK (Python · TypeScript · Go) — see [`apps/docs/docs/plugins/overview.md`](apps/docs/docs/plugins/overview.md). The CLI (`aisoc-cli`) is in [`packages/aisoc-cli/`](packages/aisoc-cli/); PyPI publish lands in v8.0.
+Plugin and detection SDK (Python · TypeScript · Go) — see [`apps/docs/docs/plugins/overview.md`](apps/docs/docs/plugins/overview.md). The CLI (`aisoc-cli`) is in [`packages/isoc-cli/`](packages/isoc-cli/); PyPI publish lands in v8.0.
 
 **In your CI:** add `- uses: beenuar/aisoc-action@v1` to triage your repo's Dependabot / CodeQL / secret-scanning alerts on every PR (deterministic, nothing leaves your runner; dogfooded on this repo, Marketplace publish lands with v8.0). [Docs](apps/docs/docs/integrations/github-action.md).
 
@@ -229,19 +229,19 @@ First-time contributors: pick a [`good first issue`](https://github.com/beenuar/
 
 ## Credits
 
-AiSOC is built and improved by a growing community of contributors, security researchers, and operators. The full attribution — including bug reporters and security researchers — lives in [`.github/CREDITS.md`](.github/CREDITS.md). The always-up-to-date code-contribution graph is on the [GitHub contributors page](https://github.com/beenuar/AiSOC/graphs/contributors).
+Intelligence SOC is built and improved by a growing community of contributors, security researchers, and operators. The full attribution — including bug reporters and security researchers — lives in [`.github/CREDITS.md`](.github/CREDITS.md). The always-up-to-date code-contribution graph is on the [GitHub contributors page](https://github.com/beenuar/AiSOC/graphs/contributors).
 
 ---
 
 ## Security
 
-For security issues, please do not open a public issue. Use [GitHub's private vulnerability reporting](https://github.com/beenuar/AiSOC/security/advisories/new). Full policy in [`SECURITY.md`](SECURITY.md). AiSOC follows coordinated disclosure.
+For security issues, please do not open a public issue. Use [GitHub's private vulnerability reporting](https://github.com/beenuar/AiSOC/security/advisories/new). Full policy in [`SECURITY.md`](SECURITY.md). Intelligence SOC follows coordinated disclosure.
 
 ---
 
 ## License
 
-[MIT](LICENSE) — © 2024–present AiSOC contributors.
+[MIT](LICENSE) — © 2024–present Intelligence SOC contributors.
 
 <div align="center">
 

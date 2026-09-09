@@ -1,7 +1,7 @@
 # Quick install — zero-prerequisite bootstrap
 
-AiSOC ships with two one-click bootstrap installers. They take a freshly-imaged
-machine to a running AiSOC dashboard in your browser, with **zero assumed
+Intelligence SOC ships with two one-click bootstrap installers. They take a freshly-imaged
+machine to a running Intelligence SOC dashboard in your browser, with **zero assumed
 prerequisites**, in a single command.
 
 If you already have Docker, Node 20, pnpm 8+, and git installed, you don't need
@@ -31,13 +31,13 @@ already auto-logged-in and a real LockBit 3.0 investigation mid-flight.
 
 ## What gets installed
 
-The installer is **surgical**. It installs only the four things AiSOC actually
+The installer is **surgical**. It installs only the four things Intelligence SOC actually
 needs, and only if they are missing or too old:
 
 | Tool                   | Linux / macOS source              | Windows source         | Why                              |
 | ---------------------- | --------------------------------- | ---------------------- | -------------------------------- |
 | `git`                  | distro package manager            | `winget Git.Git`       | clone the repo                   |
-| Docker Engine + Compose v2 | distro package manager (Linux), `brew install --cask docker` (macOS) | `winget Docker.DockerDesktop` (+ WSL2) | run the AiSOC stack |
+| Docker Engine + Compose v2 | distro package manager (Linux), `brew install --cask docker` (macOS) | `winget Docker.DockerDesktop` (+ WSL2) | run the Intelligence SOC stack |
 | Node.js 20 LTS         | NodeSource (Linux), `brew` (macOS) | `winget OpenJS.NodeJS.LTS` | drive `pnpm aisoc:demo` |
 | pnpm 8+                | `corepack enable` + `corepack prepare pnpm@latest` | same                  | install Node deps                |
 
@@ -145,20 +145,20 @@ the installer into CI or wrapping it in a deployment script:
 ## Preflight: the "will this work?" check
 
 Before either installer touches your machine, it runs a **preflight** pass
-that checks the things most likely to make AiSOC unhappy after install:
+that checks the things most likely to make Intelligence SOC unhappy after install:
 
 - **CPU architecture** — must be x86_64 / amd64 / arm64. (32-bit ARM, MIPS,
   RISC-V etc. won't work; the Docker images aren't built for them.)
-- **RAM** — at least 4 GB free. AiSOC runs ~10 containers; less than 4 GB
+- **RAM** — at least 4 GB free. Intelligence SOC runs ~10 containers; less than 4 GB
   and Postgres or OpenSearch will OOM mid-investigation.
 - **Disk** — at least 10 GB free in the install target.
 - **Network** — can resolve and reach `github.com`, `ghcr.io`, and the
   appropriate package registry (`registry.npmjs.org`, `apt`/`dnf`/`brew`
   repos, etc.). Catches corp-proxy / firewall issues before you waste 10
   minutes pulling Docker images.
-- **Ports** — checks that the ports AiSOC binds to (`3000`, `5432`, `6379`,
+- **Ports** — checks that the ports Intelligence SOC binds to (`3000`, `5432`, `6379`,
   `8000`, `8001`, `8086`, `9092`) are either free or already owned by an
-  AiSOC container. If port 3000 is taken by another `next-server`, you'll
+  Intelligence SOC container. If port 3000 is taken by another `next-server`, you'll
   see it in preflight rather than in a confusing demo crash later.
 - **macOS Docker Desktop memory budget** — checks Docker Desktop has at
   least 4 GB allocated, and tells you exactly which menu to open if not.
@@ -267,7 +267,7 @@ its job; you'll just lose the early warning.
 
 <a id="port-conflicts"></a>
 
-AiSOC binds these host ports by default:
+Intelligence SOC binds these host ports by default:
 
 | Port | Container | Override env var |
 | --- | --- | --- |
@@ -288,7 +288,7 @@ If preflight flags one of these as in use:
    in `.env` (or in your shell) and re-run `pnpm aisoc:demo`.
 
 Preflight only **warns** if a port is taken by a process that looks like
-an existing AiSOC container — re-running the installer on a machine that
+an existing Intelligence SOC container — re-running the installer on a machine that
 already has the demo running won't fail preflight.
 
 ### Linux: "permission denied" talking to Docker

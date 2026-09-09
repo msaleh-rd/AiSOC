@@ -6,13 +6,13 @@
  * never alert titles, IOCs, hostnames, or usernames. Nothing here can leak
  * environment specifics, so it's safe to post without a redaction review.
  *
- * Rendering is delegated to the shared `@aisoc/report-card` package (the same
+ * Rendering is delegated to the shared `@isoc/report-card` package (the same
  * renderer the noise-tuning dashboard and the web OG routes use), bundled into
  * the CLI at build time so `npx aisoc` stays a single self-contained artifact.
  */
 
 import { writeFile } from "node:fs/promises";
-import { renderCardMarkdown, renderCardSvg, type ReportCardData } from "@aisoc/report-card";
+import { renderCardMarkdown, renderCardSvg, type ReportCardData } from "@isoc/report-card";
 import type { TriageResult } from "./verdict/types.js";
 
 export interface ShareArtifacts {

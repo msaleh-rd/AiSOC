@@ -63,13 +63,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@aisoc/report-card':
+      '@isoc/report-card':
         specifier: workspace:*
         version: link:../../packages/report-card
-      '@aisoc/types':
+      '@isoc/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@aisoc/ui':
+      '@isoc/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@monaco-editor/react':
@@ -221,9 +221,13 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0(vitest@4.1.10)
 
-  packages/aisoc-action:
+  packages/aisoc-lite:
+    dependencies:
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
     devDependencies:
-      '@aisoc/report-card':
+      '@isoc/report-card':
         specifier: workspace:*
         version: link:../report-card
       '@types/node':
@@ -239,13 +243,9 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.1)
 
-  packages/aisoc-lite:
-    dependencies:
-      picocolors:
-        specifier: ^1.1.1
-        version: 1.1.1
+  packages/isoc-action:
     devDependencies:
-      '@aisoc/report-card':
+      '@isoc/report-card':
         specifier: workspace:*
         version: link:../report-card
       '@types/node':

@@ -1,7 +1,7 @@
 {
-  "name": "@aisoc/report-card",
+  "name": "@isoc/report-card",
   "version": "0.1.0",
-  "description": "Shared, dependency-free renderer for AiSOC share cards (triage summaries, ATT&CK coverage grades, investigation-replay verdicts) as SVG + Markdown. Used by the aisoc CLI --share flag, the noise-tuning dashboard, and the web OG image routes.",
+  "description": "Shared, dependency-free renderer for Intelligence SOC share cards (triage summaries, ATT&CK coverage grades, investigation-replay verdicts) as SVG + Markdown. Used by the aisoc CLI --share flag, the noise-tuning dashboard, and the web OG image routes.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

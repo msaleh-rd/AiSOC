@@ -1,4 +1,4 @@
-# AiSOC landing page — component recipes
+# Intelligence SOC landing page — component recipes
 
 > Companion to `landing-page-brief.md` §6 and
 > `landing-page-design-tokens.md`. One recipe per IA section, in the

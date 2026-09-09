@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Plugin Overview
 
-AiSOC's plugin system lets the community extend the platform with new enrichers, actions, and connectors — all without forking the core.
+Intelligence SOC's plugin system lets the community extend the platform with new enrichers, actions, and connectors — all without forking the core.
 
 ## Plugin Types
 

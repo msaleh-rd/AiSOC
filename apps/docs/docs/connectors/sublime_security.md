@@ -1,13 +1,13 @@
 ---
 sidebar_position: 81
 title: Sublime Security
-description: Sublime Security email-detection events into AiSOC via /v1/messages.
+description: Sublime Security email-detection events into Intelligence SOC via /v1/messages.
 ---
 
 # Sublime Security
 
 The Sublime Security connector polls the **/v1/messages** endpoint of
-the Sublime API and emits one AiSOC alert per detected message. Sublime
+the Sublime API and emits one Intelligence SOC alert per detected message. Sublime
 itself is a rule-marketplace email security platform: rules either
 auto-triage benign mail or quarantine attacks (BEC, credential
 phishing, impersonation).
@@ -36,19 +36,19 @@ metadata (`subject`, `from`, `to`).
 2. Navigate to **Settings → API**.
 3. Click **Create token**, name it `aisoc-ingest`, and copy the value
    immediately — Sublime will not show it again.
-4. In AiSOC: **Connectors → Add connector → Sublime Security**.
+4. In Intelligence SOC: **Connectors → Add connector → Sublime Security**.
 5. Paste the API key. Override `base_url` only if you run a self-hosted
    tenant.
-6. Click **Test connection**. AiSOC issues a `GET /v1/me` and confirms
+6. Click **Test connection**. Intelligence SOC issues a `GET /v1/me` and confirms
    a `200`.
 7. Save.
 
 ## Severity mapping
 
 The connector collapses Sublime `classification` (or `verdict`) into
-the AiSOC ladder:
+the Intelligence SOC ladder:
 
-| AiSOC severity | Sublime classification |
+| Intelligence SOC severity | Sublime classification |
 |---|---|
 | `high`   | `malicious` — escalated to high regardless of rule names |
 | `medium` | `suspicious`, `spam` |
@@ -61,7 +61,7 @@ the AiSOC ladder:
 - `pull_alerts` — passive polling of messages.
 - `pivot_user` — given a mailbox, surface that user's Sublime context.
 - `quarantine_file` — Sublime can be instructed to quarantine an attachment
-  (mapped to the AiSOC `quarantine_file` verb).
+  (mapped to the Intelligence SOC `quarantine_file` verb).
 
 ## Polling details
 

@@ -4,11 +4,11 @@ sidebar_position: 1
 
 # Docker Deployment
 
-AiSOC ships three Compose flavors. Pick the one that matches what you are doing.
+Intelligence SOC ships three Compose flavors. Pick the one that matches what you are doing.
 
 | File | Purpose | When to use |
 |------|---------|-------------|
-| `infra/compose/docker-compose.demo.yml` | Streamlined demo with seeded data | Trying AiSOC for the first time |
+| `infra/compose/docker-compose.demo.yml` | Streamlined demo with seeded data | Trying Intelligence SOC for the first time |
 | `docker-compose.yml` | Full developer stack | Active development against real source |
 | `docker-compose.prod.yml` | Production-leaning stack | Self-hosting on a single VM |
 

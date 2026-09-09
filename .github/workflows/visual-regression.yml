@@ -16,8 +16,8 @@
 # Baselines are committed to git. To refresh them intentionally (after a
 # deliberate design change) run:
 #
-#   pnpm --filter @aisoc/web build-storybook
-#   pnpm --filter @aisoc/web visual:update
+#   pnpm --filter @isoc/web build-storybook
+#   pnpm --filter @isoc/web visual:update
 #
 # and commit the resulting PNGs. CI re-runs immediately to confirm the
 # update lands cleanly.

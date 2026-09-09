@@ -1,8 +1,8 @@
 {
-  "name": "@aisoc/web",
+  "name": "@isoc/web",
   "version": "7.7.0",
   "private": true,
-  "description": "AiSOC SOC Console - Next.js 14 Frontend",
+  "description": "Intelligence SOC Console - Next.js 14 Frontend",
   "license": "MIT",
   "scripts": {
     "dev": "next dev -p 3000",
@@ -22,9 +22,9 @@
     "e2e": "PLAYWRIGHT_PROJECT=journey playwright test --project=journey"
   },
   "dependencies": {
-    "@aisoc/report-card": "workspace:*",
-    "@aisoc/types": "workspace:*",
-    "@aisoc/ui": "workspace:*",
+    "@isoc/report-card": "workspace:*",
+    "@isoc/types": "workspace:*",
+    "@isoc/ui": "workspace:*",
     "@monaco-editor/react": "^4.6.0",
     "@xyflow/react": "^12.11.2",
     "clsx": "^2.1.0",

@@ -26,13 +26,13 @@
       "@/*": [
         "./src/*"
       ],
-      "@aisoc/types": [
+      "@isoc/types": [
         "../../packages/types/src"
       ],
-      "@aisoc/ui": [
+      "@isoc/ui": [
         "../../packages/ui/src"
       ],
-      "@aisoc/report-card": [
+      "@isoc/report-card": [
         "../../packages/report-card/src"
       ]
     }

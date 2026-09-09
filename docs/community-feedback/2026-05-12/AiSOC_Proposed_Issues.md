@@ -1,4 +1,4 @@
-# AiSOC Proposed Issues — 2026-05-12
+# Intelligence SOC Proposed Issues — 2026-05-12
 
 This file holds 23 implementation tickets distilled from the
 [community feedback synthesis](./AiSOC_Community_Feedback_Synthesis.md)
@@ -28,7 +28,7 @@ Each ticket is a faithful issue draft. When opening on GitHub:
 
 ### Problem
 
-OSS-leaning adopters cannot deploy AiSOC end-to-end without first paying
+OSS-leaning adopters cannot deploy Intelligence SOC end-to-end without first paying
 for a commercial EDR. Wazuh is the dominant OSS endpoint stack and is
 absent from the connector matrix.
 
@@ -43,7 +43,7 @@ absent from the connector matrix.
 - Subscribes to a Wazuh manager's `archives.json` socket *or* polls the
   Wazuh REST API (configurable via the connector schema).
 - Normalizes events to OCSF in the connector's `normalize()` method,
-  collapsing Wazuh's severity ladder into AiSOC's
+  collapsing Wazuh's severity ladder into Intelligence SOC's
   `info | low | medium | high`.
 - Ships with detection content for the top-5 Wazuh-native rule families
   under `detections/endpoint/wazuh/`.

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 13
 title: Managed instance (tryaisoc.com)
-description: How the AiSOC managed beta works — what's deployed, how a customer is onboarded, SLAs, and billing.
+description: How the Intelligence SOC managed beta works — what's deployed, how a customer is onboarded, SLAs, and billing.
 ---
 
 # Managed instance (`tryaisoc.com`)
 
-AiSOC is open source and self-hostable, but for teams who want a SOC up
+Intelligence SOC is open source and self-hostable, but for teams who want a SOC up
 and running today — without owning the infrastructure — we run a
 **managed beta** at [`tryaisoc.com`](https://tryaisoc.com). This page
 documents how it works, who it's for, and the operational shape of the
@@ -36,10 +36,10 @@ offering.
 The same code runs in three places:
 
 1. **Self-hosted** — `docker compose up`, fully air-gappable, you own the
-   keys and the data. This is the canonical AiSOC deployment.
+   keys and the data. This is the canonical Intelligence SOC deployment.
 2. **BYOC** — Terraform stack in `infra/terraform/byoc/` provisions
-   AiSOC into the customer's own AWS account.
-3. **Managed (`tryaisoc.com`)** — same code, hosted by the AiSOC
+   Intelligence SOC into the customer's own AWS account.
+3. **Managed (`tryaisoc.com`)** — same code, hosted by the Intelligence SOC
    community on Fly.io. This is where the waitlist points.
 
 The managed offering exists for one reason: **letting a team try a
@@ -50,7 +50,7 @@ without touching any code — the migration is a `pg_dump` and a
 
 ## Architecture
 
-Each managed AiSOC deployment is a single Fly.io application with five
+Each managed Intelligence SOC deployment is a single Fly.io application with five
 process groups defined in `fly.toml`:
 
 | Process group | Source                  | Role                                                       |
@@ -160,7 +160,7 @@ provider, and run cost, scoped per tenant. When the beta exits and
 pricing lands, that dashboard is what we'll bill against — so
 customers can see the bill being built in real-time today.
 
-## Operator runbook (for the AiSOC community)
+## Operator runbook (for the Intelligence SOC community)
 
 If you're operating the managed instance yourself, the relevant
 runbooks live here:
@@ -187,7 +187,7 @@ runbooks live here:
 ## When to graduate
 
 The managed beta is a great starting point, but it's not where most
-serious AiSOC deployments live in steady state. Move to BYOC or
+serious Intelligence SOC deployments live in steady state. Move to BYOC or
 self-hosted when **any** of the following becomes true:
 
 - You need a contractual SLA, not a target.

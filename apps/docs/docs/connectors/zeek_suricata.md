@@ -1,11 +1,11 @@
 ---
 title: Zeek / Suricata NDR
-description: Ingest Zeek notice + Suricata eve.json alerts into AiSOC (zeek_suricata connector).
+description: Ingest Zeek notice + Suricata eve.json alerts into Intelligence SOC (zeek_suricata connector).
 ---
 
 # Zeek / Suricata NDR
 
-The **Zeek / Suricata NDR** connector (`zeek_suricata`, category `ndr`) pulls Zeek notice + Suricata eve.json alerts and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Zeek / Suricata NDR** connector (`zeek_suricata`, category `ndr`) pulls Zeek notice + Suricata eve.json alerts and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

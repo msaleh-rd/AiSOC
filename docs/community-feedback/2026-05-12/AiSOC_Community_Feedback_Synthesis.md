@@ -1,4 +1,4 @@
-# AiSOC Community Feedback Synthesis — 2026-05-12
+# Intelligence SOC Community Feedback Synthesis — 2026-05-12
 
 This is the canonical, ID-stable themed log of community feedback that
 informed the [Now / Next / Later roadmap](./AiSOC_ROADMAP.md) and the
@@ -34,7 +34,7 @@ broad / mid / narrow), and **Effort** (S/M/L/XL).
 OSS-leaning adopters (homelabs, small MSSPs, public-sector pilots) report
 that the v6.x connector matrix tilts heavily toward commercial EDRs
 (CrowdStrike, SentinelOne, Defender). They want a credible OSS-native
-endpoint coverage path before they can run AiSOC in production.
+endpoint coverage path before they can run Intelligence SOC in production.
 
 **Roadmap response:** Now-bucket items #1 (Wazuh), #2 (host-agent), #3
 (audit.d).
@@ -156,7 +156,7 @@ feed of IOCs. They also want push-to-MISP for the IOCs that matter.
 
 **Severity:** S3  **Reach:** mid  **Effort:** S
 
-Adopters evaluating AiSOC ask "which endpoint stack should I pick?" and
+Adopters evaluating Intelligence SOC ask "which endpoint stack should I pick?" and
 there is no published guidance comparing OSS (Wazuh/audit.d/host-agent)
 to commercial vendors on coverage, cost, and operational effort.
 

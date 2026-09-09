@@ -40,7 +40,7 @@ ingress:
       # WS upgrade requires the original Host header.
       httpHostHeader: ws.__DOMAIN__
 
-  # Docusaurus docs (optional — only routed if you run `pnpm --filter @aisoc/docs dev`
+  # Docusaurus docs (optional — only routed if you run `pnpm --filter @isoc/docs dev`
   # or build + serve the static site on port 3001).
   - hostname: docs.__DOMAIN__
     service: http://localhost:3001

@@ -1,14 +1,14 @@
 ---
 sidebar_position: 83
 title: HashiCorp Vault
-description: Stream HashiCorp Vault audit-device events (secrets ops, policy changes, token issuance) into AiSOC.
+description: Stream HashiCorp Vault audit-device events (secrets ops, policy changes, token issuance) into Intelligence SOC.
 ---
 
 # HashiCorp Vault
 
-The Vault connector pulls **audit-device events** from HashiCorp Vault — every secret read, write, lease renewal, policy change, and token issuance. It surfaces the control-plane activity that almost no other source captures, so privilege-elevating actions (root tokens, broad policies, auth-method enrolment) land in AiSOC alongside the rest of the identity-plane signal.
+The Vault connector pulls **audit-device events** from HashiCorp Vault — every secret read, write, lease renewal, policy change, and token issuance. It surfaces the control-plane activity that almost no other source captures, so privilege-elevating actions (root tokens, broad policies, auth-method enrolment) land in Intelligence SOC alongside the rest of the identity-plane signal.
 
-> Vault deliberately **does not expose audit events through its HTTP API**. Audit data flows out of the cluster via Vault's audit devices (`file`, `socket`, `syslog`). This connector consumes the AiSOC ingest buffer that the recommended sidecar topology writes to.
+> Vault deliberately **does not expose audit events through its HTTP API**. Audit data flows out of the cluster via Vault's audit devices (`file`, `socket`, `syslog`). This connector consumes the Intelligence SOC ingest buffer that the recommended sidecar topology writes to.
 
 ## What you get
 
@@ -42,7 +42,7 @@ Events are normalized with `source: vault`, `category: identity`.
                                             ▼
                               ┌────────────────────────┐
                               │ Vault connector poll   │
-                              │ drains buffer → AiSOC  │
+                              │ drains buffer → Intelligence SOC  │
                               └────────────────────────┘
 ```
 
@@ -52,7 +52,7 @@ Add a `file` audit device on the Vault server:
 vault audit enable file file_path=/var/log/vault/audit.log
 ```
 
-Then run the AiSOC Vault sidecar (image at `ghcr.io/beenuar/aisoc-vault-sidecar`) with read access to `/var/log/vault/audit.log` and the AiSOC connectors service URL in `AISOC_CONNECTORS_URL`. The sidecar `tail -F`s the file and posts each JSON line to `POST /v1/_/audit_ingest`, which the AiSOC connectors service holds in an in-memory ring buffer keyed by tenant. The connector's poll loop drains the buffer.
+Then run the Intelligence SOC Vault sidecar (image at `ghcr.io/beenuar/aisoc-vault-sidecar`) with read access to `/var/log/vault/audit.log` and the Intelligence SOC connectors service URL in `AISOC_CONNECTORS_URL`. The sidecar `tail -F`s the file and posts each JSON line to `POST /v1/_/audit_ingest`, which the Intelligence SOC connectors service holds in an in-memory ring buffer keyed by tenant. The connector's poll loop drains the buffer.
 
 ### Topology B — Pull (small / single-node Vault)
 
@@ -79,9 +79,9 @@ path "sys/health" {
 vault audit enable file file_path=/var/log/vault/audit.log log_raw=false
 ```
 
-`log_raw=false` keeps Vault's HMAC redaction on, so secret values do not leak into AiSOC even though AiSOC ingests the audit stream.
+`log_raw=false` keeps Vault's HMAC redaction on, so secret values do not leak into Intelligence SOC even though Intelligence SOC ingests the audit stream.
 
-### 2. Deploy the AiSOC Vault sidecar next to the Vault node
+### 2. Deploy the Intelligence SOC Vault sidecar next to the Vault node
 
 ```yaml
 # Helm values excerpt
@@ -91,7 +91,7 @@ sidecar:
   aisocConnectorsUrl: https://connectors.aisoc.your-domain
 ```
 
-### 3. Add the connector in AiSOC
+### 3. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → HashiCorp Vault**.
 2. `vault_addr` = the cluster address (e.g. `https://vault.acme.internal:8200`).
@@ -122,9 +122,9 @@ The mapping lives in the connector source — open a PR if your environment clas
 
 **`HTTP 503: sealed`** — Vault cluster is sealed. The health probe correctly fails until the cluster is unsealed; no action required other than to unseal.
 
-**No events arriving despite Vault activity** — the sidecar isn't running, or it cannot reach the AiSOC connectors service. Check the sidecar logs and confirm `/v1/_/audit_ingest` is reachable from the sidecar pod.
+**No events arriving despite Vault activity** — the sidecar isn't running, or it cannot reach the Intelligence SOC connectors service. Check the sidecar logs and confirm `/v1/_/audit_ingest` is reachable from the sidecar pod.
 
-**Audit events show `***HMAC-SHA256:...***` instead of the secret value** — that's intentional. Vault HMACs values before they leave the cluster so audit logs don't leak secrets. AiSOC stores them in the redacted form.
+**Audit events show `***HMAC-SHA256:...***` instead of the secret value** — that's intentional. Vault HMACs values before they leave the cluster so audit logs don't leak secrets. Intelligence SOC stores them in the redacted form.
 
 ## Related
 

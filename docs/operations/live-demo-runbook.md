@@ -1,7 +1,7 @@
 # Live demo at `tryaisoc.com` — uptime, fallbacks, and how to revive it
 
 The community-maintained live demo at <https://tryaisoc.com> is a real
-AiSOC instance running on Fly.io, fronted by a Cloudflare Tunnel. It is
+Intelligence SOC instance running on Fly.io, fronted by a Cloudflare Tunnel. It is
 **not** an enterprise SLA — it is best-effort, and it can go offline.
 
 ## If `tryaisoc.com` is down right now
@@ -17,7 +17,7 @@ pnpm aisoc:demo --no-open
 ```
 
 Click the forwarded port `3000` in the **Ports** panel when prompted —
-that's the AiSOC console.
+that's the Intelligence SOC console.
 
 If you have Docker locally, the same one-liner works on your machine:
 
@@ -44,7 +44,7 @@ In rough order of likelihood:
 
 You'll need:
 
-- Fly CLI installed (`flyctl auth login` against the AiSOC org)
+- Fly CLI installed (`flyctl auth login` against the Intelligence SOC org)
 - Cloudflare API token with `Tunnel:Edit` for the `tryaisoc.com` zone
 
 Then:

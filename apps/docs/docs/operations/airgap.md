@@ -1,6 +1,6 @@
 # Air-gapped deployment
 
-AiSOC ships with first-class support for fully air-gapped deployments — no
+Intelligence SOC ships with first-class support for fully air-gapped deployments — no
 outbound HTTP, no LLM phone-home, no SaaS threat-intel feeds — for
 customers in regulated, classified, or sovereign environments where
 the SOC stack must run with **zero egress**.
@@ -16,7 +16,7 @@ egress firewall. Treat it as a second layer:
 
 1. Your network policy at the perimeter denies all egress from the SOC
    subnet (this is the load-bearing control).
-2. AiSOC's in-process airgap module refuses any outbound HTTP it would
+2. Intelligence SOC's in-process airgap module refuses any outbound HTTP it would
    otherwise issue (this is the loud-failure layer that catches a
    misconfigured `.env`, a vendored client with a hard-coded URL, or a
    forgotten `OPENAI_API_KEY`).
@@ -27,7 +27,7 @@ hits a socket. That's the signal you want in your audit trail.
 
 ## Turning it on
 
-Set two environment variables on every AiSOC service that issues outbound
+Set two environment variables on every Intelligence SOC service that issues outbound
 HTTP (`api`, `agents`, `threatintel`, `actions`, `enrichment`):
 
 ```bash
@@ -75,7 +75,7 @@ outbound calls: feeds whose configured URL is public and not on the
 allowlist are **never registered with the scheduler** when air-gapped
 mode is on. That means there is no boot-time DNS lookup, no failed-poll
 pattern, and no 30-minute heartbeat that would otherwise leak
-"an AiSOC instance lives at this egress IP." See
+"an Intelligence SOC instance lives at this egress IP." See
 `services/threatintel/app/main.py` for the exact registration guards.
 
 ## Verifying it's on
@@ -164,7 +164,7 @@ Only the boolean `key_set` flag is surfaced.
 ### Settings UI surface
 
 The same two endpoints back the read-only **Settings → Deployment & AI**
-panel in the AiSOC web UI. Operators and auditors can use that panel
+panel in the Intelligence SOC web UI. Operators and auditors can use that panel
 during a walk-through to confirm at a glance:
 
 - Air-gap is enabled on this pod.
@@ -179,7 +179,7 @@ service restart.
 
 ## Plugging in a local LLM
 
-AiSOC's investigator agent, NL detection authoring, NL query, phishing
+Intelligence SOC's investigator agent, NL detection authoring, NL query, phishing
 triage, and detection-loop helpers all call out to an LLM by default
 (OpenAI-compatible chat completions). For air-gapped deployments, point
 those at a local OpenAI-compatible server — Ollama, vLLM, Llama.cpp's
@@ -250,11 +250,11 @@ TAXII_URL=https://taxii.intel.corp/taxii2/
 TAXII_API_ROOT=intel
 TAXII_COLLECTION_IDS=indicators
 
-# MISP — your own MISP instance (read path = pull events into AiSOC)
+# MISP — your own MISP instance (read path = pull events into Intelligence SOC)
 MISP_URL=https://misp.intel.corp
 MISP_API_KEY=…
 
-# MISP push (write path) — mirror STIX you publish in AiSOC into MISP.
+# MISP push (write path) — mirror STIX you publish in Intelligence SOC into MISP.
 # Same MISP_URL / MISP_API_KEY as above. Push always runs through the
 # air-gap gate, so it will refuse to send if the host isn't on the
 # allowlist. See "Integrations → MISP push" for the request shape.
@@ -294,7 +294,7 @@ Operators should know what they're giving up:
 - **No live OTX / VirusTotal / community TI** — your enrichment is only
   as fresh as your internal mirror cadence.
 - **No external LLM** — quality depends entirely on the local model.
-  AiSOC's eval harness is the right gate here: re-run
+  Intelligence SOC's eval harness is the right gate here: re-run
   `scripts/run_evals.py` against your local LLM before promoting it to
   production.
 - **No outbound webhooks** — the `actions` service can still notify

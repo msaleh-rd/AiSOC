@@ -2,8 +2,8 @@
 
 - **Status:** accepted
 - **Date:** 2026-06-28
-- **Decision-makers:** Beenu Arora (founder), AiSOC core team
-- **Plan reference:** [AiSOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.4; [README.md](../../README.md) "Try it live" section.
+- **Decision-makers:** Beenu Arora (founder), Intelligence SOC core team
+- **Plan reference:** [Intelligence SOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.4; [README.md](../../README.md) "Try it live" section.
 
 ## Context
 
@@ -26,7 +26,7 @@ We **invest in a real always-on Fly.io deploy that mirrors the managed-mode pipe
 
 Concretely:
 
-1. We provision a dedicated managed-mode tenant called **`demo`** on `tryaisoc.com/dashboard` using the auto-provision pipeline shipped in Phase 4.2. The tenant manifest lives at `infra/fly/managed/tenants/demo.yaml` and is owned by AiSOC core, not by Cyble customer-success.
+1. We provision a dedicated managed-mode tenant called **`demo`** on `tryaisoc.com/dashboard` using the auto-provision pipeline shipped in Phase 4.2. The tenant manifest lives at `infra/fly/managed/tenants/demo.yaml` and is owned by Intelligence SOC core, not by Cyble customer-success.
 2. The `demo` tenant gets its own Fly app stack (API + realtime + web), its own Fly Postgres, and its own Fly Redis — same shape as a real managed tenant. The only difference is the seed data: the tenant is seeded with a deterministic fixtures set (the same one the screencast records against) on every redeploy.
 3. We add a **nightly GitHub Actions job** (`.github/workflows/demo-reseed.yml`) that runs `flyctl ssh console` against the demo tenant and reseeds it from `services/api/app/demo/seed.py`. The reseed is idempotent: deletes existing demo data, repopulates with the canonical scenario. This protects the demo from drifting into "every prospect sees a different broken state" after enough hands have poked at it.
 4. **Both surfaces live side-by-side**: the landing CTA links to `/dashboard` (live), and the same section embeds the 90-second screencast as a fallback. If the deploy is ever down, the screencast still plays.

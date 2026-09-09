@@ -1,7 +1,7 @@
 {
-  "name": "@aisoc/sdk",
+  "name": "@isoc/sdk",
   "version": "4.0.0",
-  "description": "TypeScript client SDK for AiSOC — auto-generated from the OpenAPI schema",
+  "description": "TypeScript client SDK for Intelligence SOC — auto-generated from the OpenAPI schema",
   "keywords": ["aisoc", "soc", "security", "client", "sdk"],
   "license": "MIT",
   "main": "./dist/index.js",

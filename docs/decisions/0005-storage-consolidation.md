@@ -2,12 +2,12 @@
 
 - **Status:** accepted
 - **Date:** 2026-07-12
-- **Decision-makers:** AiSOC core team
+- **Decision-makers:** Intelligence SOC core team
 - **Plan reference:** World-Class Hardening Program, Phase 6 (performance + cost) — [`ROADMAP.md`](../../ROADMAP.md), [`docs/audit/PROGRESS.md`](../audit/PROGRESS.md).
 
 ## Context
 
-AiSOC persists security telemetry across several stores (ClickHouse for the
+Intelligence SOC persists security telemetry across several stores (ClickHouse for the
 queryable hot tier, Postgres for alert/case state, object storage for
 retention). Two questions kept coming up without a written answer:
 

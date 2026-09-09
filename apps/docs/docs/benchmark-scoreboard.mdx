@@ -1,14 +1,14 @@
 ---
 sidebar_position: 6
 title: Public Scoreboard
-description: Auto-updated weekly scoreboard of AiSOC eval runs — date, agent version, MITRE accuracy, MTC p50/p95, total USD cost, total tokens. Substrate rows are deterministic CI gates (clearly labelled); wet-eval rows are appended by the T5.5 weekly job. Reproducible, append-only, public.
+description: Auto-updated weekly scoreboard of Intelligence SOC eval runs — date, agent version, MITRE accuracy, MTC p50/p95, total USD cost, total tokens. Substrate rows are deterministic CI gates (clearly labelled); wet-eval rows are appended by the T5.5 weekly job. Reproducible, append-only, public.
 ---
 
 import Scoreboard from '@site/src/components/Scoreboard';
 
 # Public benchmark scoreboard
 
-Append-only weekly history of every published AiSOC eval run. Each row is one
+Append-only weekly history of every published Intelligence SOC eval run. Each row is one
 end-to-end run of [`scripts/run_evals.py`](https://github.com/beenuar/AiSOC/blob/main/scripts/run_evals.py)
 against the [200-incident corpus](./benchmark-methodology.md#2-dataset),
 labelled with the agent version, the commit SHA, and whether it was a
@@ -42,7 +42,7 @@ The scoreboard is sourced from a single checked-in JSON file at
 [`apps/docs/static/data/scoreboard.json`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/static/data/scoreboard.json),
 validated against
 [`scoreboard.schema.json`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/static/data/scoreboard.schema.json)
-on every docs build via `pnpm --filter @aisoc/docs scoreboard:check`.
+on every docs build via `pnpm --filter @isoc/docs scoreboard:check`.
 
 There are two ways a row reaches that file:
 
@@ -107,7 +107,7 @@ that's a signal worth filing — either the harness is non-deterministic on
 your platform (a bug we want to know about) or your fork has diverged. Open
 an issue on
 [github.com/beenuar/AiSOC/issues](https://github.com/beenuar/AiSOC/issues)
-with the JSON output of `pnpm eval:public` attached and the AiSOC team will
+with the JSON output of `pnpm eval:public` attached and the Intelligence SOC team will
 investigate.
 
 If you reproduce against a different model or rate card and want your row
@@ -119,7 +119,7 @@ on the public scoreboard, see
 - Data file: [`apps/docs/static/data/scoreboard.json`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/static/data/scoreboard.json)
 - JSON Schema: [`apps/docs/static/data/scoreboard.schema.json`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/static/data/scoreboard.schema.json)
 - Renderer: [`apps/docs/src/components/Scoreboard/index.tsx`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/src/components/Scoreboard/index.tsx)
-- Validator: `pnpm --filter @aisoc/docs scoreboard:check` →
+- Validator: `pnpm --filter @isoc/docs scoreboard:check` →
   [`apps/docs/scripts/validate-scoreboard.mjs`](https://github.com/beenuar/AiSOC/blob/main/apps/docs/scripts/validate-scoreboard.mjs)
 - Methodology: [Benchmark methodology](./benchmark-methodology.md)
 - Latest snapshot tables: [Benchmark](./benchmark.md)

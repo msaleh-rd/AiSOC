@@ -1,12 +1,12 @@
 ---
 sidebar_position: 25
 title: Endpoint connector decision matrix
-description: Pick the right endpoint data source for AiSOC — EDR/XDR alerts, osquery fleet managers, the AiSOC osquery extension, or universal capture.
+description: Pick the right endpoint data source for Intelligence SOC — EDR/XDR alerts, osquery fleet managers, the Intelligence SOC osquery extension, or universal capture.
 ---
 
 # Endpoint connector decision matrix
 
-AiSOC ships with **four distinct paths** for getting endpoint telemetry into the
+Intelligence SOC ships with **four distinct paths** for getting endpoint telemetry into the
 pipeline. They are not mutually exclusive — most production deployments use two
 or three at once — but each has a different sweet spot. This page is a quick
 decision aid for operators who are wiring up endpoint coverage for the first
@@ -22,7 +22,7 @@ walkthrough linked from the [Connectors catalog](/docs/connectors).
 | A commercial EDR / XDR (CrowdStrike, SentinelOne, Defender, Cortex, Carbon Black) | The matching **EDR connector** | You get vendor-curated alerts immediately; no agent to deploy |
 | osquery + a fleet manager (osctrl, FleetDM) | **[osctrl](/docs/connectors/osctrl)** or **[FleetDM](/docs/connectors/fleetdm)** | Reuse your fleet for distributed-query results _and_ live-query response actions |
 | Bare-metal Linux with `auditd`, no fleet manager | **Universal capture** (syslog/HEC) today; **aisoc-host-agent** when it ships | Lightweight path with no extra control plane |
-| Nothing yet, want to start small | The **[AiSOC osquery extension](/docs/connectors/osquery-extensions)** layered on osquery | Surfaces AiSOC alerts and persistence baselines _inside_ the osquery shell |
+| Nothing yet, want to start small | The **[Intelligence SOC osquery extension](/docs/connectors/osquery-extensions)** layered on osquery | Surfaces Intelligence SOC alerts and persistence baselines _inside_ the osquery shell |
 
 ## The four paths in detail
 
@@ -35,7 +35,7 @@ flowchart LR
     OSCTRL[osctrl]
     FLEET[FleetDM]
   end
-  subgraph Path3["3. AiSOC osquery extension"]
+  subgraph Path3["3. Intelligence SOC osquery extension"]
     EXT[aisoc-extension binary<br/>5 virtual tables]
   end
   subgraph Path4["4. Universal capture"]
@@ -52,7 +52,7 @@ flowchart LR
 ### 1. Commercial EDR / XDR connectors
 
 These are the highest signal-to-noise sources because the vendor has already
-correlated raw telemetry into alerts. AiSOC pulls the alert stream, normalises
+correlated raw telemetry into alerts. Intelligence SOC pulls the alert stream, normalises
 severity into the four-tier ladder (`info`/`low`/`medium`/`high`), and feeds it
 straight into detection routing.
 
@@ -75,7 +75,7 @@ as the source of truth for "is this host compromised".
 ### 2. osquery fleet managers — osctrl and FleetDM
 
 Both [osctrl](/docs/connectors/osctrl) and [FleetDM](/docs/connectors/fleetdm)
-expose distributed-query results from a fleet of osquery agents. AiSOC polls
+expose distributed-query results from a fleet of osquery agents. Intelligence SOC polls
 the manager's REST API, turns each result row into a normalised endpoint event,
 and synthesises severity from the originating osquery table (persistence /
 execution tables → `high`, FIM tables → `medium`, inventory → `info`).
@@ -86,7 +86,7 @@ rows back into the case as triage evidence.
 
 **Pick this when** you want raw endpoint telemetry _and_ live response actions
 from the same control plane, without paying for an EDR. This is the path most
-self-hosted AiSOC deployments take.
+self-hosted Intelligence SOC deployments take.
 
 **FleetDM vs osctrl** — see the [matching matrix in the FleetDM page](/docs/connectors/fleetdm#when-to-choose-fleetdm-vs-osctrl).
 Short version: pick FleetDM if your team already runs it; pick osctrl if you
@@ -100,21 +100,21 @@ want the smaller infra footprint (PostgreSQL only, no MySQL or Redis).
 - ❌ Raw rows are noisy by default — detection authoring matters more than
   with EDR alert ingestion.
 
-### 3. AiSOC osquery extension
+### 3. Intelligence SOC osquery extension
 
 The [aisoc-extension binary](/docs/connectors/osquery-extensions) goes the
-other direction: instead of pulling osquery results into AiSOC, it surfaces
-**AiSOC operational data inside the osquery shell** as five virtual tables
+other direction: instead of pulling osquery results into Intelligence SOC, it surfaces
+**Intelligence SOC operational data inside the osquery shell** as five virtual tables
 (`aisoc_pending_actions`, `aisoc_alert_cache`, `aisoc_attck_persistence`,
 `aisoc_kernel_modules_verified`, `aisoc_browser_extensions`).
 
-This is not an ingestion connector — it does not move data into AiSOC. It is
+This is not an ingestion connector — it does not move data into Intelligence SOC. It is
 the **complement** to paths 2 and 3: once your fleet is sending data in via
-osctrl/FleetDM, the extension lets responders query AiSOC's view of the host
+osctrl/FleetDM, the extension lets responders query Intelligence SOC's view of the host
 from the same osquery shell they already use for IR triage.
 
 **Pick this when** you've already wired an osquery fleet and want responders
-to be able to answer "what does AiSOC currently know about this host?" via SQL.
+to be able to answer "what does Intelligence SOC currently know about this host?" via SQL.
 
 ### 4. Universal capture (webhook / syslog / HEC / email relay)
 
@@ -140,7 +140,7 @@ connector.
 
 | Dimension | EDR / XDR | osctrl / FleetDM | osquery extension | Universal capture |
 |---|---|---|---|---|
-| **What flows in** | Vendor alerts | osquery rows + (FleetDM) host posture | _Nothing_ — surfaces AiSOC data in the shell | Whatever you POST |
+| **What flows in** | Vendor alerts | osquery rows + (FleetDM) host posture | _Nothing_ — surfaces Intelligence SOC data in the shell | Whatever you POST |
 | **Severity source** | Vendor → 4-tier ladder | Synthesised from osquery table | n/a | You control it |
 | **Live-query response** | Vendor-specific (limited today) | ✅ via `osquery_live_query` playbook step | n/a (read-only on host) | n/a |
 | **Self-hosted-friendly** | Depends on vendor | ✅ Fully | ✅ Fully | ✅ Fully |
@@ -151,14 +151,14 @@ connector.
 
 ## Common combinations
 
-Most production AiSOC deployments end up running **at least two** of these in
+Most production Intelligence SOC deployments end up running **at least two** of these in
 parallel:
 
 - **EDR + osquery fleet** — EDR for the curated alert stream, osquery fleet
   for the raw telemetry your detection rules need to spot what the EDR misses
   (custom persistence, lateral movement via SaaS tokens, etc.).
 - **osquery fleet + osquery extension** — operators get both the
-  detection-rule firehose and the in-shell AiSOC view for IR triage.
+  detection-rule firehose and the in-shell Intelligence SOC view for IR triage.
 - **EDR + universal capture** — EDR is the primary source; universal capture
   catches the long tail (legacy Windows servers, IoT/OT gateways, custom
   internal tools).
@@ -170,7 +170,7 @@ collapsing duplicate alerts.
 ## Roadmap signals
 
 The endpoint connector surface is one of the most actively expanded areas of
-AiSOC. Two work items are in the public roadmap and will land here when they
+Intelligence SOC. Two work items are in the public roadmap and will land here when they
 ship:
 
 - **`aisoc-host-agent` daemon** — a lightweight Go daemon (mirroring the
@@ -184,7 +184,7 @@ ship:
 Both are tracked in the [community roadmap](https://github.com/beenuar/AiSOC/issues)
 and will get dedicated walkthrough pages on the same model as
 [osctrl](/docs/connectors/osctrl) and [FleetDM](/docs/connectors/fleetdm) when
-they merge. Until then, the four paths above cover every endpoint shape AiSOC
+they merge. Until then, the four paths above cover every endpoint shape Intelligence SOC
 can ingest today.
 
 ## Related

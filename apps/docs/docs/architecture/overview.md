@@ -1,12 +1,12 @@
 ---
 sidebar_position: 0
 title: Repository overview
-description: Where every service, package, and config lives in the AiSOC monorepo.
+description: Where every service, package, and config lives in the Intelligence SOC monorepo.
 ---
 
 # Repository overview
 
-This page is the canonical map of the AiSOC monorepo. It used to live in `README.md`; it was extracted here so the front page stays focused on "what is AiSOC and how do I run it" while this page stays useful for anyone navigating the code.
+This page is the canonical map of the Intelligence SOC monorepo. It used to live in `README.md`; it was extracted here so the front page stays focused on "what is Intelligence SOC and how do I run it" while this page stays useful for anyone navigating the code.
 
 For the data-flow architecture (Kafka spine, fusion, agents, storage tier, surface) see [Architecture](../architecture.md). For the deeper system-design write-up (ML fusion, Neo4j-at-ingest schema, threat-intel pipeline) see [`docs/architecture/SYSTEM_DESIGN.md`](https://github.com/beenuar/AiSOC/blob/main/docs/architecture/SYSTEM_DESIGN.md).
 
@@ -32,12 +32,12 @@ AiSOC/
 │   ├── osquery-tls/      # Python · native osquery TLS server + FIM + pack distribution
 │   ├── osquery-extensions/ # Go · AI threat-intel table + ML anomaly score table + 3 more
 │   ├── slack-bot/        # Python · ChatOps surface (Slack Bolt + HMAC signature verification)
-│   └── mcp/              # TypeScript · Model Context Protocol server (npm: @aisoc/mcp, lands in v8.0)
+│   └── mcp/              # TypeScript · Model Context Protocol server (npm: @isoc/mcp, lands in v8.0)
 ├── packages/
 │   ├── types/            # Shared TS types
 │   ├── ui/               # Shared React primitives
 │   ├── ocsf/             # OCSF normalization helpers
-│   ├── sdk-ts/           # TypeScript client SDK for AiSOC API (npm: @aisoc/sdk, lands in v8.0)
+│   ├── sdk-ts/           # TypeScript client SDK for Intelligence SOC API (npm: @isoc/sdk, lands in v8.0)
 │   ├── sdk-py/           # Async Python client SDK (PyPI: aisoc-sdk, lands in v8.0)
 │   ├── sdk-go/           # Go client SDK + models (module: github.com/beenuar/aisoc/sdk-go)
 │   ├── plugin-sdk-ts/    # TypeScript plugin development SDK
@@ -94,7 +94,7 @@ AiSOC/
 | `osquery-tls` | Python | 8091 | Native osquery TLS server — enroll nodes, distribute packs, stream FIM/process/network telemetry |
 | `osquery-extensions` | Go | — | Custom osquery extensions (AI-powered threat intel table, ML anomaly score table, + 3 more) |
 | `slack-bot` | Python | 8009 | ChatOps surface — interactive approvals for high-blast-radius actions, `/aisoc` slash command |
-| `mcp` | TypeScript | — (stdio) | Model Context Protocol server exposing 13 AiSOC tools — discovery, deep-dive, action/replay, and warm-tier lake query |
+| `mcp` | TypeScript | — (stdio) | Model Context Protocol server exposing 13 Intelligence SOC tools — discovery, deep-dive, action/replay, and warm-tier lake query |
 | `ingest` | Go | 8081 | OCSF normalization + Shodan/CVE + Neo4j graph-at-ingest writers |
 | `enrichment` | Go | 8080 | IOC enrichment (VT, AbuseIPDB, GreyNoise) |
 

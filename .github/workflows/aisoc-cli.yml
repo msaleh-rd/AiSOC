@@ -39,10 +39,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      # The CLI bundles @aisoc/report-card at build time and imports it in tests,
+      # The CLI bundles @isoc/report-card at build time and imports it in tests,
       # so the shared package must be built first.
-      - run: pnpm --filter @aisoc/report-card build
-      - run: pnpm --filter @aisoc/report-card test
+      - run: pnpm --filter @isoc/report-card build
+      - run: pnpm --filter @isoc/report-card test
       - name: Fixture is up to date (regenerate and diff)
         run: |
           node packages/aisoc-lite/scripts/gen-fixtures.mjs
@@ -70,7 +70,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @aisoc/report-card build
+      - run: pnpm --filter @isoc/report-card build
       - run: pnpm --filter aisoc build
       - name: triage --demo finishes fast with the documented headline
         run: |

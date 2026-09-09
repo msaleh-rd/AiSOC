@@ -1,13 +1,13 @@
 ---
 sidebar_position: 1
 title: Alert Reduction
-description: How the AiSOC alert-fusion substrate collapses a noisy 1,000-alert stream into ~247 incidents while losing zero critical alerts. Methodology, latest measured numbers, reproduction, and CI artefact location.
+description: How the Intelligence SOC alert-fusion substrate collapses a noisy 1,000-alert stream into ~247 incidents while losing zero critical alerts. Methodology, latest measured numbers, reproduction, and CI artefact location.
 ---
 
 # Alert Reduction
 
 > **Synthetic, deterministic, reproducible in under a second.** This page
-> documents the AiSOC alert-reduction benchmark — what it measures, how the
+> documents the Intelligence SOC alert-reduction benchmark — what it measures, how the
 > 3-tier fusion logic collapses a noisy alert stream into actionable
 > incidents, and how to reproduce the numbers locally.
 >

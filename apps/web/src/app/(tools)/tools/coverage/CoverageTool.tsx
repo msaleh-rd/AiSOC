@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { renderCardSvg } from "@aisoc/report-card";
+import { renderCardSvg } from "@isoc/report-card";
 
 import { gradeCoverage } from "../../../../lib/tools/coverage";
 

@@ -1,6 +1,6 @@
-# AiSOC Governance
+# Intelligence SOC Governance
 
-AiSOC is an open-source, community-maintained project under the MIT license.
+Intelligence SOC is an open-source, community-maintained project under the MIT license.
 This document describes how the project is governed: who makes decisions, how
 someone becomes a maintainer, and how the project intends to stay a neutral,
 long-lived home for its community.
@@ -21,7 +21,7 @@ long-lived home for its community.
 
 | Role | Who | Rights |
 |------|-----|--------|
-| **User** | Anyone running AiSOC | Files issues, joins discussions. |
+| **User** | Anyone running Intelligence SOC | Files issues, joins discussions. |
 | **Contributor** | Anyone who has landed a PR | Everything a user can do; listed in git history. |
 | **Maintainer** | Listed in [`MAINTAINERS.md`](MAINTAINERS.md) | Reviews + merges PRs, triages issues, cuts releases, stewards the roadmap. |
 
@@ -66,12 +66,12 @@ Developer Certificate of Origin sign-off (`Signed-off-by:`). See
 
 ## Trademark
 
-The MIT license covers the code; the AiSOC name and marks are governed
+The MIT license covers the code; the Intelligence SOC name and marks are governed
 separately — see [`TRADEMARK.md`](TRADEMARK.md).
 
 ## Neutral home
 
-AiSOC intends to remain vendor-neutral. As the community and maintainer set
+Intelligence SOC intends to remain vendor-neutral. As the community and maintainer set
 grow, the project's explicit goal is to move governance and asset ownership to a
 neutral foundation (e.g. a CNCF/OpenSSF-style home) rather than any single
 company. This document is the interim governance model until that transition;

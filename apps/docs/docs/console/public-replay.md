@@ -74,7 +74,7 @@ shields.io-compatible endpoint badges live at `tryaisoc.com/api/badge/<kind>`
 Embed one in a README:
 
 ```markdown
-![AiSOC](https://img.shields.io/endpoint?url=https://tryaisoc.com/api/badge/triaged)
+![Intelligence SOC](https://img.shields.io/endpoint?url=https://tryaisoc.com/api/badge/triaged)
 ```
 
 Callers can override the message/label/color via query params (e.g. the GitHub

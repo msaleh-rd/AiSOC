@@ -34,7 +34,7 @@
   },
   "//onCreateCommand": "Runs once at image-spawn time. The pnpm store is already warm in the prebuilt image, so `--frozen-lockfile=false` here is fast (≤ 30 s on a green Codespace).",
   "onCreateCommand": "pnpm install --frozen-lockfile=false",
-  "postAttachCommand": "echo '\\n>>> AiSOC dev container is ready.\\n>>> To run the demo, open a terminal and run:\\n>>>     pnpm aisoc:demo --no-open\\n>>> Then click the forwarded port 3000 in the Ports panel.\\n>>> Or, no-Docker:  pip install -e packages/aisoc-sandbox && aisoc-sandbox demo\\n'",
+  "postAttachCommand": "echo '\\n>>> Intelligence SOC dev container is ready.\\n>>> To run the demo, open a terminal and run:\\n>>>     pnpm aisoc:demo --no-open\\n>>> Then click the forwarded port 3000 in the Ports panel.\\n>>> Or, no-Docker:  pip install -e packages/isoc-sandbox && aisoc-sandbox demo\\n'",
   "remoteUser": "node",
   "containerEnv": {
     "AISOC_DEV_MODE": "1"

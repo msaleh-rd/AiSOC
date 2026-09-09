@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Contribution Guidelines
 
-Thank you for contributing to AiSOC! This guide covers everything you need to
+Thank you for contributing to Intelligence SOC! This guide covers everything you need to
 know to land a clean pull request: branching, testing, commit format, the PR
 template, plan files for larger work, and the eval-harness gate that protects
 agent quality.
@@ -74,7 +74,7 @@ notes.
 
 ## Testing
 
-AiSOC has three layers of automated checks. **PRs that fail any layer cannot
+Intelligence SOC has three layers of automated checks. **PRs that fail any layer cannot
 land.**
 
 ### 1. Linting and type checks
@@ -83,7 +83,7 @@ Run before every commit:
 
 ```bash
 pnpm lint                           # ESLint + Prettier across the workspace
-pnpm --filter @aisoc/web typecheck  # TypeScript on the web app
+pnpm --filter @isoc/web typecheck  # TypeScript on the web app
 ruff check services/                # Python linting
 mypy services/<name>                # type-check the service you touched
 ( cd services/<name> && go vet ./... && gofmt -l . )
@@ -98,7 +98,7 @@ Run the suite for whichever surface you touched:
 
 ```bash
 # Web app
-pnpm --filter @aisoc/web test
+pnpm --filter @isoc/web test
 
 # Python services
 pytest services/api/tests/

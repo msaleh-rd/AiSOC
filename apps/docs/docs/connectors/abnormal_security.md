@@ -1,13 +1,13 @@
 ---
 sidebar_position: 76
 title: Abnormal Security
-description: Abnormal Security behavioural-AI email threat events into AiSOC via the public REST API.
+description: Abnormal Security behavioural-AI email threat events into Intelligence SOC via the public REST API.
 ---
 
 # Abnormal Security
 
 The Abnormal Security connector polls the **/v1/threats** and **/v1/cases**
-endpoints of the Abnormal API and emits one AiSOC alert per detected
+endpoints of the Abnormal API and emits one Intelligence SOC alert per detected
 threat (and one per case, since a case rolls up multiple threats and
 carries its own severity).
 
@@ -38,18 +38,18 @@ specific `threatType` values (`businessEmailCompromise`,
 1. Sign in to the Abnormal Console as an administrator.
 2. Navigate to **Settings → Integrations → API**.
 3. Click **Generate token** and copy the value to a password manager.
-4. In AiSOC: **Connectors → Add connector → Abnormal Security**.
+4. In Intelligence SOC: **Connectors → Add connector → Abnormal Security**.
 5. Paste the API token (and override `base_url` only if your tenant
    requires a regional endpoint).
-6. Click **Test connection**. AiSOC issues a `GET /v1/threats?pageSize=1`
+6. Click **Test connection**. Intelligence SOC issues a `GET /v1/threats?pageSize=1`
    request and confirms a `200`.
 7. Save.
 
 ## Severity mapping
 
-The connector collapses Abnormal `threatType` into the AiSOC ladder:
+The connector collapses Abnormal `threatType` into the Intelligence SOC ladder:
 
-| AiSOC severity | Abnormal threat type |
+| Intelligence SOC severity | Abnormal threat type |
 |---|---|
 | `high`   | `businessEmailCompromise`, `credentialPhishing`, `accountTakeover`, `phishing`, `malware`, `invoiceFraud`, `vendorEmailCompromise`, `extortion` |
 | `medium` | every other threat — Abnormal only reports things it considers abnormal, so there is no `info` floor |

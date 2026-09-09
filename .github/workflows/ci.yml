@@ -128,7 +128,7 @@ jobs:
           retention-days: 7
 
   # ──────────────────────────────────────────────
-  # @aisoc/mcp — MCP server for Claude/Cursor/Cody
+  # @isoc/mcp — MCP server for Claude/Cursor/Cody
   #   Typechecks, runs the vitest contract tests (config + tools registry +
   #   installer file-write behaviour), and builds the dist bundle so the
   #   `bin/aisoc-mcp` shebang is exercised on the same Node version we
@@ -149,11 +149,11 @@ jobs:
       - name: Install workspace deps
         run: pnpm install --frozen-lockfile
       - name: Type-check
-        run: pnpm --filter @aisoc/mcp typecheck
+        run: pnpm --filter @isoc/mcp typecheck
       - name: Test
-        run: pnpm --filter @aisoc/mcp test
+        run: pnpm --filter @isoc/mcp test
       - name: Build
-        run: pnpm --filter @aisoc/mcp build
+        run: pnpm --filter @isoc/mcp build
 
   # ──────────────────────────────────────────────
   # Python API & services
@@ -547,18 +547,18 @@ jobs:
           pip install --quiet \
             -e packages/plugin-sdk-py \
             -e packages/sdk-py \
-            -e packages/aisoc-cli \
+            -e packages/isoc-cli \
             pytest pytest-asyncio pytest-httpx
       - name: Run aisoc-plugin-sdk tests
         run: pytest packages/plugin-sdk-py/tests/ -v --tb=short
       - name: Run aisoc-sdk tests
         run: pytest packages/sdk-py/tests/ -v --tb=short
       - name: Run aisoc-cli tests
-        run: pytest packages/aisoc-cli/tests/ -v --tb=short
+        run: pytest packages/isoc-cli/tests/ -v --tb=short
 
   # ──────────────────────────────────────────────
   # SDK packages (TypeScript)
-  #   `@aisoc/sdk` is a typed openapi-fetch client with a self-contained
+  #   `@isoc/sdk` is a typed openapi-fetch client with a self-contained
   #   vitest suite (HTTP mocked, no real server). Same pnpm workspace
   #   pattern as the MCP job — install once at the root, then filter.
   # ──────────────────────────────────────────────
@@ -576,11 +576,11 @@ jobs:
       - name: Install workspace deps
         run: pnpm install --frozen-lockfile
       - name: Type-check
-        run: pnpm --filter @aisoc/sdk typecheck
+        run: pnpm --filter @isoc/sdk typecheck
       - name: Test
-        run: pnpm --filter @aisoc/sdk test
+        run: pnpm --filter @isoc/sdk test
       - name: Build
-        run: pnpm --filter @aisoc/sdk build
+        run: pnpm --filter @isoc/sdk build
 
   # ──────────────────────────────────────────────
   # Go services (enrichment, ingest, demo-producer)

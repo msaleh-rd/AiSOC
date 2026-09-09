@@ -55,7 +55,7 @@ docker compose logs postgres --tail 100
   SELECT pg_cancel_backend(<pid>);   -- graceful
   SELECT pg_terminate_backend(<pid>); -- last resort
   ```
-- **Disk full:** AiSOC writes durable event ledgers
+- **Disk full:** Intelligence SOC writes durable event ledgers
   (`detection_runs`, `agent_traces`, `audit_events`) on every
   fired alert. Run
   `services/api/scripts/prune_ledger.py --older-than 30d --apply`

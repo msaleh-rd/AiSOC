@@ -5,13 +5,13 @@ sidebar_label: GitHub Action
 
 # `aisoc-action` — triage your repo's security signals in CI
 
-`aisoc-action` runs the AiSOC **deterministic verdict engine** over your
+`aisoc-action` runs the Intelligence SOC **deterministic verdict engine** over your
 repository's own security alerts — Dependabot, CodeQL (code scanning), and
 secret scanning — and posts verdicts, suppression rationale, and prioritization
 as a PR comment or job summary. No LLM, no data leaves your CI runner.
 
-> **Status:** the Action is dogfooded on the AiSOC repo today via the in-repo
-> path (`uses: ./packages/aisoc-action`). Publishing to the GitHub Marketplace
+> **Status:** the Action is dogfooded on the Intelligence SOC repo today via the in-repo
+> path (`uses: ./packages/isoc-action`). Publishing to the GitHub Marketplace
 > as `beenuar/aisoc-action@v1` lands with the v8.0 launch.
 
 ## PR triage (comment on every pull request)
@@ -36,7 +36,7 @@ jobs:
 
 You'll get a comment like:
 
-> 🛡️ **AiSOC security triage** — 3 of 41 findings are prioritized as
+> 🛡️ **Intelligence SOC security triage** — 3 of 41 findings are prioritized as
 > exploitable / act-now; 34 are low-signal noise.
 
 with a table of the findings that need attention (verdict, confidence, source,

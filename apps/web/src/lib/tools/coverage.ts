@@ -9,7 +9,7 @@
  */
 
 import { ATTACK_CATALOG, parentTechnique, type AttackTechnique } from "./attack-catalog";
-import { coverageGrade } from "@aisoc/report-card";
+import { coverageGrade } from "@isoc/report-card";
 
 const TECHNIQUE_RE = /\bT\d{4}(?:\.\d{3})?\b/gi;
 // Sigma tags spell techniques as `attack.t1059.001`; also catch bare ids.

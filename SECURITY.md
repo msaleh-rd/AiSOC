@@ -1,6 +1,6 @@
 # Security policy
 
-AiSOC is security software, so we take vulnerabilities in our own stack seriously. This document explains how to report issues responsibly and what to expect from us.
+Intelligence SOC is security software, so we take vulnerabilities in our own stack seriously. This document explains how to report issues responsibly and what to expect from us.
 
 ## Threat models
 
@@ -50,13 +50,13 @@ In scope:
 
 Out of scope:
 
-- Third-party services that AiSOC integrates with (CrowdStrike, Splunk, AWS, etc.)
+- Third-party services that Intelligence SOC integrates with (CrowdStrike, Splunk, AWS, etc.)
 - Self-hosted deployments that have been customized
 - Issues requiring physical access to a host
 
 ## Hardening guidance
 
-If you operate AiSOC, please review:
+If you operate Intelligence SOC, please review:
 
 - [`docs/runbooks/HARDENING.md`](docs/runbooks/HARDENING.md) for production hardening steps
 - [`infra/helm/aisoc/values.yaml`](infra/helm/aisoc/values.yaml) for the security-related defaults
@@ -82,7 +82,7 @@ vulnerability reporting — do not open a public issue.
 
 ## Bounty
 
-AiSOC is an open-source project and does not currently operate a paid bounty program. We deeply appreciate responsible reports and will credit researchers in advisories and the hall of fame.
+Intelligence SOC is an open-source project and does not currently operate a paid bounty program. We deeply appreciate responsible reports and will credit researchers in advisories and the hall of fame.
 
 ## Hall of fame
 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 3
-title: Hello, hunt — write your first AiSOC detection
-description: A walkthrough that ships a runnable AiSOC detection rule end to end. Author the YAML, pin it with positive and negative fixtures, run it against the rule engine, and surface it in the marketplace — no vendor account required.
+title: Hello, hunt — write your first Intelligence SOC detection
+description: A walkthrough that ships a runnable Intelligence SOC detection rule end to end. Author the YAML, pin it with positive and negative fixtures, run it against the rule engine, and surface it in the marketplace — no vendor account required.
 ---
 
 # Hello, hunt
 
-This tutorial walks you end-to-end through the work of adding a new detection rule to AiSOC. By the end you will have:
+This tutorial walks you end-to-end through the work of adding a new detection rule to Intelligence SOC. By the end you will have:
 
 - A `community-tier` Sigma-style YAML rule under `detections/community/<category>/`.
 - A **positive** fixture under `detections/fixtures/positive/` that the rule must match.
@@ -37,7 +37,7 @@ Three files, one rule. That's the whole contract.
 
 ## Detection tiers — pick the right shelf first
 
-AiSOC sorts detections into three tiers, and each tier has a different bar:
+Intelligence SOC sorts detections into three tiers, and each tier has a different bar:
 
 | Tier        | Path                                              | `id` prefix                   | Authoring style       | Bar                                                                                                                                                                                                                  |
 | ----------- | ------------------------------------------------- | ----------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,7 +61,7 @@ Three rules to internalise:
 2. **Prefix with `community-<your-handle>-`.** This is enforced socially, not technically — the validator doesn't reject other shapes — but `marketplace/curated.json` and the in-app filters group by prefix, and reviewers will ask you to rename if you skip it.
 3. **Never change it after merge.** Renaming a rule breaks every alert row in production that references it. If the rule needs a behavioural overhaul, give the new version a new `id` and deprecate the old one.
 
-The example uses `aisoc` as the handle because the AiSOC project itself is the author. Real contributions use your GitHub username (`community-jdoe-aws-root-login`) or your org name (`community-acme-aws-root-login`).
+The example uses `aisoc` as the handle because the Intelligence SOC project itself is the author. Real contributions use your GitHub username (`community-jdoe-aws-root-login`) or your org name (`community-acme-aws-root-login`).
 
 ## Step 2 — Fill in the metadata block
 
@@ -126,7 +126,7 @@ false_positives:
   - Initial AWS account setup before an IAM admin user exists.
 playbook: tpl-credential-access
 enabled: true
-author: AiSOC Tutorial
+author: Intelligence SOC Tutorial
 created: '2026-05-12'
 modified: '2026-05-12'
 references:
@@ -278,7 +278,7 @@ After this, the rule shows up in the in-app marketplace at `/marketplace` with a
 
 ## Step 10 — (Optional) Replay the rule against your tenant's live events
 
-If you have a running AiSOC dev stack and want to see the rule fire end to end:
+If you have a running Intelligence SOC dev stack and want to see the rule fire end to end:
 
 ```bash
 # 1. Restart the API so it reloads the detection corpus from disk.
@@ -316,7 +316,7 @@ When you've run the rule against a few weeks of real telemetry and you want it p
 4. **Re-run validation.** `python3 scripts/validate_detections.py --strict-fixtures` must pass for native rules — fixtures are no longer optional, and the spec round-trip is enforced.
 5. **Mark it verified.** The marketplace build will switch `verified: true` and `source: "native"` automatically based on the file path.
 
-That's the full path. Promotion is intentionally manual — the curated set is one of AiSOC's sharpest selling points, and we'd rather move slowly than dilute it.
+That's the full path. Promotion is intentionally manual — the curated set is one of Intelligence SOC's sharpest selling points, and we'd rather move slowly than dilute it.
 
 ## Related
 

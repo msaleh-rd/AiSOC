@@ -1,12 +1,12 @@
 ---
 sidebar_position: 5
 title: Benchmark Methodology
-description: How AiSOC's public eval is built — dataset, substrate vs wet eval, rate card, exact reproduction commands, and the threats to validity we are honest about. The reference document for anyone reproducing the numbers on the benchmark page or comparing AiSOC against their own SOC.
+description: How Intelligence SOC's public eval is built — dataset, substrate vs wet eval, rate card, exact reproduction commands, and the threats to validity we are honest about. The reference document for anyone reproducing the numbers on the benchmark page or comparing Intelligence SOC against their own SOC.
 ---
 
 # Benchmark methodology
 
-This page is the open reference for AiSOC's public evaluation. It exists so that
+This page is the open reference for Intelligence SOC's public evaluation. It exists so that
 anyone — a contributor, a regulated buyer, an auditor, or a researcher — can
 understand how every number on the [benchmark page](./benchmark.md) is
 produced, reproduce them on their own laptop, and surface where the eval
@@ -19,7 +19,7 @@ as live agent performance.** Every section below labels its scope.
 ## 1. Why this exists
 
 Vendor-published AI SOC benchmarks are typically not reproducible by the buyer
-— the dataset, the rubric, and the runner are private. AiSOC takes the
+— the dataset, the rubric, and the runner are private. Intelligence SOC takes the
 opposite position: ship the dataset, the harness, and the CI gate in the
 repo, label which numbers are real measurements vs. substrate self-checks,
 and invite reproductions.
@@ -174,7 +174,7 @@ do not silently revalue when prices change.
 | Anthropic    | `claude-3.5-haiku`  | 0.80              | 4.00               | 2024-11-04     |
 | Local        | `ollama/llama3.1:8b`| 0.00              | 0.00               | n/a            |
 
-> **Rates evolve.** Providers update prices, and AiSOC ships a new wet-eval
+> **Rates evolve.** Providers update prices, and Intelligence SOC ships a new wet-eval
 > run when they do. We do not retroactively rewrite historic dollar numbers
 > — old runs are recomputed only if you ask for them with the `--rate-card`
 > override on `scripts/run_evals.py`. The "Effective from" column is the
@@ -268,7 +268,7 @@ it in an afternoon and post the result publicly.
    `alert_reduction`, `investigation_completeness`, `response_quality`,
    and `playbook_completion_rate` all live in
    [`services/agents/tests/`](https://github.com/beenuar/AiSOC/tree/main/services/agents/tests)
-   and require no AiSOC-specific runtime. Replace the substrate code under
+   and require no Intelligence SOC-specific runtime. Replace the substrate code under
    test with your equivalents.
 4. **For wet eval, declare your model and rate card.** Latency, tokens, and
    USD figures are not comparable across providers without these labels —
@@ -281,7 +281,7 @@ it in an afternoon and post the result publicly.
    `eval_report.json`. Comparisons that follow these rules are added to
    the [public scoreboard](./benchmark.md#community-benchmark-scoreboard).
 
-We welcome any reproduction — including ones that show AiSOC losing on a
+We welcome any reproduction — including ones that show Intelligence SOC losing on a
 particular template family. If you find a regression, please file an issue
 or open a PR; the harness exists precisely to surface those.
 
@@ -302,7 +302,7 @@ templates, but real SOC alert streams differ in three important ways:
 - **Context shape.** Real incidents carry org-specific context (asset
   criticality, business hours, owner). The eval normalises this away.
 
-What the eval **can** tell you: whether AiSOC's substrate gets worse over
+What the eval **can** tell you: whether Intelligence SOC's substrate gets worse over
 time on a fixed corpus, what the wet-eval cost looks like in steady state,
 and where template families regress.
 
@@ -311,7 +311,7 @@ and where template families regress.
 `mitre_accuracy`, `investigation_completeness`, and `response_quality` are
 written to gate substrate consistency, not LLM capability. We say this in
 several places on the benchmark page and again here, because it is the
-single most-misread part of the eval. If you want to claim "AiSOC's agent
+single most-misread part of the eval. If you want to claim "Intelligence SOC's agent
 is 97 % accurate at MITRE classification" — the substrate score does not
 support that. The wet-eval LLM-as-judge variant (post-T2.4) is the right
 metric for that claim.

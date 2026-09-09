@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: Investigation Rail on /alerts
-description: How AiSOC turns the legacy alert detail drawer into a structured triage rail — narrative, related entities, mini-timeline, and recommended actions — served by GET /api/v1/alerts/{id} and rendered to the right of the queue.
+description: How Intelligence SOC turns the legacy alert detail drawer into a structured triage rail — narrative, related entities, mini-timeline, and recommended actions — served by GET /api/v1/alerts/{id} and rendered to the right of the queue.
 ---
 
 # Investigation Rail on `/alerts`

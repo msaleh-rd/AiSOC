@@ -23,7 +23,7 @@ on:
     branches: [main, develop]
     paths:
       - 'README.md'
-      - 'packages/aisoc-sandbox/**'
+      - 'packages/isoc-sandbox/**'
       - 'apps/web/public/demo/**'
       - 'scripts/readme_gates.py'
       - '.github/workflows/readme-gates.yml'
@@ -31,7 +31,7 @@ on:
     branches: [main]
     paths:
       - 'README.md'
-      - 'packages/aisoc-sandbox/**'
+      - 'packages/isoc-sandbox/**'
       - 'apps/web/public/demo/**'
       - 'scripts/readme_gates.py'
       - '.github/workflows/readme-gates.yml'
@@ -80,7 +80,7 @@ jobs:
       - name: Install aisoc-sandbox from source
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install -e packages/aisoc-sandbox
+          python3 -m pip install -e packages/isoc-sandbox
 
       - name: Smoke-test each bundled scenario
         run: |
@@ -102,5 +102,5 @@ jobs:
       - name: Run sandbox unit tests
         run: |
           python3 -m pip install pytest
-          cd packages/aisoc-sandbox
+          cd packages/isoc-sandbox
           PYTHONPATH=src python3 -m pytest tests/ -q

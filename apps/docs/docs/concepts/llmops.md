@@ -1,6 +1,6 @@
 # LLMOps
 
-AiSOC treats the LLM as a governed dependency, not a black box. Four small,
+Intelligence SOC treats the LLM as a governed dependency, not a black box. Four small,
 dependency-light pieces in `services/agents/app/llm/` make LLM behaviour
 versioned, bounded, cached, and fail-closed.
 

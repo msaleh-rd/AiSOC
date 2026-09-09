@@ -1,4 +1,4 @@
-# AiSOC Maintainers
+# Intelligence SOC Maintainers
 
 Maintainers review and merge pull requests, triage issues, cut releases, and
 steward the roadmap. See [`GOVERNANCE.md`](GOVERNANCE.md) for roles, the

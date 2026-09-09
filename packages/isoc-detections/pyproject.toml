@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aisoc-detections"
+name = "isoc-detections"
 version = "0.1.0"
-description = "AiSOC Python detection framework — write detections as def rule(event), unit-tested against inline fixtures"
+description = "Intelligence SOC Python detection framework — write detections as def rule(event), unit-tested against inline fixtures"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [

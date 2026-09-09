@@ -12,12 +12,12 @@ management commands for every supported plugin type — `enricher`, `connector`,
 The CLI is fully functional today; it ships from the monorepo. The PyPI release (`pipx install aisoc-cli` / `pip install aisoc-cli`) lands with v8.0. Use the source path below until then — the command surface (`aisoc plugin new`, `aisoc validate detection`, …) stays identical.
 :::
 
-The CLI source lives under `packages/aisoc-cli/`. Install it from the repo:
+The CLI source lives under `packages/isoc-cli/`. Install it from the repo:
 
 ```bash
 # Today (from this monorepo):
 git clone https://github.com/beenuar/AiSOC.git
-cd AiSOC && pip install -e packages/aisoc-cli
+cd AiSOC && pip install -e packages/isoc-cli
 
 # v8.0+ (once aisoc-cli lands on PyPI):
 pipx install aisoc-cli   # recommended (isolated venv)
@@ -68,7 +68,7 @@ following files:
 | `widget` | `plugin.yaml`, `widget.py`, `README.md` |
 
 The canonical templates live inside the CLI package at
-`packages/aisoc-cli/src/aisoc_cli/templates/<type>/` and are loaded at runtime
+`packages/isoc-cli/src/aisoc_cli/templates/<type>/` and are loaded at runtime
 via `importlib.resources`, so they ship inside the wheel. Edit the `.tmpl`
 files there to change what new plugins look like.
 

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 9
 title: Cloudflare Audit Logs
-description: Account-scope audit log entries from Cloudflare — admin actions, API token usage, edge config changes — into AiSOC.
+description: Account-scope audit log entries from Cloudflare — admin actions, API token usage, edge config changes — into Intelligence SOC.
 ---
 
 # Cloudflare Audit Logs
@@ -51,7 +51,7 @@ Any zone's **Overview** page shows the account ID in the right-hand sidebar (32-
 curl -H "Authorization: Bearer $TOKEN" https://api.cloudflare.com/client/v4/accounts | jq -r '.result[].id'
 ```
 
-### 3. Add the connector in AiSOC
+### 3. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → Cloudflare**.
 2. `account_id` = the 32-character hex string.

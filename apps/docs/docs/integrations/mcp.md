@@ -1,18 +1,18 @@
 ---
 sidebar_position: 1
 title: MCP server (Claude / Cursor / Cody)
-description: Connect AiSOC to Claude Desktop, Cursor, Cody, and Continue.dev via the Model Context Protocol.
+description: Connect Intelligence SOC to Claude Desktop, Cursor, Cody, and Continue.dev via the Model Context Protocol.
 ---
 
 # MCP server
 
-The `@aisoc/mcp` server is the official [Model Context Protocol](https://modelcontextprotocol.io) bridge between AiSOC and modern AI assistants. Once installed, your assistant can list alerts, pull cases, run agent investigations, and **replay every step the agent took** — without leaving the chat or the IDE.
+The `@isoc/mcp` server is the official [Model Context Protocol](https://modelcontextprotocol.io) bridge between Intelligence SOC and modern AI assistants. Once installed, your assistant can list alerts, pull cases, run agent investigations, and **replay every step the agent took** — without leaving the chat or the IDE.
 
 :::info Status — monorepo today, npm in v8.0
-The MCP server ships from [`services/mcp/`](https://github.com/beenuar/AiSOC/tree/main/services/mcp) in this repository and is fully working today. The `npx -y @aisoc/mcp …` one-liner lands when the package is published to npm as part of v8.0. Until then, use the **build-from-source** path shown below — every install/serve/doctor command is otherwise identical.
+The MCP server ships from [`services/mcp/`](https://github.com/beenuar/AiSOC/tree/main/services/mcp) in this repository and is fully working today. The `npx -y @isoc/mcp …` one-liner lands when the package is published to npm as part of v8.0. Until then, use the **build-from-source** path shown below — every install/serve/doctor command is otherwise identical.
 :::
 
-> **Why this matters.** MCP is becoming the substrate for "AI tools that work everywhere": Claude Desktop, Cursor, Cody, Continue, Zed, and counting. Every analyst who works in those tools gets AiSOC discovery for free.
+> **Why this matters.** MCP is becoming the substrate for "AI tools that work everywhere": Claude Desktop, Cursor, Cody, Continue, Zed, and counting. Every analyst who works in those tools gets Intelligence SOC discovery for free.
 
 ## Build from source (today)
 
@@ -23,29 +23,29 @@ pnpm install
 pnpm build               # writes services/mcp/dist/index.js
 ```
 
-`dist/index.js` is an executable Node entry point. Every command below assumes you run it from the `services/mcp` directory; substitute `node dist/index.js …` for `npx -y @aisoc/mcp …` everywhere.
+`dist/index.js` is an executable Node entry point. Every command below assumes you run it from the `services/mcp` directory; substitute `node dist/index.js …` for `npx -y @isoc/mcp …` everywhere.
 
 ## Supported hosts
 
 | Host | One-line install (v8.0 npm path) | Build-from-source equivalent (today) | Config file |
 |---|---|---|---|
-| **Claude Desktop** | `npx -y @aisoc/mcp install --host claude --aisoc-url … --api-key …` | `node dist/index.js install --host claude --aisoc-url … --api-key …` | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| **Cursor** | `npx -y @aisoc/mcp install --host cursor --aisoc-url … --api-key …` | `node dist/index.js install --host cursor --aisoc-url … --api-key …` | `~/.cursor/mcp.json` |
-| **Continue.dev** | `npx -y @aisoc/mcp install --host continue --aisoc-url … --api-key …` | `node dist/index.js install --host continue --aisoc-url … --api-key …` | `~/.continue/config.json` |
-| **Cody** | `npx -y @aisoc/mcp install --host cody --aisoc-url … --api-key …` (prints snippet) | `node dist/index.js install --host cody --aisoc-url … --api-key …` | VS Code User Settings → `cody.mcp.servers` |
+| **Claude Desktop** | `npx -y @isoc/mcp install --host claude --aisoc-url … --api-key …` | `node dist/index.js install --host claude --aisoc-url … --api-key …` | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| **Cursor** | `npx -y @isoc/mcp install --host cursor --aisoc-url … --api-key …` | `node dist/index.js install --host cursor --aisoc-url … --api-key …` | `~/.cursor/mcp.json` |
+| **Continue.dev** | `npx -y @isoc/mcp install --host continue --aisoc-url … --api-key …` | `node dist/index.js install --host continue --aisoc-url … --api-key …` | `~/.continue/config.json` |
+| **Cody** | `npx -y @isoc/mcp install --host cody --aisoc-url … --api-key …` (prints snippet) | `node dist/index.js install --host cody --aisoc-url … --api-key …` | VS Code User Settings → `cody.mcp.servers` |
 
 Print the canonical config paths for your machine any time:
 
 ```bash
 node dist/index.js install --list-paths
-# (v8.0 npm equivalent: npx -y @aisoc/mcp install --list-paths)
+# (v8.0 npm equivalent: npx -y @isoc/mcp install --list-paths)
 ```
 
 ## 60-second quickstart
 
 ### 1. Mint an API key
 
-In the AiSOC console: **Settings → API Keys → New personal access token**. Give it `cases:read`, `alerts:read`, `detections:read`, and (if you want the agent to investigate from chat) `cases:investigate`. Copy the token — it's shown once.
+In the Intelligence SOC console: **Settings → API Keys → New personal access token**. Give it `cases:read`, `alerts:read`, `detections:read`, and (if you want the agent to investigate from chat) `cases:investigate`. Copy the token — it's shown once.
 
 ### 2. Run the installer
 
@@ -55,8 +55,8 @@ node dist/index.js install --host claude \
   --aisoc-url https://aisoc.your-company.com \
   --api-key  aisoc_pat_xxxxxxxxxxxx
 
-# v8.0+ (once @aisoc/mcp lands on npm):
-npx -y @aisoc/mcp install --host claude \
+# v8.0+ (once @isoc/mcp lands on npm):
+npx -y @isoc/mcp install --host claude \
   --aisoc-url https://aisoc.your-company.com \
   --api-key  aisoc_pat_xxxxxxxxxxxx
 ```
@@ -73,7 +73,7 @@ The installer is **idempotent**. Re-running it with the same arguments is a no-o
 
 Ask your assistant:
 
-> _"Show me the open P0 cases in AiSOC."_
+> _"Show me the open P0 cases in Intelligence SOC."_
 >
 > _"Replay the agent's reasoning on case INC-0421 step by step."_
 >
@@ -83,7 +83,7 @@ If the assistant asks for permission to call `aisoc_*` tools, that's expected �
 
 ## Tools exposed
 
-The server advertises **13 tools** to your assistant. Discovery tools list things, deep-dive tools fetch one thing, the lake-query pair lets agents run governed SELECTs over the warm tier, and the action / replay tools are what make AiSOC interesting:
+The server advertises **13 tools** to your assistant. Discovery tools list things, deep-dive tools fetch one thing, the lake-query pair lets agents run governed SELECTs over the warm tier, and the action / replay tools are what make Intelligence SOC interesting:
 
 ```mermaid
 graph LR
@@ -128,7 +128,7 @@ graph LR
 | **`aisoc_replay_decision`** | Walk the agent ledger step-by-step (recon, forensic, responder, reporter). |
 | **`aisoc_explain_step`** | Why-did-the-agent-do-this for a single step: prompt, response, tool I/O. |
 
-The replay/explain pair is the moat: closed-source AI SOC vendors can't show you their agent's prompts and tool calls. AiSOC will.
+The replay/explain pair is the moat: closed-source AI SOC vendors can't show you their agent's prompts and tool calls. Intelligence SOC will.
 
 ## Configuration
 
@@ -136,7 +136,7 @@ All flags can be set via env vars; the CLI flag wins if both are present.
 
 | Flag | Env var | Default | Notes |
 |---|---|---|---|
-| `--aisoc-url` | `AISOC_URL` | `http://localhost:8081` | Base URL of the AiSOC API. |
+| `--aisoc-url` | `AISOC_URL` | `http://localhost:8081` | Base URL of the Intelligence SOC API. |
 | `--api-key` | `AISOC_API_KEY` | _(none)_ | API key (`aisoc_pat_…`) or JWT. Required for non-public endpoints. |
 | `--timeout` | `AISOC_TIMEOUT_MS` | `20000` | Per-request timeout in ms. |
 | `--verbose` | `AISOC_MCP_VERBOSE=1` | off | Lifecycle logs to stderr (stdout stays JSON-RPC clean). |
@@ -150,8 +150,8 @@ If you'd rather edit JSON yourself, `install --dry-run` prints exactly what the 
 node dist/index.js install --host claude --dry-run \
   --aisoc-url https://aisoc.your-company.com --api-key aisoc_xxx
 
-# v8.0+ (once @aisoc/mcp lands on npm):
-npx -y @aisoc/mcp install --host claude --dry-run \
+# v8.0+ (once @isoc/mcp lands on npm):
+npx -y @isoc/mcp install --host claude --dry-run \
   --aisoc-url https://aisoc.your-company.com --api-key aisoc_xxx
 ```
 
@@ -172,14 +172,14 @@ Paste the snippet under `mcpServers` in your host's config. Today's source-build
 }
 ```
 
-Once `@aisoc/mcp` ships to npm in v8.0, the equivalent snippet drops the absolute path:
+Once `@isoc/mcp` ships to npm in v8.0, the equivalent snippet drops the absolute path:
 
 ```json
 {
   "mcpServers": {
     "aisoc": {
       "command": "npx",
-      "args": ["-y", "@aisoc/mcp", "serve"],
+      "args": ["-y", "@isoc/mcp", "serve"],
       "env": {
         "AISOC_URL": "https://aisoc.your-company.com",
         "AISOC_API_KEY": "aisoc_pat_xxxxxxxxxxxx"
@@ -199,26 +199,26 @@ AISOC_URL=https://aisoc.your-company.com \
 AISOC_API_KEY=aisoc_pat_xxx \
 node dist/index.js doctor
 
-# v8.0+ (once @aisoc/mcp lands on npm):
+# v8.0+ (once @isoc/mcp lands on npm):
 AISOC_URL=https://aisoc.your-company.com \
 AISOC_API_KEY=aisoc_pat_xxx \
-npx -y @aisoc/mcp doctor
+npx -y @isoc/mcp doctor
 ```
 
-`doctor` checks DNS, TLS, the AiSOC `/health` endpoint, and that your API key is accepted. It exits non-zero on failure, so it's safe to wire into a pre-flight script.
+`doctor` checks DNS, TLS, the Intelligence SOC `/health` endpoint, and that your API key is accepted. It exits non-zero on failure, so it's safe to wire into a pre-flight script.
 
 ## Security model
 
-- **Your API key never leaves the machine** running the server. It's read from env or the host's local config file (mode `0600`) and used to sign requests to your AiSOC instance.
+- **Your API key never leaves the machine** running the server. It's read from env or the host's local config file (mode `0600`) and used to sign requests to your Intelligence SOC instance.
 - **Read-only by default** unless your API key has write scopes. `aisoc_run_investigation` requires `cases:investigate`; everything else only needs `cases:read` / `alerts:read`.
-- **Audit trail.** Every tool call lands in the AiSOC audit log with the calling user and the tool name. You can revoke the key and replay every action it took.
-- **No telemetry.** This package makes exactly two outbound destinations: your AiSOC URL, and the npm registry on `npx` cold-start.
+- **Audit trail.** Every tool call lands in the Intelligence SOC audit log with the calling user and the tool name. You can revoke the key and replay every action it took.
+- **No telemetry.** This package makes exactly two outbound destinations: your Intelligence SOC URL, and the npm registry on `npx` cold-start.
 
 ## Troubleshooting
 
 **The server doesn't appear in my assistant.** Restart the host fully (Claude Desktop: `Cmd+Q`, not just close the window). Then re-run `install --list-paths` and confirm the config file at the printed path actually contains an `aisoc` entry under `mcpServers`.
 
-**Tools fail with 401 / 403.** Re-mint the API key with the right scopes and re-run the installer; it will update the entry in place. Confirm with `node dist/index.js doctor` (or `npx -y @aisoc/mcp doctor` once v8.0 ships).
+**Tools fail with 401 / 403.** Re-mint the API key with the right scopes and re-run the installer; it will update the entry in place. Confirm with `node dist/index.js doctor` (or `npx -y @isoc/mcp doctor` once v8.0 ships).
 
 **Tools fail with "fetch failed" / timeouts.** Your assistant's host can't reach `AISOC_URL`. Check that the URL is reachable from the same machine (`curl $AISOC_URL/health`) and bump `--timeout 60000` if you're on a slow link.
 

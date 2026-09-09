@@ -1,6 +1,6 @@
 # Observability & SLOs
 
-AiSOC is instrumented so an operator can answer "is it healthy, and if not,
+Intelligence SOC is instrumented so an operator can answer "is it healthy, and if not,
 where?" with a single trace and four golden signals per service.
 
 ## Service-level objectives

@@ -1,6 +1,6 @@
 # Platform Threat Model (STRIDE)
 
-Scope: the AiSOC platform as a whole, with the **credential vault as the top asset**. AiSOC's `CredentialVault` holds live credentials to CrowdStrike, AWS, Okta, Splunk, and GitHub. Compromising AiSOC compromises everything it connects to, so the platform's own security is a P0 product feature.
+Scope: the Intelligence SOC platform as a whole, with the **credential vault as the top asset**. Intelligence SOC's `CredentialVault` holds live credentials to CrowdStrike, AWS, Okta, Splunk, and GitHub. Compromising Intelligence SOC compromises everything it connects to, so the platform's own security is a P0 product feature.
 
 This document is Phase 1.6 of the world-class program. It is referenced from [`SECURITY.md`](../../SECURITY.md). The agent/tool surface has its own model in [`agent-threat-model.md`](agent-threat-model.md).
 

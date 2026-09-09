@@ -5,7 +5,7 @@ sidebar_label: Compounding memory
 
 # Compounding Memory — verdicts that measurably improve
 
-The longer an AiSOC instance runs, the more accurate it gets — and we publish
+The longer an Intelligence SOC instance runs, the more accurate it gets — and we publish
 the curve. A nightly distillation job compresses analyst overrides + verdict
 history into institutional memory that feeds every future verdict.
 
@@ -37,7 +37,7 @@ and direction are unit-tested.
 ## Improvement telemetry
 
 `improvement.py` computes verdict precision over time from a chronological
-history, and the lift from the first window to the latest ("your AiSOC is N%
+history, and the lift from the first window to the latest ("your Intelligence SOC is N%
 more accurate than at install"). On a simulated 90-day override history the
 distilled memory raises precision measurably (e.g. 0.60 → 0.90 in the test
 fixture). The aggregate anonymized improvement curve is shared opt-in via the

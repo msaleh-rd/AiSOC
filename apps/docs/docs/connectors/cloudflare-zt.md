@@ -1,12 +1,12 @@
 ---
 sidebar_position: 85
 title: Cloudflare WAF + Zero Trust
-description: Pull Cloudflare WAF firewall events and Zero Trust Access audit logs into AiSOC.
+description: Pull Cloudflare WAF firewall events and Zero Trust Access audit logs into Intelligence SOC.
 ---
 
 # Cloudflare WAF + Zero Trust
 
-This connector pulls **data-plane events** from two Cloudflare streams and folds them into the same normalised AiSOC alert shape. It's distinct from the [Cloudflare Audit Logs](./cloudflare.md) connector, which only covers **control-plane** changes (who edited what in the dashboard).
+This connector pulls **data-plane events** from two Cloudflare streams and folds them into the same normalised Intelligence SOC alert shape. It's distinct from the [Cloudflare Audit Logs](./cloudflare.md) connector, which only covers **control-plane** changes (who edited what in the dashboard).
 
 | Stream | Endpoint | What it captures |
 |---|---|---|

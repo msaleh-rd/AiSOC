@@ -1,12 +1,12 @@
 ---
 sidebar_position: 4
 title: Troubleshooting
-description: Common AiSOC errors, where to look, and how to recover — from a stuck connector poll to a wedged Kafka consumer to a silent agent.
+description: Common Intelligence SOC errors, where to look, and how to recover — from a stuck connector poll to a wedged Kafka consumer to a silent agent.
 ---
 
 # Troubleshooting
 
-Most AiSOC issues fall into a handful of buckets: a service can't reach a dependency, a credential is wrong, a queue is wedged, or an LLM provider is unreachable. This page is the field guide — what symptom maps to which subsystem, where to read the log, and how to recover without paging the whole rotation.
+Most Intelligence SOC issues fall into a handful of buckets: a service can't reach a dependency, a credential is wrong, a queue is wedged, or an LLM provider is unreachable. This page is the field guide — what symptom maps to which subsystem, where to read the log, and how to recover without paging the whole rotation.
 
 If the symptom is not listed here, the fastest diagnostic is almost always:
 
@@ -122,7 +122,7 @@ Click into the instance → **Run history** → expand the failed run. The error
 |---|---|---|
 | `401` / `invalid_client` / `invalid_grant` | Upstream credential expired or rotated | Click **Configure**, paste a new secret, **Save** |
 | `403` / `insufficient_scope` | The connector identity doesn't have the required scope/role on the source | Re-check the per-connector setup doc (e.g. [Azure Entra](../connectors/azure-entra), [GitHub](../connectors/github)) — they list the exact scopes |
-| `429` / `rate_limited` | We hit the upstream API rate limit | Increase `connector_config.poll_interval_seconds` for that instance; AiSOC honors `Retry-After` automatically |
+| `429` / `rate_limited` | We hit the upstream API rate limit | Increase `connector_config.poll_interval_seconds` for that instance; Intelligence SOC honors `Retry-After` automatically |
 | `Timeout after 30 s` | Upstream is slow or unreachable | Transient — retry on next poll. Persistent → check upstream status page |
 | `InvalidToken` | The vault can't decrypt this instance's `auth_config` | Means `AISOC_CREDENTIAL_KEY` was rotated without running the rewrite step. See [Credentials → Rotation](./credentials) |
 
@@ -232,7 +232,7 @@ In order:
 1. **Wrong `logsource`**. The Sigma `logsource` block must match the OCSF category your connector emits. Use the [Connector field reference](../connectors/api-coverage) to confirm.
 2. **Status is `disabled`.** New rules default to `disabled` to avoid noise on import. Enable in the UI before expecting fires.
 3. **Tier filter excludes it.** The Detections page filters by tier (stable / beta / imported / community). Imported rules from SigmaHQ default to the `imported` tier and can look invisible if the filter is set to `stable`.
-4. **`condition` is too restrictive.** Run the rule against historical data: **Detections → click rule → Backtest**. If the backtest shows zero matches over a known-positive window, the condition is wrong, not AiSOC.
+4. **`condition` is too restrictive.** Run the rule against historical data: **Detections → click rule → Backtest**. If the backtest shows zero matches over a known-positive window, the condition is wrong, not Intelligence SOC.
 
 ### Auto-triage closed an alert you wanted to investigate
 

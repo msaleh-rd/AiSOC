@@ -1,4 +1,4 @@
-// ESLint flat config for @aisoc/web.
+// ESLint flat config for @isoc/web.
 //
 // ESLint v9 made flat config the default and v10 removed legacy `.eslintrc.*`
 // support entirely, so this file replaces the old `apps/web/.eslintrc.json`

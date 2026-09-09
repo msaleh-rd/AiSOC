@@ -449,7 +449,7 @@ export function PlaybooksView() {
             type="button"
             onClick={() => setNlDialogOpen(true)}
             className="px-4 py-2 rounded-lg border border-blue-600/60 bg-blue-950/40 text-blue-300 hover:bg-blue-900/40 hover:text-blue-200 text-sm font-medium transition-colors"
-            title="T3.7 — describe a playbook in natural language and AiSOC drafts the DAG."
+            title="T3.7 — describe a playbook in natural language and Intelligence SOC drafts the DAG."
           >
             ✨ Draft from prompt
           </button>

@@ -57,7 +57,7 @@ jobs:
 
       - name: Build + test
         run: |
-          pnpm --filter @aisoc/report-card build
+          pnpm --filter @isoc/report-card build
           pnpm --filter aisoc test
           pnpm --filter aisoc build
 

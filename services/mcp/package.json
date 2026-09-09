@@ -1,7 +1,7 @@
 {
-  "name": "@aisoc/mcp",
+  "name": "@isoc/mcp",
   "version": "0.1.0",
-  "description": "MCP server that exposes AiSOC (alerts, cases, agent investigations, the decision ledger) to Claude Desktop, Cursor, Cody, Continue, and any MCP-aware agent.",
+  "description": "MCP server that exposes Intelligence SOC (alerts, cases, agent investigations, the decision ledger) to Claude Desktop, Cursor, Cody, Continue, and any MCP-aware agent.",
   "keywords": [
     "aisoc",
     "mcp",

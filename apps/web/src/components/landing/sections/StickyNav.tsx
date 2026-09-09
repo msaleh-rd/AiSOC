@@ -35,16 +35,14 @@ import { docs } from '@/lib/docs';
 import { cn } from '@/lib/utils';
 
 // All hrefs are absolute (`/#section` or `/page`) so the nav works on
-// every route. `Benchmark` and `Pricing` point at the real standalone
-// pages where they exist; `Product` / `Solutions` / `Connectors` still
-// anchor into the landing-page sections because those have no
-// dedicated page yet.
+// every route. `Benchmark` points at the real standalone page; `Product` /
+// `Solutions` / `Connectors` still anchor into the landing-page sections
+// because those have no dedicated page yet.
 const NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
   { label: 'Product', href: '/#solution' },
   { label: 'Solutions', href: '/#pillars' },
   { label: 'Connectors', href: '/#connectors' },
   { label: 'Benchmark', href: '/benchmark' },
-  { label: 'Pricing', href: '/pricing' },
   { label: 'Docs', href: docs('intro') },
 ];
 
@@ -82,7 +80,7 @@ export function StickyNav() {
       >
         <Link
           href="/"
-          aria-label="AiSOC home"
+          aria-label="Intelligence SOC home"
           className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-velvet-emerald-mint focus-visible:ring-offset-2 focus-visible:ring-offset-velvet-surface-base"
         >
           <span
@@ -92,7 +90,7 @@ export function StickyNav() {
             Ai
           </span>
           <span className="font-velvet-display text-base font-normal tracking-tight text-velvet-content-primary">
-            AiSOC
+            Intelligence SOC
           </span>
         </Link>
 
@@ -114,20 +112,14 @@ export function StickyNav() {
             href="https://github.com/beenuar/AiSOC"
             target="_blank"
             rel="noreferrer"
-            aria-label="Star AiSOC on GitHub"
+            aria-label="Star Intelligence SOC on GitHub"
             className="inline-flex items-center gap-2 rounded-md border border-velvet-border bg-velvet-surface-raised/60 px-3 py-1.5 text-sm font-medium text-velvet-content-secondary transition-colors duration-150 ease-landing-out-quart hover:border-velvet-emerald/40 hover:text-velvet-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-velvet-emerald-mint focus-visible:ring-offset-2 focus-visible:ring-offset-velvet-surface-base"
           >
             <GithubMark className="h-3.5 w-3.5" />
             <span aria-hidden="true">Star on GitHub</span>
           </a>
           <Link
-            href="/pricing"
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-velvet-content-secondary transition-colors duration-150 ease-landing-out-quart hover:text-velvet-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-velvet-emerald-mint focus-visible:ring-offset-2 focus-visible:ring-offset-velvet-surface-base"
-          >
-            Self-host
-          </Link>
-          <Link
-            href="https://tryaisoc.com/dashboard"
+            href="/dashboard"
             className="group inline-flex items-center gap-1 rounded-md bg-velvet-emerald-cta px-4 py-1.5 text-sm font-semibold text-velvet-content-primary shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-[filter,box-shadow] duration-200 ease-landing-out-quart hover:brightness-110 motion-safe:hover:shadow-glow-emerald-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-velvet-emerald-mint focus-visible:ring-offset-2 focus-visible:ring-offset-velvet-surface-base"
           >
             Open dashboard
@@ -182,10 +174,10 @@ export function StickyNav() {
             rel="noreferrer"
             className="flex-1 rounded-md border border-velvet-border bg-velvet-surface-raised/60 px-3 py-2 text-center text-sm font-medium text-velvet-content-secondary"
           >
-            Self-host
+            Star on GitHub
           </a>
           <Link
-            href="https://tryaisoc.com/dashboard"
+            href="/dashboard"
             onClick={() => setOpen(false)}
             className="flex-1 rounded-md bg-velvet-emerald-cta px-3 py-2 text-center text-sm font-semibold text-velvet-content-primary motion-safe:shadow-glow-emerald-sm"
           >

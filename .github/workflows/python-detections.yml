@@ -7,12 +7,12 @@ name: Python Detections
 on:
   pull_request:
     paths:
-      - "packages/aisoc-detections/**"
+      - "packages/isoc-detections/**"
       - ".github/workflows/python-detections.yml"
   push:
     branches: [main]
     paths:
-      - "packages/aisoc-detections/**"
+      - "packages/isoc-detections/**"
       - ".github/workflows/python-detections.yml"
 
 permissions:
@@ -31,13 +31,13 @@ jobs:
       - name: Install test deps
         run: pip install --quiet pytest "ruff>=0.4.4,<0.5"
       - name: Run the detection fixture suite
-        working-directory: packages/aisoc-detections
+        working-directory: packages/isoc-detections
         run: python -m aisoc_detections.runner detections
       - name: Run the framework tests
-        working-directory: packages/aisoc-detections
+        working-directory: packages/isoc-detections
         run: PYTHONPATH=. python -m pytest tests/ -v --tb=short
       - name: Lint
-        working-directory: packages/aisoc-detections
+        working-directory: packages/isoc-detections
         run: |
           ruff check aisoc_detections detections tests
           ruff format --check aisoc_detections detections tests

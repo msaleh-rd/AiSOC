@@ -1,5 +1,5 @@
 /**
- * @aisoc/ocsf - OCSF (Open Cybersecurity Schema Framework) types and utilities
+ * @isoc/ocsf - OCSF (Open Cybersecurity Schema Framework) types and utilities
  * Open Cybersecurity Schema Framework v1.1
  */
 

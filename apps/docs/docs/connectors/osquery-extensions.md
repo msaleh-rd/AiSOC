@@ -1,13 +1,13 @@
 ---
 sidebar_position: 20
 title: osquery Extensions
-description: Custom osquery virtual tables that surface AiSOC data directly in the osquery shell.
+description: Custom osquery virtual tables that surface Intelligence SOC data directly in the osquery shell.
 ---
 
-# AiSOC osquery Extensions
+# Intelligence SOC osquery Extensions
 
 The `aisoc-extension` binary adds five osquery virtual tables that surface
-AiSOC operational data directly inside any osquery query, scheduled pack, or
+Intelligence SOC operational data directly inside any osquery query, scheduled pack, or
 live investigation session.
 
 | Virtual table | Description |
@@ -23,7 +23,7 @@ live investigation session.
 ## Prerequisites
 
 - osquery ≥ 5.10
-- Network access from the host to the AiSOC osquery-tls service
+- Network access from the host to the Intelligence SOC osquery-tls service
 - An API token with the `extensions:read` scope
 
 ---
@@ -85,7 +85,7 @@ The extension is passed `--socket <path>` automatically by osqueryd.
 ```ini
 # /etc/systemd/system/aisoc-extension.service
 [Unit]
-Description=AiSOC osquery extension
+Description=Intelligence SOC osquery extension
 After=osqueryd.service
 Requires=osqueryd.service
 

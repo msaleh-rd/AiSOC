@@ -4,9 +4,9 @@
 > file in `validate-detections.yml`, so the numbers below can never quietly
 > diverge from what the engine actually runs. **Do not edit by hand.**
 
-A rule is **executable** when it fires in AiSOC today: not quarantined
+A rule is **executable** when it fires in Intelligence SOC today: not quarantined
 (`_quarantine/` or `enabled: false`) and its `detection` body is the native
-AiSOC condition DSL, a Sigma selection/condition, or a runtime-engine language.
+Intelligence SOC condition DSL, a Sigma selection/condition, or a runtime-engine language.
 A rule is **non-executable** when quarantined or when its only body is an
 untranslated upstream language (SPL / YARA-L / CAR pseudocode) — present for
 provenance and coverage-mapping, not firing.

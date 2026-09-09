@@ -18,7 +18,7 @@
  * To refresh baselines intentionally (e.g. after a deliberate visual
  * change), run:
  *
- *   pnpm --filter @aisoc/web exec playwright test \
+ *   pnpm --filter @isoc/web exec playwright test \
  *     --project=visual --update-snapshots
  *
  * and commit the updated PNGs.
@@ -79,7 +79,7 @@ async function loadIndex(): Promise<StorybookIndex> {
   } catch (err) {
     throw new Error(
       `Storybook index not found at ${STORYBOOK_INDEX}. ` +
-        `Run \`pnpm --filter @aisoc/web build-storybook\` before the visual suite. ` +
+        `Run \`pnpm --filter @isoc/web build-storybook\` before the visual suite. ` +
         `(${(err as Error).message})`,
     );
   }

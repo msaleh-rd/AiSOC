@@ -1,7 +1,7 @@
 ---
 title: Detection Coverage
 description: |
-  AiSOC v1.0 ships a curated set of MITRE ATT&CK-mapped
+  Intelligence SOC v1.0 ships a curated set of MITRE ATT&CK-mapped
   detections covering the eight buyer-prioritised threat
   families. This page is generated from the on-disk corpus
   via ``scripts/curate_detections.py`` — it is the source

@@ -1,6 +1,6 @@
 # Multi-model router
 
-AiSOC's reasoning uses three tiers, cheapest first:
+Intelligence SOC's reasoning uses three tiers, cheapest first:
 
 1. **Deterministic** — rules and heuristics (keyword tactic extraction, the
    triage scorer, the confidence model). No network, no cost, reproducible.

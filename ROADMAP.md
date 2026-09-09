@@ -1,4 +1,4 @@
-# AiSOC Roadmap
+# Intelligence SOC Roadmap
 
 > **📌 Active planning has moved (2026-05-12)**
 >
@@ -16,7 +16,7 @@
 > deferred item entirely, the entry here is left intact for traceability
 > but reasoned about against the newer plan.
 
-This document captures the planned direction for AiSOC across major versions. All v4 deliverables and items deferred beyond v4 are listed here.
+This document captures the planned direction for Intelligence SOC across major versions. All v4 deliverables and items deferred beyond v4 are listed here.
 
 ## World-Class Hardening Program (2026-07, in flight)
 
@@ -59,7 +59,7 @@ The claim-to-gate matrix stands at **33 GATED / 7 PARTIAL / 0 NO GATE** — **ev
 - [x] React Flow playbook editor with full node palette (Trigger, Condition, Action, Loop, Parallel, Human Approval, Wait, Notify)
 - [x] DAG playbook engine with retries, idempotency, blast-radius checks
 - [x] `playbook.schema.json` (JSON Schema 2020-12) for portability and CI linting
-- [x] Detection-as-Code: `detections/` directory with Sigma + AiSOC YAML, GitHub Action deploy-on-merge
+- [x] Detection-as-Code: `detections/` directory with Sigma + Intelligence SOC YAML, GitHub Action deploy-on-merge
 - [x] 12 starter playbook templates
 - [x] Community playbook marketplace (static index v4.0; publishing flow v4.1)
 
@@ -70,7 +70,7 @@ The claim-to-gate matrix stands at **33 GATED / 7 PARTIAL / 0 NO GATE** — **ev
 - [x] Public REST API v1 at `/api/v1`, OpenAPI 3.1 at `docs/openapi.yaml`
 - [x] GraphQL gateway (Strawberry) proxying REST
 - [x] Scoped API tokens (`cases:read`, `playbooks:run`, `plugins:install`)
-- [x] Auto-generated client SDKs: `@aisoc/sdk` (TypeScript), `aisoc-sdk` (Python/PyPI), `github.com/beenuar/aisoc/sdk-go`
+- [x] Auto-generated client SDKs: `@isoc/sdk` (TypeScript), `aisoc-sdk` (Python/PyPI), `github.com/beenuar/aisoc/sdk-go`
 - [x] Docusaurus docs site at `docs/site/`, deployed to GitHub Pages
 - [x] Demo Lab: `pnpm aisoc:lab` one-command full-stack + Conti-style ransomware scenario
 - [x] 4 reference plugins: Okta connector, YARA enricher, Slack quarantine responder, MTTR sparkline widget
@@ -265,7 +265,7 @@ the v7.0 release window and then patched through 7.0.1 → 7.0.3.
       Bundled IR / OSquery-ATT&CK / FIM packs; ingests `file_events` and synthesises
       alerts on writes to `/etc/passwd`, `/etc/shadow`, sshd configs, sudoers, Windows
       registry hives. FIM-specific detection IDs `det-endpoint-297..300`.
-- [x] **PR6 — AiSOC osquery extensions** (`services/osquery-extensions/tables/*.go`).
+- [x] **PR6 — Intelligence SOC osquery extensions** (`services/osquery-extensions/tables/*.go`).
       5 custom Go-based virtual tables: `aisoc_browser_extensions`, `aisoc_kernel_modules`,
       `aisoc_attck_persistence`, `aisoc_pending_actions`, `aisoc_alert_cache` — ship
       richer endpoint visibility plus a bidirectional response channel.
@@ -313,7 +313,7 @@ the v7.0 release window and then patched through 7.0.1 → 7.0.3.
 
 Six new connectors, three documentation backfills, and a new ingest template
 closing the biggest cloud-security gap in the connector catalogue. Every Tier-1
-cloud workload protection platform now has a first-class AiSOC integration,
+cloud workload protection platform now has a first-class Intelligence SOC integration,
 AWS gets three native data sources, and Kubernetes audit logs land via a
 dual-mode connector that works on both managed and air-gapped clusters.
 
@@ -349,7 +349,7 @@ dual-mode connector that works on both managed and air-gapped clusters.
 - [x] **`AWSGuardDutyConnector`** (`services/connectors/app/connectors/aws_guardduty.py`)
       — boto3-based, supports IAM-role + static-key auth via `_resolve_session`,
       iterates detectors with `list_findings` + `get_findings`. Collapses
-      GuardDuty's continuous numeric severity scale (`0.1`–`10.0`) into AiSOC's
+      GuardDuty's continuous numeric severity scale (`0.1`–`10.0`) into Intelligence SOC's
       four-tier `info|low|medium|high` ladder.
 - [x] **`AWSCloudTrailConnector`** (`services/connectors/app/connectors/aws_cloudtrail.py`)
       — `cloudtrail.lookup_events` with a curated 21-event allow-list covering
@@ -367,14 +367,14 @@ dual-mode connector that works on both managed and air-gapped clusters.
 
 - [x] **`KubernetesAuditConnector`** (`services/connectors/app/connectors/kubernetes_audit.py`)
       ships with two delivery modes selected via the `mode` config field:
-      - **`webhook` (recommended)** — apiserver pushes audit events to AiSOC's
+      - **`webhook` (recommended)** — apiserver pushes audit events to Intelligence SOC's
         new dedicated `POST /v1/ingest/k8s-audit/{tenant_id}` route,
-        authenticated with a shared secret in the `X-AiSOC-K8s-Token` header
+        authenticated with a shared secret in the `X-Intelligence SOC-K8s-Token` header
         (constant-time compared so a partial-prefix attacker can't shave
         bytes off via timing). Legacy `/v1/inbox/{token}` path with the
         `k8s-audit` template is kept as a fallback for control planes that
         cannot inject custom headers into the audit-webhook kubeconfig.
-      - **`file_tail`** — AiSOC's connector pod tails a local `audit.log` using
+      - **`file_tail`** — Intelligence SOC's connector pod tails a local `audit.log` using
         a byte-position cursor (atomically written via `os.replace` to a
         `.aisoc-cursor` sidecar) with rotation/truncation detection and a hard
         per-poll byte cap so a backlog can't blow up a single poll cycle.
@@ -396,7 +396,7 @@ dual-mode connector that works on both managed and air-gapped clusters.
       severities (5/4/3/2/1).
 - [x] **`k8s-audit` inbox template**
       (`services/ingest/internal/normalizer/templates/k8s-audit.yaml`) —
-      maps apiserver `Event` payloads onto AiSOC's normalised event shape
+      maps apiserver `Event` payloads onto Intelligence SOC's normalised event shape
       for the legacy inbox-token path; severity is derived in the
       connector's `_classify_severity` heuristic so the same logic applies
       to both delivery modes.
@@ -505,7 +505,7 @@ Terraform skeleton equivalent to the existing AWS module.
       added for operator verification + air-gap audits. Pure mappers
       cover `ipv4`/`ipv6`, `domain-name`, `url`, `email-addr`,
       `file:hashes` (MD5/SHA-1/SHA-256/SHA-512) and `file:name`. Push
-      failures are non-fatal: AiSOC store remains source of truth, MISP is
+      failures are non-fatal: Intelligence SOC store remains source of truth, MISP is
       best-effort. Reuses the existing `enforce_airgap_for_url` chokepoint.
       76 new tests.
 
@@ -523,7 +523,7 @@ Terraform skeleton equivalent to the existing AWS module.
 ### Documentation
 
 - [x] **`apps/docs/docs/operations/notifications.md`** — complete inventory
-      of every notification surface in AiSOC (Web Push, Slack/Teams
+      of every notification surface in Intelligence SOC (Web Push, Slack/Teams
       ChatOps, playbook `notify_slack`, `create_ticket` simulation,
       honeytoken first-touch webhooks, connector freshness alerts, on-call
       gating, suppression / quiet-hours, per-mechanism testing recipe).

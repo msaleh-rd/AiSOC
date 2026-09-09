@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-This folder holds the small set of strategic decisions that shape the AiSOC product but are too high-level to live inside a code review. Each file is a single ADR following an abbreviated [MADR](https://adr.github.io/madr/) template:
+This folder holds the small set of strategic decisions that shape the Intelligence SOC product but are too high-level to live inside a code review. Each file is a single ADR following an abbreviated [MADR](https://adr.github.io/madr/) template:
 
 - **Status** — `proposed` | `accepted` | `superseded by ADR-NNNN`
 - **Context** — the situation that forced the decision

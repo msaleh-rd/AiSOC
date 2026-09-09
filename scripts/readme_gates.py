@@ -45,8 +45,8 @@ README = REPO_ROOT / "README.md"
 # on a public package registry, provided the same line / surrounding block
 # carries a "Coming … in v8.0" guard.
 KNOWN_UNPUBLISHED = {
-    "npm": {"@aisoc/mcp", "@aisoc/sdk", "aisoc-cli"},
-    "pypi": {"aisoc-cli", "aisoc-plugin-sdk", "aisoc-sdk", "aisoc-sandbox"},
+    "npm": {"@isoc/mcp", "@isoc/sdk", "isoc-cli"},
+    "pypi": {"isoc-cli", "aisoc-plugin-sdk", "aisoc-sdk", "isoc-sandbox"},
 }
 
 # Maximum number of lines we promise to keep the README at.
@@ -69,16 +69,16 @@ V8_GUARDS = (
     # if README directs the reader to `pip install -e packages/<pkg>` or
     # links to the in-tree `packages/<pkg>` folder, we're not directing them
     # to a registry path, so the registry-404 risk does not apply.
-    "pip install -e packages/aisoc-sandbox",
-    "pip install -e packages/aisoc-cli",
+    "pip install -e packages/isoc-sandbox",
+    "pip install -e packages/isoc-cli",
     "pip install -e packages/aisoc-sdk",
     "pip install -e packages/aisoc-plugin-sdk",
-    "packages/aisoc-sandbox/",
-    "packages/aisoc-cli/",
+    "packages/isoc-sandbox/",
+    "packages/isoc-cli/",
     "packages/aisoc-sdk/",
     "packages/aisoc-plugin-sdk/",
-    "pnpm --filter @aisoc/mcp",
-    "pnpm --filter @aisoc/sdk",
+    "pnpm --filter @isoc/mcp",
+    "pnpm --filter @isoc/sdk",
     "monorepo source build",
     "monorepo source-build",
 )
@@ -151,8 +151,8 @@ def _pypi_exists(package: str) -> bool:
         return False
 
 
-_NPM_PATTERN = re.compile(r"@aisoc/[a-z0-9][a-z0-9-]*")
-_PIP_PATTERN = re.compile(r"\baisoc-(?:cli|plugin-sdk|sdk|sandbox)\b")
+_NPM_PATTERN = re.compile(r"@isoc/[a-z0-9][a-z0-9-]*")
+_PIP_PATTERN = re.compile(r"\b(?:isoc-cli|aisoc-plugin-sdk|aisoc-sdk|isoc-sandbox)\b")
 
 
 def _surrounding_lines(text: str, line_idx: int, radius: int = 3) -> str:
@@ -265,13 +265,13 @@ def gate_demo_asset_references() -> list[GateFailure]:
 
 def gate_sandbox_offline_smoke() -> list[GateFailure]:
     """Run `aisoc-sandbox demo --scenario <each>` against the local source."""
-    package_root = REPO_ROOT / "packages" / "aisoc-sandbox"
+    package_root = REPO_ROOT / "packages" / "isoc-sandbox"
     src = package_root / "src"
     if not src.exists():
         return [
             GateFailure(
                 "sandbox-offline",
-                "packages/aisoc-sandbox/src is missing — the sandbox package "
+                "packages/isoc-sandbox/src is missing — the sandbox package "
                 "was deleted or moved. Check phase3-sandbox.",
             )
         ]

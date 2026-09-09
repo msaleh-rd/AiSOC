@@ -6,12 +6,12 @@
 > describes what happens between **"customer signs"** and **"customer's
 > on-call team can log in"**.
 
-AiSOC ships in three deployment shapes today:
+Intelligence SOC ships in three deployment shapes today:
 
 | Shape       | Where the workload runs                                       | Who owns the bits                |
 |-------------|----------------------------------------------------------------|----------------------------------|
-| Demo        | `tryaisoc.com` (single shared Fly stack)                       | AiSOC team                       |
-| **Managed** | Per-customer Fly stack auto-provisioned from `infra/fly/managed/tenants/{slug}.yaml` | AiSOC team |
+| Demo        | `tryaisoc.com` (single shared Fly stack)                       | Intelligence SOC team                       |
+| **Managed** | Per-customer Fly stack auto-provisioned from `infra/fly/managed/tenants/{slug}.yaml` | Intelligence SOC team |
 | Sovereign   | Customer cloud account (`infra/terraform/{aws,azure,gcp,byoc}/`) | Customer                       |
 
 This document covers managed mode.

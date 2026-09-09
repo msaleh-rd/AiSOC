@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: Credential vault & secrets
-description: How AiSOC stores connector credentials at rest, how to rotate the master key, and the roadmap for hosted OAuth.
+description: How Intelligence SOC stores connector credentials at rest, how to rotate the master key, and the roadmap for hosted OAuth.
 ---
 
 # Credential vault and secret management
 
-Connectors need real secrets — Azure client secrets, GCP service-account keys, GitHub tokens. AiSOC stores them with a defense-in-depth design: **encrypted at the application layer, with the database as a transport medium, not a trust boundary**.
+Connectors need real secrets — Azure client secrets, GCP service-account keys, GitHub tokens. Intelligence SOC stores them with a defense-in-depth design: **encrypted at the application layer, with the database as a transport medium, not a trust boundary**.
 
 This page documents the model, how to operate it, and what changes when you move from local dev to production.
 
@@ -109,7 +109,7 @@ A scheduled rotation cadence of 90 days is a reasonable default; treat any suspe
 
 ## Per-connector secret rotation
 
-Independent of the master key, the upstream credentials inside each connector instance should be rotated on the cadence of your identity provider's policy (typically 90–180 days for OAuth client secrets and PATs). The AiSOC UI supports in-place editing: the **Configure** action on a connector card opens the schema-driven form pre-populated with masked values, lets you paste a new secret, and re-encrypts on save. No restart, no scheduler downtime.
+Independent of the master key, the upstream credentials inside each connector instance should be rotated on the cadence of your identity provider's policy (typically 90–180 days for OAuth client secrets and PATs). The Intelligence SOC UI supports in-place editing: the **Configure** action on a connector card opens the schema-driven form pre-populated with masked values, lets you paste a new secret, and re-encrypts on save. No restart, no scheduler downtime.
 
 ## What lives in the vault, and what does not
 
@@ -127,7 +127,7 @@ This split is deliberate. Identifiers are useful for support and observability (
 
 In addition to connector secrets, the same vault encrypts **per-tenant
 LLM credentials**. This is the substrate for "bring your own key"
-(BYOK): each tenant can point AiSOC at its own OpenAI account, Azure
+(BYOK): each tenant can point Intelligence SOC at its own OpenAI account, Azure
 OpenAI deployment, Anthropic key, or self-hosted OpenAI-compatible
 gateway (Ollama / vLLM / LiteLLM) without leaking that key to other
 tenants on the same control plane.
@@ -220,10 +220,10 @@ resolved source) without the form controls.
 
 ## Hosted OAuth roadmap
 
-Several connectors (Azure, GCP, Google Workspace) currently require the operator to do an Azure-AD-app or service-account dance before they can be added in AiSOC. This is fine for SOC engineers but a friction point for everyone else. Hosted OAuth is the planned solution:
+Several connectors (Azure, GCP, Google Workspace) currently require the operator to do an Azure-AD-app or service-account dance before they can be added in Intelligence SOC. This is fine for SOC engineers but a friction point for everyone else. Hosted OAuth is the planned solution:
 
 - **Phase 1 (current)**: connector schemas already declare OAuth metadata (`authorize_url`, `token_url`, `scopes`, `supported_in_hosted`). The UI shows an "OAuth coming soon" badge for capable connectors.
-- **Phase 2 (planned)**: AiSOC Cloud (and self-hosted with an OAuth-app config) will surface a one-click flow that exchanges an authorization code for an offline refresh token, encrypts it via the vault, and stores it as the connector's `auth_config`.
+- **Phase 2 (planned)**: Intelligence SOC Cloud (and self-hosted with an OAuth-app config) will surface a one-click flow that exchanges an authorization code for an offline refresh token, encrypts it via the vault, and stores it as the connector's `auth_config`.
 - **Phase 3 (planned)**: scoped tokens for self-hosted air-gapped installs that cannot reach an OAuth provider — operators ship a refresh-token bundle out-of-band.
 
 The `CredentialVault` and connector schema model are stable shapes. Adding hosted OAuth does not require any change to existing connector implementations.

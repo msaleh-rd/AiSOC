@@ -4,9 +4,9 @@ sidebar_position: 3
 
 # Detection Rules
 
-AiSOC ships detection content in a Sigma-inspired YAML format and arranges it
+Intelligence SOC ships detection content in a Sigma-inspired YAML format and arranges it
 into four **tiers** based on origin, the legal redistribution chain, and what
-the AiSOC engine can run as-is.
+the Intelligence SOC engine can run as-is.
 
 ## Tiers
 
@@ -17,9 +17,9 @@ the AiSOC engine can run as-is.
 | Quarantined | `detections/<source>-imports/_quarantine/<category>/`  | `enabled: false` | schema + provenance, plus a populated `quarantine_reason`            |
 | Community   | `detections/community/<category>/`                     | `enabled: false` | schema only (provenance encouraged)                                  |
 
-The native tier is the strict-quality, AiSOC-authored layer (currently 800
+The native tier is the strict-quality, Intelligence SOC-authored layer (currently 800
 fixture-tested rules with 1,200 positive/negative fixtures). Imported tiers are
-normalized into the AiSOC schema by
+normalized into the Intelligence SOC schema by
 the source-specific importers under [`tools/detection_import/`](https://github.com/beenuar/AiSOC/blob/main/tools/detection_import/README.md)
 and remain empty in a fresh checkout until you run them.
 
@@ -49,7 +49,7 @@ false_positives:
   - Password manager retries during outages
 playbook: tpl-brute-force-response-v1
 enabled: true
-author: AiSOC
+author: Intelligence SOC
 created: "2026-04-01"
 modified: "2026-05-04"
 references:
@@ -178,7 +178,7 @@ curl -X POST http://localhost:8000/api/v1/marketplace/install \
 ## Importing third-party rules
 
 The importers under [`tools/detection_import/`](https://github.com/beenuar/AiSOC/blob/main/tools/detection_import/README.md)
-clone pinned upstream commits, normalize each rule into the AiSOC schema, and
+clone pinned upstream commits, normalize each rule into the Intelligence SOC schema, and
 emit them into the matching `detections/<source>-imports/` tree with
 provenance attached.
 
@@ -191,5 +191,5 @@ python3 -m tools.detection_import.import_orchestrator --source sigmahq
 ```
 
 Splunk SPL, Chronicle YARA-L, and MITRE CAR rules are written into the
-`_quarantine/` subdirectory by default because the AiSOC engine cannot execute
+`_quarantine/` subdirectory by default because the Intelligence SOC engine cannot execute
 those query languages as-is.

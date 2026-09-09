@@ -1,18 +1,18 @@
 ---
 sidebar_position: 3
-title: Hello, plugin — write your first AiSOC enricher
-description: A walkthrough that ships a runnable AiSOC plugin end to end. Author the manifest, implement the EnricherPlugin contract, register it with the runtime, and pin the whole thing with a smoke test — no vendor account, no API key, just the Python plugin SDK front to back.
+title: Hello, plugin — write your first Intelligence SOC enricher
+description: A walkthrough that ships a runnable Intelligence SOC plugin end to end. Author the manifest, implement the EnricherPlugin contract, register it with the runtime, and pin the whole thing with a smoke test — no vendor account, no API key, just the Python plugin SDK front to back.
 ---
 
 # Hello, plugin
 
-This tutorial walks you end-to-end through the work of adding a new plugin to AiSOC. By the end you will have:
+This tutorial walks you end-to-end through the work of adding a new plugin to Intelligence SOC. By the end you will have:
 
 - An `aisoc-plugin.yaml` manifest the plugin loader can validate.
 - A `plugin.py` that subclasses `EnricherPlugin` and exposes a `create_plugin()` factory.
 - A working `on_load()` lifecycle hook that reads tenant config out of `PluginContext`.
 - A working `enrich()` method that returns a typed `EnrichmentResult` the platform can write to indicator records.
-- A `PluginRegistry` flow that mirrors what the AiSOC runtime does at boot.
+- A `PluginRegistry` flow that mirrors what the Intelligence SOC runtime does at boot.
 - A smoke test that pins all of the above against the real loader, so the docs page can never silently drift away from the code.
 
 The example enricher is intentionally trivial — it computes a deterministic SHA-256 hash of the indicator value and returns the digest as enrichment metadata. There is no network call, no external API, no credential. That keeps the tutorial:
@@ -66,7 +66,7 @@ Three rules to internalise:
 2. **Prefix with your namespace.** Use `<your-org>.` or `<your-handle>.` so two contributors don't ship `vt-enricher` and collide. The `aisoc.` prefix is reserved for first-party tutorial and reference plugins; real contributions use `acme.virustotal` or `jdoe.greynoise`.
 3. **Never change it after merge.** Renaming a plugin orphans every tenant install that references the old id. If the plugin needs a v2 with breaking config changes, give it a new id and deprecate the old one — the marketplace publishing flow has a `deprecated` field for exactly this reason. See [Publishing plugins](/docs/plugins/publishing).
 
-The example uses `aisoc.hello-plugin` because the AiSOC project itself is the author.
+The example uses `aisoc.hello-plugin` because the Intelligence SOC project itself is the author.
 
 ## Step 2 — Write the manifest
 
@@ -82,7 +82,7 @@ description: >
   Reference implementation for apps/docs/docs/plugins/hello-plugin.md.
   Deliberately offline so it can run in air-gapped environments and CI
   without any external API calls.
-author: AiSOC Tutorial
+author: Intelligence SOC Tutorial
 tags:
   - tutorial
   - enricher
@@ -129,7 +129,7 @@ class HelloPlugin(EnricherPlugin):
                 "Reference implementation for "
                 "apps/docs/docs/plugins/hello-plugin.md."
             ),
-            author="AiSOC Tutorial",
+            author="Intelligence SOC Tutorial",
             tags=["tutorial", "enricher", "offline"],
             plugin_type="enricher",
         )
@@ -189,7 +189,7 @@ async def enrich(
 
 The contract:
 
-- **`request.indicator_type` and `request.indicator_value` come from the indicator that triggered enrichment.** The five types AiSOC routes today are `ip | domain | url | hash | email`. A real enricher should branch on `indicator_type` and short-circuit (or return an empty result) for types it doesn't support — the tutorial hashes everything because hash-of-anything is well-defined.
+- **`request.indicator_type` and `request.indicator_value` come from the indicator that triggered enrichment.** The five types Intelligence SOC routes today are `ip | domain | url | hash | email`. A real enricher should branch on `indicator_type` and short-circuit (or return an empty result) for types it doesn't support — the tutorial hashes everything because hash-of-anything is well-defined.
 - **`enrichments` is a flat dict that's merged into the indicator record.** Namespace your keys with `<plugin-id>.<field>` (the tutorial uses `hello_plugin.*`) so two enrichers writing to the same indicator can't stomp each other.
 - **`tags` are appended to the indicator's tag list.** Use them for downstream filtering — e.g. `["malicious", "vt-detected"]` or `["benign", "alexa-top-1k"]`.
 - **`malicious` is a tri-state.** `True` means the enricher is confident it's bad. `False` means the enricher is confident it's clean. `None` means the enricher has no opinion. **Don't return `False` just because your API returned no hits** — that's an opinion you don't have. The tutorial returns `None` because hashing a value tells you nothing about its reputation.
@@ -284,7 +284,7 @@ Two reasons this matters:
 
 ## Step 8 — Register with the runtime
 
-In production, the AiSOC plugin runtime constructs a `PluginRegistry`, loads every installed plugin from disk, and calls `load_all()` once per tenant. The smoke test mirrors this so you can validate it locally:
+In production, the Intelligence SOC plugin runtime constructs a `PluginRegistry`, loads every installed plugin from disk, and calls `load_all()` once per tenant. The smoke test mirrors this so you can validate it locally:
 
 ```python
 async def test_hello_plugin_registers_as_enricher(ctx: PluginContext) -> None:
@@ -315,7 +315,7 @@ The tutorial is intentionally narrow. Real plugins eventually need:
 - **An HTTP client.** Open one `httpx.AsyncClient` in `on_load`, store it on `self`, reuse it from every `enrich()`, and close it in `on_unload`. Don't open a fresh client per request — connection pooling matters even for low-volume enrichers.
 - **Error handling.** The current `enrich()` will raise if the algorithm is missing or invalid. A real enricher should catch upstream API errors, classify them (timeout vs. 4xx vs. 5xx), and either return an empty `EnrichmentResult` or raise — the runtime treats unhandled exceptions as fatal for the request, not for the plugin.
 - **Rate limiting.** If your vendor enforces a request-per-second budget, enforce it in the plugin with `asyncio.Semaphore` or `aiolimiter`. The runtime won't do it for you, and bursting will get the tenant's API key throttled or banned.
-- **Observability.** The `AiSOCClient` (exported from `aisoc_plugin_sdk`) gives you authenticated access to the AiSOC API for emitting plugin-side events and metrics. Use it sparingly — every call goes back over the network.
+- **Observability.** The `AiSOCClient` (exported from `aisoc_plugin_sdk`) gives you authenticated access to the Intelligence SOC API for emitting plugin-side events and metrics. Use it sparingly — every call goes back over the network.
 
 When you wire any of these in, the contract you wrote in this tutorial — manifest, `create_plugin()`, `on_load`, `enrich`, registry — does not change. That's the value of the SDK.
 

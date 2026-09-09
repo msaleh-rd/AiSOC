@@ -1,7 +1,7 @@
 {
-  "name": "@aisoc/types",
+  "name": "@isoc/types",
   "version": "1.0.0",
-  "description": "Shared TypeScript types for AiSOC platform",
+  "description": "Shared TypeScript types for Intelligence SOC platform",
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

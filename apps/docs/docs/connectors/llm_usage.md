@@ -1,13 +1,13 @@
 ---
 title: AI / LLM Usage Audit
-description: Ingest OpenAI + Anthropic organization audit logs into AiSOC to govern AI adoption.
+description: Ingest OpenAI + Anthropic organization audit logs into Intelligence SOC to govern AI adoption.
 ---
 
 # AI / LLM Usage Audit
 
 The **AI / LLM Usage Audit** connector (`llm_usage`, category `saas`) pulls
 organization audit logs from OpenAI (`/v1/organization/audit_logs`) or Anthropic
-and normalizes each into the AiSOC alert shape, mapping the event type onto the
+and normalizes each into the Intelligence SOC alert shape, mapping the event type onto the
 five-tier severity ladder (`info | low | medium | high | critical`).
 
 It is the governance surface for AI adoption — who created an API key, who was

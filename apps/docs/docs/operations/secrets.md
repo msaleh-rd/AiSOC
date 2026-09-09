@@ -6,7 +6,7 @@ description: Where every CI-managed secret comes from, what reads it, and how to
 
 # Secrets and CI tokens
 
-AiSOC has two kinds of secrets:
+Intelligence SOC has two kinds of secrets:
 
 1. **Tenant-data secrets** — connector credentials, tenant LLM keys, IDP
    tokens. Those live in the application-layer credential vault
@@ -52,7 +52,7 @@ The LLM provider key the weekly wet-eval CI job uses to dispatch the
 1. Create a dedicated OpenAI project named `aisoc-wet-eval`.
 2. Set a $25/month spending limit on it (Settings → Limits).
 3. Generate a project API key. Copy it once.
-4. In the AiSOC GitHub repo, go to
+4. In the Intelligence SOC GitHub repo, go to
    `Settings → Secrets and variables → Actions → New repository secret`.
 5. Name: `WET_EVAL_OPENAI_KEY`. Value: paste the key.
 
@@ -117,14 +117,14 @@ machine account keeps the contributor graph honest:
 2. Generate a fine-grained PAT under
    `Settings → Developer settings → Personal access tokens → Fine-grained`.
 3. Resource owner: the `beenuar` org (or your fork's owner).
-4. Repository access: `Only select repositories` → AiSOC.
+4. Repository access: `Only select repositories` → Intelligence SOC.
 5. Repository permissions:
    - Contents: **Read and write**.
    - Pull requests: **Read and write**.
    - Metadata: **Read**.
    - Everything else: **No access**.
 6. Expiration: 180 days from issuance.
-7. Copy the token once. In the AiSOC repo, set
+7. Copy the token once. In the Intelligence SOC repo, set
    `Settings → Secrets and variables → Actions → New repository secret`,
    name `AISOC_BENCH_BOT_TOKEN`, paste the value.
 
@@ -134,7 +134,7 @@ Every 180 days (or immediately on compromise):
 
 1. Generate a new fine-grained PAT under the bench-bot account, same
    permission set.
-2. Update `AISOC_BENCH_BOT_TOKEN` in the AiSOC repo's Actions secrets.
+2. Update `AISOC_BENCH_BOT_TOKEN` in the Intelligence SOC repo's Actions secrets.
 3. Trigger a `workflow_dispatch` of `wet-eval.yml` with
    `dry_run=true` to confirm the new token can push the dry-run docs
    update PR. Close that PR without merging.
@@ -152,7 +152,7 @@ swap and never requires a code change.
   Pull Requests; it can open and update PRs, but the merge button
   remains a human gate.
 - **Cannot affect any other repo.** Fine-grained PATs are scoped to a
-  specific repository; the bench bot's PAT only ever sees AiSOC.
+  specific repository; the bench bot's PAT only ever sees Intelligence SOC.
 - **Cannot escalate.** Fine-grained PATs cannot create new tokens or
   change account-level settings.
 

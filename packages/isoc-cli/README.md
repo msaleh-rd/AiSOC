@@ -9,7 +9,7 @@ Developer CLI for building, validating, and publishing AiSOC plugins and detecti
 ```bash
 # Today (from this monorepo):
 git clone https://github.com/beenuar/AiSOC.git
-cd AiSOC && pip install -e packages/aisoc-cli
+cd AiSOC && pip install -e packages/isoc-cli
 
 # v8.0+ (once aisoc-cli lands on PyPI):
 pipx install aisoc-cli       # recommended (isolated venv)

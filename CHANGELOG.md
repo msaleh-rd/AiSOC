@@ -1,11 +1,39 @@
 # Changelog
 
-All notable changes to AiSOC will be documented in this file.
+All notable changes to Intelligence SOC will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed
+
+- **Product renamed from "AiSOC" to "Intelligence SOC".** Display text across
+  the web console, docs site, and root markdown was updated (browser tab
+  titles, nav/sidebar wordmarks, page headings, docs site config). The GitHub
+  repository slug (`beenuar/AiSOC`) and the live domain (`tryaisoc.com`) are
+  unchanged — see the trademark policy for how the historical repo/domain name
+  and the current product name coexist.
+- **Monorepo package identifiers renamed to the `isoc` namespace.** The four
+  `packages/aisoc-*` directories are now `packages/isoc-action`,
+  `packages/isoc-cli`, `packages/isoc-detections`, and `packages/isoc-sandbox`
+  (moved with full git history); their PyPI/npm manifest `name` fields were
+  updated to match. The `@aisoc/*` npm scope was renamed to `@isoc/*` across
+  all workspace packages (`sdk`, `mcp`, `ui`, `types`, `report-card`, `ocsf`,
+  `realtime`, `web`, `docs`). CI workflows, `tsconfig` path aliases, Docker
+  build steps, and doc cross-references were updated to match; `pnpm-lock.yaml`
+  was regenerated. `packages/aisoc-lite` (the unscoped `aisoc` CLI package and
+  `npx aisoc` command) and all published CLI entry-point / import-module names
+  (`aisoc`, `aisoc-sandbox`, `aisoc-detections`, `aisoc_cli`, etc.) are
+  intentionally unchanged — renaming those changes commands users already type
+  and is a separate decision. Env var names (`AISOC_*`) are unchanged in
+  application code; `docker-compose.yml` additionally accepts an `ISOC_*`
+  alias for a handful of operator-configurable secrets (see `.env.example`).
+- **Root route (`/`) no longer shows the marketing landing page.** Visitors
+  are redirected straight to `/login` (or `/dashboard` if already signed in).
+  The `/pricing` page and the hosting/deploy-options and pricing-teaser
+  sections were removed from the site.
 
 ### Fixed
 

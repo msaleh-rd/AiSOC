@@ -1,12 +1,12 @@
 ---
 sidebar_position: 8
 title: Google Workspace
-description: Admin, login, drive, and token activity from Google Workspace (formerly G Suite) into AiSOC via the Reports API.
+description: Admin, login, drive, and token activity from Google Workspace (formerly G Suite) into Intelligence SOC via the Reports API.
 ---
 
 # Google Workspace
 
-The Google Workspace connector pulls **activity reports** from the Reports API — admin actions, user logins, Drive file events, OAuth token grants, and more — into AiSOC. It is the identity-and-collaboration counterpart to the Microsoft 365 connector.
+The Google Workspace connector pulls **activity reports** from the Reports API — admin actions, user logins, Drive file events, OAuth token grants, and more — into Intelligence SOC. It is the identity-and-collaboration counterpart to the Microsoft 365 connector.
 
 ## What you get
 
@@ -53,7 +53,7 @@ Events are normalized with `source: google_workspace` and `category` derived fro
 
 The Reports API will not return events unless the credential is acting as a super-admin. Pick a dedicated `aisoc@yourdomain.com` super-admin if possible — easier to audit than impersonating a human admin.
 
-### 5. Add the connector in AiSOC
+### 5. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → Google Workspace**.
 2. `admin_email` = the super-admin to impersonate.

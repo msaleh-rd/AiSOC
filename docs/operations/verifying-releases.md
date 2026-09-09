@@ -1,6 +1,6 @@
-# Verifying AiSOC Releases
+# Verifying Intelligence SOC Releases
 
-You run AiSOC images next to your crown jewels, so you should verify what you download. This page documents how to check release integrity today and what stronger attestations are landing.
+You run Intelligence SOC images next to your crown jewels, so you should verify what you download. This page documents how to check release integrity today and what stronger attestations are landing.
 
 ## Available today
 

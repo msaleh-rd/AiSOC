@@ -1,11 +1,11 @@
 ---
 title: Syslog / CEF
-description: Ingest generic syslog + ArcSight CEF into AiSOC (syslog_cef connector).
+description: Ingest generic syslog + ArcSight CEF into Intelligence SOC (syslog_cef connector).
 ---
 
 # Syslog / CEF
 
-The **Syslog / CEF** connector (`syslog_cef`, category `network`) pulls generic syslog + ArcSight CEF and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Syslog / CEF** connector (`syslog_cef`, category `network`) pulls generic syslog + ArcSight CEF and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

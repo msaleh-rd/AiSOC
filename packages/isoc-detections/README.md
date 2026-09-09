@@ -34,7 +34,7 @@ on a negative), the same non-circular guarantee the YAML corpus gets.
 ## Running the fixture gate
 
 ```bash
-# from packages/aisoc-detections/
+# from packages/isoc-detections/
 python -m aisoc_detections.runner detections    # aka `aisoc-detections`
 PYTHONPATH=. python -m pytest tests/
 ```

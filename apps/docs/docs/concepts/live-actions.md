@@ -6,7 +6,7 @@ description: Generic, vendor-agnostic action interface that lets agents and play
 
 # Live Actions
 
-The **live action interface** is AiSOC's generic action substrate. Where the
+The **live action interface** is Intelligence SOC's generic action substrate. Where the
 older Action Execution API was organised around `ActionType` enums and
 auto-selected the vendor at call time based on which credentials happened
 to be in scope, the live action interface inverts that contract:

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 9
 title: Notifications & alerting
-description: All the ways AiSOC notifies humans — Slack ChatOps, Web Push to the responder PWA, email/webhook tickets, and honeytoken first-touch alerts — and how to configure each one.
+description: All the ways Intelligence SOC notifies humans — Slack ChatOps, Web Push to the responder PWA, email/webhook tickets, and honeytoken first-touch alerts — and how to configure each one.
 ---
 
 # Notifications and alerting
 
-AiSOC has multiple **outbound notification surfaces**, each tuned for a
+Intelligence SOC has multiple **outbound notification surfaces**, each tuned for a
 different kind of human-in-the-loop moment. This page is the one place that
 explains what they are, when each fires, and what you need to set in your
 environment to make them work.
@@ -23,7 +23,7 @@ environment to make them work.
 | **Connector-freshness email/webhook** | Tenant owner | A connector going stale | `services/api` |
 
 All of these speak the same operational principle: **the system sends, the
-human decides**. AiSOC never auto-resolves an incident on the back of a
+human decides**. Intelligence SOC never auto-resolves an incident on the back of a
 notification reply unless the explicit `chatops.verify` flow has been wired
 up and the user clicks **Yes, that was me**.
 
@@ -52,7 +52,7 @@ The mobile responder PWA lives at `apps/web` and is delivered by `services/realt
    | Variable | Required | Notes |
    |---|---|---|
    | `REALTIME_BASE_URL` | yes | e.g. `http://realtime:8086` in a Compose / k8s setup. |
-   | `REALTIME_INTERNAL_TOKEN` | recommended | Shared secret stamped on every proxied call as `X-AiSOC-Internal-Token`. |
+   | `REALTIME_INTERNAL_TOKEN` | recommended | Shared secret stamped on every proxied call as `X-Intelligence SOC-Internal-Token`. |
 
 4. The PWA then calls four gateway endpoints (mounted under `/api/v1/push/*`):
 
@@ -131,7 +131,7 @@ steps:
       webhook_url: "https://hooks.slack.com/services/..."
       channel: "#security-alerts"
       message: |
-        AiSOC isolated host {{ context.host }} after P0 alert {{ context.alert_id }}.
+        Intelligence SOC isolated host {{ context.host }} after P0 alert {{ context.alert_id }}.
 ```
 
 Implementation: [`services/actions/app/executors/notification.py`](https://github.com/beenuar/AiSOC/blob/main/services/actions/app/executors/notification.py).
@@ -189,7 +189,7 @@ Either way, the playbook YAML is unchanged:
 
 ## 6. Honeytoken first-touch webhook
 
-When a honeytoken is touched (`honeytoken.triggered`), `services/honeytokens` posts a signed JSON payload to `settings.alert_webhook_url` *and* feeds the same event into the alert-fusion pipeline. The webhook is the **first-touch** path so you get paged even if the rest of AiSOC is degraded.
+When a honeytoken is touched (`honeytoken.triggered`), `services/honeytokens` posts a signed JSON payload to `settings.alert_webhook_url` *and* feeds the same event into the alert-fusion pipeline. The webhook is the **first-touch** path so you get paged even if the rest of Intelligence SOC is degraded.
 
 **Payload**
 
@@ -211,14 +211,14 @@ When a honeytoken is touched (`honeytoken.triggered`), `services/honeytokens` po
 | Variable | Notes |
 |---|---|
 | `ALERT_WEBHOOK_URL` | Where to POST the JSON payload. Empty string disables outbound alerting (the in-band timeline event is still written). |
-| `ALERT_WEBHOOK_SECRET` | If set, the executor signs the body with HMAC-SHA256 and sends the digest as `X-AiSOC-Signature: sha256=<hex>`. |
+| `ALERT_WEBHOOK_SECRET` | If set, the executor signs the body with HMAC-SHA256 and sends the digest as `X-Intelligence SOC-Signature: sha256=<hex>`. |
 
 Verify the signature on the receiver side with:
 
 ```python
 import hmac, hashlib
 expected = hmac.new(secret.encode(), request.body, hashlib.sha256).hexdigest()
-assert hmac.compare_digest(expected, request.headers["X-AiSOC-Signature"].split("=", 1)[1])
+assert hmac.compare_digest(expected, request.headers["X-Intelligence SOC-Signature"].split("=", 1)[1])
 ```
 
 ---
@@ -233,12 +233,12 @@ There is no extra config — `connector_health` is a built-in topic that any sub
 
 ## Suppression and quiet hours
 
-You generally do **not** want to suppress notifications inside AiSOC itself — silencing is something your paging tool (PagerDuty, Opsgenie, native Slack DND, the PWA's per-user snooze) is much better at. AiSOC offers two narrow controls:
+You generally do **not** want to suppress notifications inside Intelligence SOC itself — silencing is something your paging tool (PagerDuty, Opsgenie, native Slack DND, the PWA's per-user snooze) is much better at. Intelligence SOC offers two narrow controls:
 
 - **Per-user on-call status**. The `/api/v1/oncall` endpoint lets a responder mark themselves `available | busy | offline | snoozed`. The realtime service skips Web Push fan-out to anyone in `offline` or `snoozed`.
 - **Slack channel routing**. `notify_slack` always honors the `channel` parameter — point overnight playbooks at `#security-alerts-overnight` rather than trying to suppress the daytime channel.
 
-Anything more sophisticated (rotation logic, escalation policies, holiday calendars) belongs in the on-call tool that owns those concepts. AiSOC ships *to* PagerDuty / Opsgenie, not around them.
+Anything more sophisticated (rotation logic, escalation policies, holiday calendars) belongs in the on-call tool that owns those concepts. Intelligence SOC ships *to* PagerDuty / Opsgenie, not around them.
 
 ---
 
@@ -257,7 +257,7 @@ The fastest end-to-end smoke test, in order of how much you have to set up:
        "parameters": {
          "webhook_url": "'"$SLACK_TEST_WEBHOOK"'",
          "channel": "#aisoc-test",
-         "message": "hello from AiSOC"
+         "message": "hello from Intelligence SOC"
        },
        "rationale": "manual smoke test"
      }'

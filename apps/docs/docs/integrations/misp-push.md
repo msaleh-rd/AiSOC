@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: MISP push (mirror STIX → MISP)
-description: Mirror every STIX 2.1 indicator and bundle published by AiSOC into a downstream MISP instance, on demand or automatically.
+description: Mirror every STIX 2.1 indicator and bundle published by Intelligence SOC into a downstream MISP instance, on demand or automatically.
 ---
 
 # MISP push
@@ -43,7 +43,7 @@ MISP_PUSH_TIMEOUT_SECONDS=15
 ```
 
 `MISP_PUSH_AUTO=true` flips the default for every `POST /indicators`
-and `POST /bundles` request — useful when AiSOC is the canonical source
+and `POST /bundles` request — useful when Intelligence SOC is the canonical source
 of truth and MISP is a downstream consumer. With `MISP_PUSH_AUTO=false`
 (the default), the caller opts in per request via `?push_to_misp=true`.
 
@@ -82,7 +82,7 @@ Response (truncated):
 
 If the push fails (auth, 5xx, air-gap, network), the publish itself
 still succeeds and `misp.pushed` is `false` with a structured `error`
-field — the AiSOC store and the MISP mirror are intentionally decoupled.
+field — the Intelligence SOC store and the MISP mirror are intentionally decoupled.
 
 ### Publish a STIX bundle and mirror it as one MISP event
 
@@ -162,7 +162,7 @@ Dry run is the safest way to:
 - tune the STIX → MISP mapping before flipping `MISP_PUSH_AUTO=true`,
 - prove to a reviewer that an air-gapped deployment really will refuse
   to send (`airgap_blocked: true` with a populated `airgap_message`),
-- diff event payloads between two AiSOC versions when changing
+- diff event payloads between two Intelligence SOC versions when changing
   pattern parsing.
 
 ## STIX → MISP mapping
@@ -200,6 +200,6 @@ tags prefixed with `aisoc:label=…`.
   never logged. Health and dry-run responses do not echo it back.
 - Every outbound request runs through `enforce_airgap_for_url` so the
   push pipeline cannot be used to exfiltrate data from an air-gapped
-  AiSOC deployment.
+  Intelligence SOC deployment.
 - The mirror is intentionally one-way. Pull from MISP still goes
   through the read-only `services/threatintel` client.

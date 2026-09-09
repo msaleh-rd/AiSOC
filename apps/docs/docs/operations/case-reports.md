@@ -1,6 +1,6 @@
 # Case Reports: Auto-Summary & Blameless Post-mortem
 
-Every case in AiSOC ships with two deterministic, on-demand reports:
+Every case in Intelligence SOC ships with two deterministic, on-demand reports:
 
 | Endpoint | Audience | Question it answers |
 |---|---|---|

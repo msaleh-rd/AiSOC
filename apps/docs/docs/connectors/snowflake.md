@@ -1,12 +1,12 @@
 ---
 sidebar_position: 84
 title: Snowflake
-description: Pull Snowflake login + query history from SNOWFLAKE.ACCOUNT_USAGE into AiSOC for exfiltration and anomaly detection.
+description: Pull Snowflake login + query history from SNOWFLAKE.ACCOUNT_USAGE into Intelligence SOC for exfiltration and anomaly detection.
 ---
 
 # Snowflake
 
-The Snowflake connector polls the `SNOWFLAKE.ACCOUNT_USAGE` schema to bring login + query history into AiSOC. It surfaces the activity that matters for SOC analysis — failed login bursts, large-result-set downloads, queries from unexpected regions, and service-account queries running against human-named warehouses — and emits one alert per anomaly candidate.
+The Snowflake connector polls the `SNOWFLAKE.ACCOUNT_USAGE` schema to bring login + query history into Intelligence SOC. It surfaces the activity that matters for SOC analysis — failed login bursts, large-result-set downloads, queries from unexpected regions, and service-account queries running against human-named warehouses — and emits one alert per anomaly candidate.
 
 > **Two Snowflake plugins ship today.** This page covers the **core connector** (`services/connectors/app/connectors/snowflake.py`) shipped with the platform image. The reference plugin under `plugins/snowflake-events/` is a Python + Go SDK demonstration of how to build a community plugin against the same data — operators should use the core connector below for production.
 
@@ -55,7 +55,7 @@ GRANT ROLE AISOC_AUDIT TO USER AISOC_AUDIT_READER;
 
 It's the host prefix in your Snowflake URL. Example: `xy12345.us-east-1` (or with the newer naming, `acme-prod` followed by `.snowflakecomputing.com`).
 
-### 2. Add the connector in AiSOC
+### 2. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → Snowflake**.
 2. `account` = the identifier from step 1.

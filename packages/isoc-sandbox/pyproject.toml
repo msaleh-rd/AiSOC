@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aisoc-sandbox"
+name = "isoc-sandbox"
 version = "0.1.0"
-description = "Run an AiSOC agent investigation offline in under 30 seconds. No Docker, no API key."
+description = "Run an Intelligence SOC agent investigation offline in under 30 seconds. No Docker, no API key."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -37,7 +37,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/beenuar/AiSOC"
 Documentation = "https://docs.tryaisoc.com"
-Source = "https://github.com/beenuar/AiSOC/tree/main/packages/aisoc-sandbox"
+Source = "https://github.com/beenuar/AiSOC/tree/main/packages/isoc-sandbox"
 Issues = "https://github.com/beenuar/AiSOC/issues"
 Changelog = "https://github.com/beenuar/AiSOC/blob/main/CHANGELOG.md"
 

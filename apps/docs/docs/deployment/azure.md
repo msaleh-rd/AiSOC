@@ -143,7 +143,7 @@ This is a **skeleton**, not the full Azure migration:
   Apps with `min_replicas > 0` (KEDA can still scale on queue depth) or move
   them to AKS sharing this VNet, Postgres, and Redis.
 - **Redis is TLS-only.** The non-SSL port is disabled, so the apps connect on
-  `6380` with `REDIS_SSL=true`. Confirm the AiSOC Redis client honours that
+  `6380` with `REDIS_SSL=true`. Confirm the Intelligence SOC Redis client honours that
   before pointing production traffic at it.
 - **No Azure Front Door / WAF.** Container Apps ingress gives every service a
   managed `*.azurecontainerapps.io` certificate, fine for the skeleton. Put

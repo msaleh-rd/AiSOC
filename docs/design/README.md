@@ -1,6 +1,6 @@
 # `docs/design/` — landing page kickoff bundle
 
-This folder is the design-team handoff for the AiSOC marketing landing
+This folder is the design-team handoff for the Intelligence SOC marketing landing
 page on `tryaisoc.com`. Six documents, in order of importance:
 
 1. **`landing-page-brief.md`** — the product brief. Seventeen sections,

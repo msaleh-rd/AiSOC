@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Quick Start
 
-Four paths to a running AiSOC instance, in increasing order of how much you
+Four paths to a running Intelligence SOC instance, in increasing order of how much you
 already have installed:
 
 0. **Zero-prerequisite bootstrap** — one shell command from a freshly-imaged
@@ -16,7 +16,7 @@ already have installed:
    daemon.
 2. **Full development stack** — every microservice (UEBA, Honeytokens, Purple
    Team, ClickHouse, OpenSearch, Neo4j, Qdrant, MCP, osquery TLS server,
-   Slack bot) for hacking on AiSOC itself.
+   Slack bot) for hacking on Intelligence SOC itself.
 3. **Founder-style CLI** — the same dev stack as Path B, but driven entirely
    through the `aisoc` CLI: `aisoc serve`, `aisoc db upgrade`, `aisoc submit`,
    `aisoc mcp serve`. Ideal for screen-recording demos and for operators who
@@ -96,7 +96,7 @@ reached — make it easy to wire into CI without parsing logs. Source:
 
 ## Path B — full development stack
 
-Use this when you want to hack on AiSOC itself, run the eval harness, or
+Use this when you want to hack on Intelligence SOC itself, run the eval harness, or
 exercise UEBA / Honeytokens / Purple Team / MCP.
 
 ### 1. Clone & configure
@@ -206,7 +206,7 @@ it on your phone via "Add to Home Screen" and sign in with a passkey.
 
 ### 8. Connect your first source in 5 minutes
 
-The seeded demo data is enough to fly the UI through; pointing AiSOC at a
+The seeded demo data is enough to fly the UI through; pointing Intelligence SOC at a
 live source takes about five minutes per connector and zero code changes:
 
 1. Generate a vault key and put it in `.env` —
@@ -271,7 +271,7 @@ cd AiSOC
 cp .env.example .env
 
 python -m venv .venv && source .venv/bin/activate
-pip install -e packages/aisoc-cli
+pip install -e packages/isoc-cli
 ```
 
 `.env.example` is already wired up with a working `POSTGRES_PASSWORD` and a
@@ -398,7 +398,7 @@ sessions) on the alerts board.
 ### 6. Hook your IDE in over MCP (optional)
 
 If you use Cursor, Claude Desktop, or Continue, point them at the local
-MCP server so you can talk to your running AiSOC instance from the editor:
+MCP server so you can talk to your running Intelligence SOC instance from the editor:
 
 ```bash
 # Stand up the MCP server over stdio (Cursor / Claude / Continue)
@@ -412,7 +412,7 @@ aisoc mcp install --host continue
 
 `aisoc mcp serve` prefers the local TypeScript build at
 `services/mcp/dist/index.js` when present, and falls back to
-`npx @aisoc/mcp` otherwise — so it works on a fresh clone before you've
+`npx @isoc/mcp` otherwise — so it works on a fresh clone before you've
 run `pnpm build`.
 
 ### 7. Tear down
@@ -445,7 +445,7 @@ sample exports to dogfood your detection content end to end.
 
 - [Architecture deep-dive](./architecture)
 - [Capabilities](./concepts/capabilities) — full feature inventory by tier
-- [Glossary](./glossary) — security and AiSOC-specific terminology
+- [Glossary](./glossary) — security and Intelligence SOC-specific terminology
 - [FAQ](./operations/faq) — common questions about scope, deployment, data, and licensing
 
 ### Connect data and detections
@@ -455,7 +455,7 @@ sample exports to dogfood your detection content end to end.
 - [Build a playbook](./concepts/playbooks)
 - [Concepts: Cases & Investigation Ledger](./concepts/cases)
 
-### Extend AiSOC
+### Extend Intelligence SOC
 
 - [Install a community plugin](./plugins/overview)
 - [Connect your IDE via MCP](./integrations/mcp)

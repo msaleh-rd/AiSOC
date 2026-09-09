@@ -1,6 +1,6 @@
-# AiSOC API Reference
+# Intelligence SOC API Reference
 
-This document describes the REST endpoints exposed by AiSOC services. For the auto-generated, exhaustive schema visit `/docs` (Swagger) on each running service.
+This document describes the REST endpoints exposed by Intelligence SOC services. For the auto-generated, exhaustive schema visit `/docs` (Swagger) on each running service.
 
 | Service | Base URL (local) |
 |---------|-------------------|

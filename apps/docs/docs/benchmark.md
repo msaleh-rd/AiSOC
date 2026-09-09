@@ -1,10 +1,10 @@
 ---
 sidebar_position: 4
 title: Public Eval Harness
-description: AiSOC's open, deterministic regression harness. 200 synthetic incidents drawn from 55 distinct templates with backing telemetry (Sysmon, M365, CloudTrail, Azure sign-in, Linux auditd, …). Per-case and per-template CI gates over the substrate, plus operational coverage gates (synthetic telemetry corpus, playbook completion rate). Honest about what it measures — and what it doesn't.
+description: Intelligence SOC's open, deterministic regression harness. 200 synthetic incidents drawn from 55 distinct templates with backing telemetry (Sysmon, M365, CloudTrail, Azure sign-in, Linux auditd, …). Per-case and per-template CI gates over the substrate, plus operational coverage gates (synthetic telemetry corpus, playbook completion rate). Honest about what it measures — and what it doesn't.
 ---
 
-# AiSOC Public Eval Harness
+# Intelligence SOC Public Eval Harness
 
 <!-- BEGIN: north-star performance (T5.1 scaffold; T2.4 fills in once telemetry lands) -->
 
@@ -29,16 +29,16 @@ keep them visually separate so they're never confused:
 
 | Class | What it measures | Suites on this page |
 |-------|------------------|---------------------|
-| **Substrate self-check** | Determines whether AiSOC's deterministic substrate (extractors, fusion logic, report and plan templates, judges) is internally consistent. Runs in milliseconds, no LLM, no DB. CI gates every PR on it. | `mitre_accuracy`, `investigation_completeness`, `response_quality`, `playbook_completion_rate`, synthetic-telemetry coverage |
+| **Substrate self-check** | Determines whether Intelligence SOC's deterministic substrate (extractors, fusion logic, report and plan templates, judges) is internally consistent. Runs in milliseconds, no LLM, no DB. CI gates every PR on it. | `mitre_accuracy`, `investigation_completeness`, `response_quality`, `playbook_completion_rate`, synthetic-telemetry coverage |
 | **Wet eval** (live agent) | Drives the live `services/agents` LangGraph orchestrator end-to-end against the same 200-incident corpus, with real LLM calls. Measures latency, token usage, USD cost, and (with an LLM-as-judge variant) live agent accuracy. Runs weekly, not per-PR. | latency p50 / p95 / p99, tokens per investigation, USD per investigation |
 
 Workspace rule we follow: **never present a substrate self-check as live
 agent performance**. Every table below is labelled with its class.
 
-> **An open, deterministic regression harness over the AiSOC substrate.**
+> **An open, deterministic regression harness over the Intelligence SOC substrate.**
 >
 > This page is _not_ a leaderboard for AI SOC agents. It is a CI-gated harness
-> that exercises the deterministic substrate underneath AiSOC — the keyword
+> that exercises the deterministic substrate underneath Intelligence SOC — the keyword
 > extractors, the in-harness fusion grouping (a faithful re-implementation of
 > the production Tier 1/2/3 logic in `services/fusion`, minus the DB-backed
 > dedup and ML scoring), the report and response templates, and the offline
@@ -83,7 +83,7 @@ not agent accuracy. We explain exactly what each suite measures — and doesn't
 
 Vendor claims about AI SOC performance — alert reduction percentages, MITRE
 coverage, analyst throughput — are typically not reproducible by buyers. The
-dataset, the baseline, and the rubric are not published. AiSOC takes the
+dataset, the baseline, and the rubric are not published. Intelligence SOC takes the
 opposite approach: ship a small harness, label which metrics are real
 measurements and which are substrate self-checks, and let anyone reproduce
 the numbers.
@@ -442,7 +442,7 @@ That's it. No Docker, no API key, no GPU, no LLM. Expected output:
 
 ```text
 ==============================================================================
-  AiSOC Pillar-1 Eval - 200-incident synthetic benchmark
+  Intelligence SOC Pillar-1 Eval - 200-incident synthetic benchmark
 ==============================================================================
   [PASS] mitre_accuracy                accuracy               0.970  (target >= 0.80)
          per-template macro            0.964  (target >= 0.80, n=55 templates) [PASS]
@@ -740,7 +740,7 @@ web console. Submission rules:
 
 ## Comparison to other AI SOC offerings
 
-| Capability                                     | AiSOC | Wazuh | Splunk | Closed-source AI SOC |
+| Capability                                     | Intelligence SOC | Wazuh | Splunk | Closed-source AI SOC |
 |-----------------------------------------------|:-----:|:-----:|:------:|:---------------------:|
 | Open-source (MIT)                              |  yes  |  yes  |   no   |          no           |
 | Self-hostable                                  |  yes  |  yes  |  yes   |          no           |

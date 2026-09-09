@@ -1,4 +1,4 @@
-# AiSOC landing page — motion spec
+# Intelligence SOC landing page — motion spec
 
 > Companion to `landing-page-component-recipes.md` and
 > `landing-page-design-tokens.md` §7. Twelve micro-animations across

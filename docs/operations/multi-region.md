@@ -1,6 +1,6 @@
-# AiSOC Multi-Region Operations
+# Intelligence SOC Multi-Region Operations
 
-> **Audience**: Platform / SRE teams running AiSOC in production across multiple cloud regions.
+> **Audience**: Platform / SRE teams running Intelligence SOC in production across multiple cloud regions.
 > **Last updated**: auto-generated (see `scripts/generate_runbook.py`)
 
 ---
@@ -22,7 +22,7 @@
 
 ## 1. Architecture overview
 
-AiSOC is deployed as a set of independent microservices managed by Helm. In a multi-region setup each region runs a full replica of the control plane with:
+Intelligence SOC is deployed as a set of independent microservices managed by Helm. In a multi-region setup each region runs a full replica of the control plane with:
 
 - **Active–passive** PostgreSQL: one writer in the primary region; read replicas in secondary regions promoted on failover.
 - **Active–active** ClickHouse: distributed cluster with per-shard replicas across regions; ZooKeeper or ClickHouse Keeper runs in every region.
@@ -65,7 +65,7 @@ AiSOC is deployed as a set of independent microservices managed by Helm. In a mu
 ```bash
 # 1. Provision cluster (Terraform / eksctl / etc.)
 # 2. Install cert-manager, nginx-ingress, external-secrets
-# 3. Deploy AiSOC chart pointing to existing secrets store
+# 3. Deploy Intelligence SOC chart pointing to existing secrets store
 helm upgrade --install aisoc infra/helm/aisoc \
   --namespace aisoc \
   --create-namespace \
@@ -181,7 +181,7 @@ helm rollback aisoc <REVISION> --namespace aisoc
 
 ## 6. Observability & alerting
 
-AiSOC emits **OpenTelemetry** traces, metrics, and structured logs to a configurable OTLP endpoint (`global.otelEndpoint` in `values.yaml`).
+Intelligence SOC emits **OpenTelemetry** traces, metrics, and structured logs to a configurable OTLP endpoint (`global.otelEndpoint` in `values.yaml`).
 
 ### Key SLIs
 
@@ -198,7 +198,7 @@ AiSOC emits **OpenTelemetry** traces, metrics, and structured logs to a configur
 
 - **Service map**: trace-based topology from OTLP backend (Tempo, Jaeger, Honeycomb).
 - **Golden signals**: per-service latency / error / saturation / traffic (Grafana `aisoc-golden-signals.json`).
-- **SLA tracker**: AiSOC built-in `/sla` dashboard (`/apps/web/src/app/(app)/sla/page.tsx`).
+- **SLA tracker**: Intelligence SOC built-in `/sla` dashboard (`/apps/web/src/app/(app)/sla/page.tsx`).
 
 ### Alerting rules (Prometheus/AlertManager)
 
@@ -212,7 +212,7 @@ AiSOC emits **OpenTelemetry** traces, metrics, and structured logs to a configur
   labels:
     severity: page
   annotations:
-    summary: "AiSOC API error rate > 0.5%"
+    summary: "Intelligence SOC API error rate > 0.5%"
 
 - alert: AiSOCIngestLag
   expr: histogram_quantile(0.99, rate(ingest_lag_seconds_bucket[5m])) > 2

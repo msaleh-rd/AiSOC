@@ -104,7 +104,7 @@ plugin_id = await plugin_manager.install_from_oci(
 The image's primary layer is extracted into `AISOC_PLUGINS_DIR/<plugin_id>`
 and then loaded through the same discovery path. Signature checks still
 apply — packing a `plugin.sig` into the OCI artifact is part of your CI
-build, not something AiSOC fakes for you.
+build, not something Intelligence SOC fakes for you.
 
 ## Operator API
 

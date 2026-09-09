@@ -1,4 +1,4 @@
-# 90-second AiSOC demo screencast — shot list
+# 90-second Intelligence SOC demo screencast — shot list
 
 > Phase 4.3 / T6.4 — the canonical script for the public product walkthrough.
 >
@@ -12,7 +12,7 @@
 
 ## Pre-roll (0:00 — 0:02)
 
-* AiSOC wordmark fades up on a dark background.
+* Intelligence SOC wordmark fades up on a dark background.
 * No voiceover. No music sting. Two seconds, dead silent — sets up the
   "we're going to show you, not pitch you" frame.
 
@@ -21,7 +21,7 @@
 * **Visual:** browser at `tryaisoc.com/dashboard/alerts`. A new alert
   card animates in from the top (the seed dataset includes a Crowdstrike
   EDR detection for `wmic.exe` spawn from `winword.exe`).
-* **Voice (12 words):** "An EDR detection comes in. AiSOC opens an
+* **Voice (12 words):** "An EDR detection comes in. Intelligence SOC opens an
   investigation automatically."
 * **Cut on:** the alert card finishing its slide-in animation.
 
@@ -58,7 +58,7 @@
 * **Visual:** the timeline shows the executor card running. Status goes
   Pending → Running → Success. The host card updates to "Isolated"
   with the Crowdstrike host ID and a link out to the EDR console.
-* **Voice (14 words):** "AiSOC fires the action against Crowdstrike,
+* **Voice (14 words):** "Intelligence SOC fires the action against Crowdstrike,
   records the response, and updates the host."
 * **Cut on:** the host card showing "Isolated".
 
@@ -73,7 +73,7 @@
 
 ## Outro (1:20 — 1:30)
 
-* **Visual:** fade to the AiSOC wordmark on dark with the URL
+* **Visual:** fade to the Intelligence SOC wordmark on dark with the URL
   `tryaisoc.com` and "MIT licensed · github.com/beenuar/AiSOC" under
   it.
 * **Voice (8 words):** "Try the live demo at tryaisoc.com."

@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Kubernetes Deployment
 
-The supported way to run AiSOC on Kubernetes is the Helm chart shipped at [`infra/helm/aisoc/`](https://github.com/beenuar/AiSOC/tree/main/infra/helm/aisoc) in the repo. It deploys every service (api, agents, realtime, mcp, ingest, enrichment, web) plus optional bundled Postgres, Redis, NATS, and OpenSearch via subcharts.
+The supported way to run Intelligence SOC on Kubernetes is the Helm chart shipped at [`infra/helm/aisoc/`](https://github.com/beenuar/AiSOC/tree/main/infra/helm/aisoc) in the repo. It deploys every service (api, agents, realtime, mcp, ingest, enrichment, web) plus optional bundled Postgres, Redis, NATS, and OpenSearch via subcharts.
 
 ## Helm chart (in-repo)
 

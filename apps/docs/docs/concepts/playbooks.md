@@ -28,7 +28,7 @@ steps. The wire format is JSON; the runtime model is in
     "severity": ["critical"],
     "tags": ["ransomware"]
   },
-  "author": "AiSOC",
+  "author": "Intelligence SOC",
   "enabled": true,
   "steps": [
     {
@@ -77,7 +77,7 @@ triggers against incoming alerts, cases, and schedules.
 | `schedule` | A cron expression matches | `cron` (e.g. `"0 */6 * * *"`) |
 | `webhook` | An external system POSTs to `/v1/playbooks/{id}/trigger` | optional `secret` |
 
-Severity values follow the four-tier ladder used everywhere in AiSOC:
+Severity values follow the four-tier ladder used everywhere in Intelligence SOC:
 `info | low | medium | high`. Vendor-native ladders (Azure, SCC, GitHub) are
 collapsed into this set in each connector's `normalize()`.
 
@@ -94,7 +94,7 @@ Each step has a `type` that maps to a handler in
 | `block_ip` | Calls a firewall/EDR connector to block an IP (currently simulated for safety in OSS builds). |
 | `isolate_host` | Calls EDR to isolate a host (simulated by default). |
 | `create_ticket` | Opens a ticket in Jira / ServiceNow / Linear via connector. |
-| `close_case` | Marks the AiSOC case as closed via the API service. |
+| `close_case` | Marks the Intelligence SOC case as closed via the API service. |
 | `http` | Generic outbound HTTP request — `method`, `url`, `body`, `headers`. |
 | `condition` | Pure branching node. Evaluates `condition` and routes to `next_true` / `next_false`. |
 
@@ -180,11 +180,11 @@ Every run emits events to the realtime service so the UI can stream progress:
 
 Channel format: `playbook:<run_id>`. Subscribe via WebSocket
 (`/realtime/ws?channel=playbook:<run_id>`) or the SDK
-(`AiSOC.subscribe("playbook", run_id)`).
+(`Intelligence SOC.subscribe("playbook", run_id)`).
 
 ## Starter templates
 
-AiSOC ships with starter playbooks under
+Intelligence SOC ships with starter playbooks under
 [`services/agents/data/playbooks/`](https://github.com/beenuar/AiSOC/tree/main/services/agents/data/playbooks):
 
 | Template | Trigger | Description |

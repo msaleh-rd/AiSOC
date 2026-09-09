@@ -1,7 +1,7 @@
 ---
 sidebar_position: 75
 title: Atlassian Confluence Audit
-description: Pull Confluence Cloud audit-trail events (page, space, permission, user/group) into AiSOC.
+description: Pull Confluence Cloud audit-trail events (page, space, permission, user/group) into Intelligence SOC.
 ---
 
 # Atlassian Confluence Audit
@@ -30,7 +30,7 @@ Events are normalised with `source: confluence_audit`, `category: saas`.
 3. **Label**: `aisoc-confluence-audit`.
 4. Copy the token (Atlassian shows it once).
 
-### 2. Add the connector in AiSOC
+### 2. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → Atlassian Confluence Audit**.
 2. `site_url` = your Confluence URL (e.g. `https://acme.atlassian.net`).
@@ -50,7 +50,7 @@ Events are normalised with `source: confluence_audit`, `category: saas`.
 
 Most events are routine and stay at `info`. Permission and security-category events bump to at least `medium`. A short allowlist of summary fragments maps to `high`:
 
-| Trigger | AiSOC severity |
+| Trigger | Intelligence SOC severity |
 |---|---|
 | Summary contains `Removed user from site` | `high` |
 | Summary contains `Granted site admin` | `high` |

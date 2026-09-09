@@ -1,6 +1,6 @@
 # Agent + Tool Threat Model (STRIDE)
 
-Scope: the AiSOC investigation agent (`services/agents/`) and the tools it can drive (`services/actions/`). The agent reads attacker-influenced telemetry and can trigger high-impact SOAR actions (block IP, isolate host, revoke credentials), so the prompt boundary and the tool boundary are both hostile-input surfaces.
+Scope: the Intelligence SOC investigation agent (`services/agents/`) and the tools it can drive (`services/actions/`). The agent reads attacker-influenced telemetry and can trigger high-impact SOAR actions (block IP, isolate host, revoke credentials), so the prompt boundary and the tool boundary are both hostile-input surfaces.
 
 This document is Phase 1.1 of the world-class program. It is referenced from [`SECURITY.md`](../../SECURITY.md).
 

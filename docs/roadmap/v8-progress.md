@@ -1,4 +1,4 @@
-# AiSOC v8.0 — North-Star Plan Progress
+# Intelligence SOC v8.0 — North-Star Plan Progress
 
 **Last updated:** 2026-06-27 (Saturday, Asia/Bangkok)
 **Authored by:** AI assistant; verify by cross-referencing

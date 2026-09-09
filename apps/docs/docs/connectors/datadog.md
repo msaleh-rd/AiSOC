@@ -1,7 +1,7 @@
 ---
 sidebar_position: 78
 title: Datadog
-description: Datadog logs and Cloud SIEM signals into AiSOC via the Datadog v2 API.
+description: Datadog logs and Cloud SIEM signals into Intelligence SOC via the Datadog v2 API.
 ---
 
 # Datadog
@@ -40,7 +40,7 @@ envelope is preserved on `raw_event` so detection rules can match on
    `aisoc-ingest` and copy the value.
 2. **Personal Settings → Application Keys → New Key**. Name it
    `aisoc-ingest-app` and copy the value.
-3. In AiSOC: **Connectors → Add connector → Datadog (Logs + APM)**.
+3. In Intelligence SOC: **Connectors → Add connector → Datadog (Logs + APM)**.
 4. **Site** — pick the regional site that matches your Datadog tenant.
 5. **Mode** — `logs` for general log streaming, `events` for APM
    monitor alerts and custom events.
@@ -49,7 +49,7 @@ envelope is preserved on `raw_event` so detection rules can match on
    `service:nginx status:error`, `env:prod source:auth`,
    `@evt.category:authentication status:error`.
 7. Paste the **API key** and **Application key**.
-8. Click **Test connection**. AiSOC issues a 1-row search and confirms
+8. Click **Test connection**. Intelligence SOC issues a 1-row search and confirms
    a `200`.
 9. Save.
 
@@ -57,7 +57,7 @@ envelope is preserved on `raw_event` so detection rules can match on
 
 For `mode: logs` (the `status` / `level` attribute):
 
-| AiSOC severity | Datadog log status |
+| Intelligence SOC severity | Datadog log status |
 |---|---|
 | `high`   | `emergency`, `alert`, `critical` |
 | `medium` | `error` |
@@ -71,7 +71,7 @@ alert queue.
 
 For `mode: events` (the monitor `alert_type` attribute):
 
-| AiSOC severity | Datadog event `alert_type` |
+| Intelligence SOC severity | Datadog event `alert_type` |
 |---|---|
 | `high`   | `error` |
 | `medium` | `warning` |

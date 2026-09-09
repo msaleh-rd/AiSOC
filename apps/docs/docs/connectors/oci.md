@@ -1,13 +1,13 @@
 ---
 sidebar_position: 80
 title: Oracle Cloud Infrastructure (OCI)
-description: OCI Audit service events into AiSOC via the OCI Audit ListEvents API.
+description: OCI Audit service events into Intelligence SOC via the OCI Audit ListEvents API.
 ---
 
 # Oracle Cloud Infrastructure (OCI)
 
 The OCI connector polls the **OCI Audit service** (`ListEvents` in the
-configured compartment) and emits one AiSOC alert per audit event
+configured compartment) and emits one Intelligence SOC alert per audit event
 (IAM identity changes, security list / NSG edits, instance state
 changes, IAM policy edits).
 
@@ -39,7 +39,7 @@ ComputeApi, …).
 
 ## Setup walkthrough
 
-1. In the OCI Console, **Identity → Users → (the AiSOC service user) →
+1. In the OCI Console, **Identity → Users → (the Intelligence SOC service user) →
    API Keys → Add API Key → Paste public key**.
 2. Copy the **Fingerprint** the console displays — you'll need it
    exactly.
@@ -47,10 +47,10 @@ ComputeApi, …).
    and your **User OCID**.
 4. Choose a **Compartment OCID** to scope ingestion to (typically your
    root compartment; sub-compartments scope ingestion narrower).
-5. In AiSOC: **Connectors → Add connector → Oracle Cloud Infrastructure**.
+5. In Intelligence SOC: **Connectors → Add connector → Oracle Cloud Infrastructure**.
 6. Fill in: Tenancy OCID, User OCID, Compartment OCID, Fingerprint,
    the **private key** PEM, and the **Region**.
-7. Click **Test connection**. AiSOC issues a signed `GET /auditEvents?
+7. Click **Test connection**. Intelligence SOC issues a signed `GET /auditEvents?
    compartmentId=...&startTime=...&endTime=...&limit=1` and confirms a
    `200`.
 8. Save.
@@ -59,7 +59,7 @@ ComputeApi, …).
 
 The connector escalates OCI audit events by source + eventName:
 
-| AiSOC severity | OCI event |
+| Intelligence SOC severity | OCI event |
 |---|---|
 | `high`   | `iam.*.DeleteUser`, `iam.*.UpdateUserCapabilities`, `iam.*.CreatePolicy`, `network.*.UpdateSecurityList`, `network.*.UpdateNetworkSecurityGroup` |
 | `medium` | `compute.*.LaunchInstance`, `compute.*.TerminateInstance`, `objectstorage.*.PutObject` on policy-marked buckets |

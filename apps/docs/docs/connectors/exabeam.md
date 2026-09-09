@@ -1,11 +1,11 @@
 ---
 title: Exabeam
-description: Ingest notable risk-scored sessions into AiSOC (exabeam connector).
+description: Ingest notable risk-scored sessions into Intelligence SOC (exabeam connector).
 ---
 
 # Exabeam
 
-The **Exabeam** connector (`exabeam`, category `siem`) pulls notable risk-scored sessions and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Exabeam** connector (`exabeam`, category `siem`) pulls notable risk-scored sessions and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

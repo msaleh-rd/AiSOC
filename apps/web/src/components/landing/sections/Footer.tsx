@@ -73,7 +73,6 @@ const COLUMNS: ReadonlyArray<LinkColumn> = [
       { label: 'About', href: '/about' },
       { label: 'Sovereign', href: '/sovereign' },
       { label: 'Customers', href: '/customers' },
-      { label: 'Pricing', href: '/pricing' },
       { label: 'Contact', href: '/contact' },
       { label: 'Press', href: '/press' },
     ],

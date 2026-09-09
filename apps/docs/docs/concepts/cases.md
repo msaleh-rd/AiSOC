@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Cases
 
-A **Case** is the central unit of work in AiSOC. Every security incident, alert,
+A **Case** is the central unit of work in Intelligence SOC. Every security incident, alert,
 or investigation is tracked as a Case.
 
 ## Case States
@@ -39,7 +39,7 @@ The full graph lives under
 
 ## Investigation Ledger
 
-The **Investigation Ledger** is the structural moat that separates AiSOC from
+The **Investigation Ledger** is the structural moat that separates Intelligence SOC from
 closed-source AI SOC vendors: every prompt sent to an LLM, every response
 received, every tool invocation, every evidence citation, and every decision
 branch is appended to a tenant-scoped, append-only ledger and rendered as a

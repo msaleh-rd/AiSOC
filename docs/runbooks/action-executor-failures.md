@@ -19,7 +19,7 @@ integration (`endpoint`, `network`, `siem`, `identity`,
    SentinelOne / Azure AD have per-tenant ceilings; a sudden
    bulk-response campaign hits the cap.
 3. **Upstream is down.** Vendor incident.
-4. **Network split.** Egress from the AiSOC pod blocked by a
+4. **Network split.** Egress from the Intelligence SOC pod blocked by a
    newly-introduced firewall rule on the operator's side.
 
 ## First five minutes

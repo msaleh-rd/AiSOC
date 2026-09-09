@@ -3,7 +3,7 @@
 
 The deterministic verdict engine lives canonically in
 ``packages/aisoc-lite/src/verdict/`` (published as the `aisoc` CLI). The GitHub
-Action (``packages/aisoc-action``) triages a repo's security signals with the
+Action (``packages/isoc-action``) triages a repo's security signals with the
 same engine, but a GitHub Action ships a single committed ``dist/index.js`` with
 no npm install at run time — so it bundles a **vendored** copy of the pure
 verdict modules rather than taking a workspace dependency on the CLI package
@@ -28,7 +28,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "packages" / "aisoc-lite" / "src" / "verdict"
-DST_DIR = REPO_ROOT / "packages" / "aisoc-action" / "src" / "_vendor" / "verdict"
+DST_DIR = REPO_ROOT / "packages" / "isoc-action" / "src" / "_vendor" / "verdict"
 FILES = ("types.ts", "stages.ts", "engine.ts")
 
 
@@ -61,7 +61,7 @@ def _sync() -> int:
             return 1
         shutil.copy2(src, DST_DIR / name)
         print(f"copied {src.relative_to(REPO_ROOT)} → {(DST_DIR / name).relative_to(REPO_ROOT)}")
-    print("\nDone. Commit packages/aisoc-action/src/_vendor/verdict/*.ts")
+    print("\nDone. Commit packages/isoc-action/src/_vendor/verdict/*.ts")
     return 0
 
 

@@ -1,20 +1,20 @@
 ---
 sidebar_position: 14
 title: osctrl
-description: Pull osquery distributed-query results from osctrl into AiSOC for endpoint detection.
+description: Pull osquery distributed-query results from osctrl into Intelligence SOC for endpoint detection.
 ---
 
 # osctrl
 
 [osctrl](https://osctrl.net/) is an open-source osquery fleet manager. The osctrl
 connector polls the admin REST API for **distributed-query results** and turns
-each result row into a normalized AiSOC endpoint event. Severity is synthesised
+each result row into a normalized Intelligence SOC endpoint event. Severity is synthesised
 from the osquery table that produced the row, so detection rules in
 `detections/endpoint/` can promote interesting rows (e.g. a new entry in
 `startup_items`) to high without having to reason about vendor-specific severity
 fields.
 
-This connector is read-only on its own. The companion AiSOC TLS endpoint
+This connector is read-only on its own. The companion Intelligence SOC TLS endpoint
 (`aisoc-direct`, ships as a separate connector page) and the live-query
 response action (see [agent capabilities](/docs/concepts/capabilities)) build
 on the same auth surface to dispatch ad-hoc queries from playbooks.
@@ -23,7 +23,7 @@ on the same auth surface to dispatch ad-hoc queries from playbooks.
 
 | Source | osctrl endpoint | Notes |
 |---|---|---|
-| Distributed-query results | `GET /api/v1/queries/{env}/list` + `/results/{name}` | One AiSOC event per result row |
+| Distributed-query results | `GET /api/v1/queries/{env}/list` + `/results/{name}` | One Intelligence SOC event per result row |
 
 Events are normalized with `category: endpoint` and the originating osquery
 table is preserved as `osquery_table` for downstream routing.
@@ -45,7 +45,7 @@ table is preserved as `osquery_table` for downstream routing.
 osctrl tokens are long-lived; rotate them on the same cadence as your other
 infrastructure secrets.
 
-### 2. Add the connector in AiSOC
+### 2. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → osctrl**.
 2. Fill in `base_url` (no trailing slash), `api_token`, and `environment`.
@@ -61,9 +61,9 @@ infrastructure secrets.
 ## Severity mapping
 
 osctrl is a query/event platform, so it does not emit alerts with vendor
-severity. AiSOC synthesises severity from the table queried:
+severity. Intelligence SOC synthesises severity from the table queried:
 
-| osquery table | AiSOC severity | Why |
+| osquery table | Intelligence SOC severity | Why |
 |---|---|---|
 | `startup_items`, `scheduled_tasks`, `launchd`, `crontab`, `kernel_extensions`, `kernel_modules`, `browser_extensions` | `high` | Persistence + execution surfaces |
 | `file_events` | `medium` | FIM rows; detection rules promote write/delete events |
@@ -93,7 +93,7 @@ The `osquery_live_query` playbook step dispatches an on-demand osquery
 distributed query to one or more hosts via osctrl's distributed-query API.
 Responses are polled and returned as structured rows, enabling IR triage
 ("get all running processes on this host right now") directly inside
-AiSOC playbooks.
+Intelligence SOC playbooks.
 
 ### Playbook step schema
 
@@ -145,5 +145,5 @@ at the `AllowlistError` boundary before any network call is made.
 
 ### Credentials
 
-Store the osctrl API token in the AiSOC secrets store and reference it with
+Store the osctrl API token in the Intelligence SOC secrets store and reference it with
 `{{ secrets.osctrl_token }}` in the playbook YAML. Never hard-code tokens.

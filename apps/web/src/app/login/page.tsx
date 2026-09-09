@@ -100,7 +100,7 @@ function LoginInner() {
             <Link
               href="/"
               className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-5 hover:bg-indigo-500 transition"
-              aria-label="Back to AiSOC home"
+              aria-label="Back to Intelligence SOC home"
             >
               <svg
                 className="w-8 h-8 text-white"
@@ -117,7 +117,7 @@ function LoginInner() {
               </svg>
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Sign in to AiSOC
+              Sign in to Intelligence SOC
             </h1>
             <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
               Open-source AI SOC console. Use the demo credentials below or

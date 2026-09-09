@@ -1,12 +1,12 @@
 ---
 sidebar_position: 6
 title: Upgrades & versioning
-description: How AiSOC versions releases, what each digit means, the deprecation policy, and the procedure to upgrade in place.
+description: How Intelligence SOC versions releases, what each digit means, the deprecation policy, and the procedure to upgrade in place.
 ---
 
 # Upgrades and versioning
 
-AiSOC follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) on a single shared version across the monorepo. The authoritative version lives in [`VERSION`](https://github.com/beenuar/AiSOC/blob/main/VERSION); every release tag, container image, and SDK package is stamped with the same number.
+Intelligence SOC follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) on a single shared version across the monorepo. The authoritative version lives in [`VERSION`](https://github.com/beenuar/AiSOC/blob/main/VERSION); every release tag, container image, and SDK package is stamped with the same number.
 
 This page is what you read before running `git pull` against a new release.
 
@@ -20,7 +20,7 @@ This page is what you read before running `git pull` against a new release.
 
 Every release ships with a [CHANGELOG.md](https://github.com/beenuar/AiSOC/blob/main/CHANGELOG.md) entry that lists added features, behaviour changes, and any breaking notes. **Read it before upgrading across a major version.**
 
-## What "breaking" means in AiSOC
+## What "breaking" means in Intelligence SOC
 
 A change is breaking — and therefore lives in a major release — if any of these apply:
 
@@ -48,7 +48,7 @@ If you depend on something marked deprecated, open an issue — sometimes we ext
 Run through this list every time:
 
 1. **Read the CHANGELOG** between your current version and the target. Pay attention to anything labelled "Breaking", "Migration", or "Action required".
-2. **Back up your database.** `pg_dump` of the AiSOC schema is the minimum bar. For Kafka- and ClickHouse-backed deployments, snapshot those too.
+2. **Back up your database.** `pg_dump` of the Intelligence SOC schema is the minimum bar. For Kafka- and ClickHouse-backed deployments, snapshot those too.
 3. **Snapshot your `AISOC_CREDENTIAL_KEY`.** If you lose it during the upgrade, every encrypted connector credential in the database becomes unrecoverable. Treat the key the same way you treat your database backup.
 4. **Confirm a maintenance window** for the API service. Migrations run inside a single transaction where possible; minor releases typically take seconds, major releases can take minutes on large `audit_log` tables.
 5. **Stage first.** If you operate a non-production tenant on the same code as production, upgrade it first and let it run for a day before promoting.
@@ -132,7 +132,7 @@ That means you can upgrade the API service to `6.1.0` while connectors are still
 
 ## Long-Term Support
 
-AiSOC does not currently offer formal LTS releases. The most recent major version is the supported version; security patches and CVE fixes are backported to the previous major for **90 days** after a new major lands, which is the window we expect operators to need to plan and execute their upgrade.
+Intelligence SOC does not currently offer formal LTS releases. The most recent major version is the supported version; security patches and CVE fixes are backported to the previous major for **90 days** after a new major lands, which is the window we expect operators to need to plan and execute their upgrade.
 
 If your environment requires a longer support window, raise it in [Discussions](https://github.com/beenuar/AiSOC/discussions) — we're happy to discuss commercial support arrangements with the community.
 

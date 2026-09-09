@@ -1,11 +1,11 @@
 ---
 title: Securonix
-description: Ingest incidents (priority→severity) into AiSOC (securonix connector).
+description: Ingest incidents (priority→severity) into Intelligence SOC (securonix connector).
 ---
 
 # Securonix
 
-The **Securonix** connector (`securonix`, category `siem`) pulls incidents (priority→severity) and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Securonix** connector (`securonix`, category `siem`) pulls incidents (priority→severity) and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

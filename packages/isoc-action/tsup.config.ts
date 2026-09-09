@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 // GitHub Actions run the committed dist/index.js directly with no npm install,
-// so everything (@actions/*, aisoc, @aisoc/report-card) must be bundled in.
+// so everything (@actions/*, aisoc, @isoc/report-card) must be bundled in.
 export default defineConfig({
   entry: { index: "src/index.ts" },
   format: ["cjs"],

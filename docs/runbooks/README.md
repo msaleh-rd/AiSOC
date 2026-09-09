@@ -1,4 +1,4 @@
-# AiSOC incident runbooks
+# Intelligence SOC incident runbooks
 
 This directory holds the on-call playbook for every alert defined in
 [`infra/docker/alerts/aisoc.rules.yml`](../../infra/docker/alerts/aisoc.rules.yml).
@@ -19,7 +19,7 @@ prose end-to-end:
 
 Runbook quality bar: a runbook is "done" when an engineer who has
 never seen this alert before can resolve a real incident using
-only the runbook and the standard AiSOC dev environment. If you
+only the runbook and the standard Intelligence SOC dev environment. If you
 ever followed the runbook and it didn't work — fix it before you
 close the incident, not after.
 

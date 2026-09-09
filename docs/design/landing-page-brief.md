@@ -1,4 +1,4 @@
-# AiSOC landing page — product brief for UX design kickoff
+# Intelligence SOC landing page — product brief for UX design kickoff
 
 ## 1. Document control
 
@@ -8,7 +8,7 @@
 - **Audience:** Lead UX designer (and the first illustrator / motion designer
   brought in to support the build).
 - **Purpose:** Provide everything needed to design a single marketing
-  landing page for AiSOC at `tryaisoc.com`, plus a stripped-back logged-in
+  landing page for Intelligence SOC at `tryaisoc.com`, plus a stripped-back logged-in
   product overview that lives behind the same brand. The designer should
   not have to read the repo to design the page.
 - **Deliverable:** Figma file (desktop + tablet + phone artboards) covering
@@ -31,7 +31,7 @@
 
 ### Elevator pitch (three sentences)
 
-AiSOC is an MIT-licensed agentic Security Operations Center that fuses raw
+Intelligence SOC is an MIT-licensed agentic Security Operations Center that fuses raw
 events into incidents, runs four named agents — Detect, Triage, Hunt, and
 Respond — against them, and records every prompt, tool call, and rationale
 to a replayable Investigation Ledger. It ships with 69 click-and-connect
@@ -50,7 +50,7 @@ keystroke to a black-box agent you cannot inspect, cannot fork, and cannot
 benchmark. That trade — visibility for convenience — does not survive
 contact with a procurement team, a regulated industry, or an auditor.
 
-**AiSOC is the open-source answer.** It is a single self-hostable stack
+**Intelligence SOC is the open-source answer.** It is a single self-hostable stack
 that ingests security events, correlates them in real time, runs four
 named agents against the resulting incidents, and surfaces the work in a
 SOC console that any analyst can use on their first day. The agent stack
@@ -242,7 +242,7 @@ hosted-only feature, and no commercial license tier that hides code.
 
 ### P2 — Graph-native at ingest
 
-**Claim.** AiSOC builds the entity-and-event graph while the alert is
+**Claim.** Intelligence SOC builds the entity-and-event graph while the alert is
 being normalised, not when an analyst clicks "show graph."
 
 **Defence.** `services/ingest/internal/graph/` writes Neo4j nodes and
@@ -617,8 +617,8 @@ phrases).
 - **One claim per sentence.** Stack short sentences instead of compound
   ones.
 - **Cite or cut.** Every metric earns a tooltip or a methodology link.
-- **Active voice.** "AiSOC fuses raw events," not "raw events are fused."
-- **Pronouns.** We refer to AiSOC as "AiSOC" or "we." The reader is
+- **Active voice.** "Intelligence SOC fuses raw events," not "raw events are fused."
+- **Pronouns.** We refer to Intelligence SOC as "Intelligence SOC" or "we." The reader is
   "you" (second person), never "users."
 - **Sentence length.** Median ≤ 18 words. Hard cap 28.
 - **Headlines.** Verb-first or product-name-first. No questions in
@@ -691,7 +691,7 @@ Primary CTA names: `cta-start-managed-{section}`, secondary CTA names:
 
 ## 10. SEO and metadata
 
-- **Title (≤ 60 chars):** `AiSOC — The open agentic SOC`
+- **Title (≤ 60 chars):** `Intelligence SOC — The open agentic SOC`
 - **Description (≤ 155 chars):** `Open-source MIT-licensed agentic SOC.
   Four named agents. 69 connectors. Public benchmark. Self-host in 5
   minutes or join the managed waitlist.`

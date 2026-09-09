@@ -1,4 +1,4 @@
-# AiSOC landing page — design tokens
+# Intelligence SOC landing page — design tokens
 
 > Companion to `landing-page-brief.md` §7. Copy-paste-ready token spec
 > for the frontend engineer implementing

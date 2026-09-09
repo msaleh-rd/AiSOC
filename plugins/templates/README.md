@@ -6,7 +6,7 @@ can be loaded at runtime via `importlib.resources` and bundled into the
 distributed wheel:
 
 ```
-packages/aisoc-cli/src/aisoc_cli/templates/
+packages/isoc-cli/src/aisoc_cli/templates/
 ├── enricher/
 │   ├── plugin.yaml.tmpl
 │   ├── plugin.py.tmpl
@@ -46,10 +46,10 @@ placeholder is followed by an identifier character).
 
 ## Editing the templates
 
-Edit the `.tmpl` files in `packages/aisoc-cli/src/aisoc_cli/templates/<type>/`
+Edit the `.tmpl` files in `packages/isoc-cli/src/aisoc_cli/templates/<type>/`
 directly. They are loaded via `importlib.resources` at runtime, so changes
-are picked up by an editable install (`pip install -e packages/aisoc-cli`).
+are picked up by an editable install (`pip install -e packages/isoc-cli`).
 
 Tests for the scaffolder live at
-`packages/aisoc-cli/tests/test_cli.py::test_plugin_new_per_type` and exercise
+`packages/isoc-cli/tests/test_cli.py::test_plugin_new_per_type` and exercise
 every plugin type end-to-end.

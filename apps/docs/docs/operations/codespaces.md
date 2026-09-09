@@ -1,6 +1,6 @@
 # Codespaces & devcontainers
 
-AiSOC ships a prebuilt devcontainer image so a fresh Codespace boots from
+Intelligence SOC ships a prebuilt devcontainer image so a fresh Codespace boots from
 clone-link to **a usable dev shell in about 30 seconds**, down from
 roughly 5 minutes when the same image was assembled from `features:` on
 every cold start. (Booting the full demo stack still takes a few
@@ -63,7 +63,7 @@ pnpm aisoc:demo --no-open
 # …then click the forwarded port 3000.
 
 # Or, no-Docker (zero-dependency simulator):
-pip install -e packages/aisoc-sandbox
+pip install -e packages/isoc-sandbox
 aisoc-sandbox demo
 ```
 

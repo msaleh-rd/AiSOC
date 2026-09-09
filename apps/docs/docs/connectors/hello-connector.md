@@ -1,18 +1,18 @@
 ---
 sidebar_position: 2
-title: Hello, connector — write your first AiSOC integration
-description: A walkthrough that builds a real, runnable AiSOC connector against httpbin.org. No vendor account, no API key, just the BaseConnector contract front to back.
+title: Hello, connector — write your first Intelligence SOC integration
+description: A walkthrough that builds a real, runnable Intelligence SOC connector against httpbin.org. No vendor account, no API key, just the BaseConnector contract front to back.
 ---
 
 # Hello, connector
 
-This tutorial walks you end-to-end through the work of adding a new data source to AiSOC. By the end you will have:
+This tutorial walks you end-to-end through the work of adding a new data source to Intelligence SOC. By the end you will have:
 
 - A subclass of `BaseConnector` that implements every method the platform calls.
 - A self-describing schema that the connector wizard renders into a configuration form.
 - A `test_connection()` path that the wizard hits before it lets you save.
 - A `fetch_alerts()` path that the polling scheduler hits every five minutes.
-- A `normalize()` step that converts vendor JSON into AiSOC's common alert shape.
+- A `normalize()` step that converts vendor JSON into Intelligence SOC's common alert shape.
 - A smoke test that pins all of the above against mocked HTTP traffic.
 
 Everything points at [httpbin.org](https://httpbin.org), a free, no-auth HTTP testing service. The point isn't to ingest httpbin events into your SOC — the point is to walk every line of the connector contract against a backend that:
@@ -192,7 +192,7 @@ Keep the `since_seconds` parameter in the signature even if your vendor doesn't 
 
 ## Step 7 — `normalize()`
 
-`normalize()` maps vendor JSON to AiSOC's common alert shape:
+`normalize()` maps vendor JSON to Intelligence SOC's common alert shape:
 
 ```python
 def normalize(self, raw: dict[str, Any]) -> dict[str, Any]:

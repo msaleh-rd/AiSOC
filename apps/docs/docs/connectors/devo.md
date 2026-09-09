@@ -1,11 +1,11 @@
 ---
 title: Devo
-description: Ingest triggered alerts into AiSOC (devo connector).
+description: Ingest triggered alerts into Intelligence SOC (devo connector).
 ---
 
 # Devo
 
-The **Devo** connector (`devo`, category `siem`) pulls triggered alerts and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Devo** connector (`devo`, category `siem`) pulls triggered alerts and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

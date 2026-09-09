@@ -20,7 +20,7 @@ This package collapses the boot time to **< 5 seconds** and the disk footprint t
 ```bash
 # Today (from this monorepo):
 git clone https://github.com/beenuar/AiSOC.git
-cd AiSOC && pip install -e packages/aisoc-sandbox
+cd AiSOC && pip install -e packages/isoc-sandbox
 
 # v8.0+ (once aisoc-sandbox lands on PyPI):
 pip install aisoc-sandbox

@@ -43,7 +43,7 @@ tool:
 The full stack (connectors → OCSF normalize → Kafka → fusion → auto-triage →
 governed response, with an Investigation Ledger that logs every agent prompt,
 tool call, and rationale) is a `docker compose up` away, and there's a
-zero-dependency Python sandbox (`pip install -e packages/aisoc-sandbox`) if you
+zero-dependency Python sandbox (`pip install -e packages/isoc-sandbox`) if you
 don't want Docker.
 
 Repo: https://github.com/beenuar/AiSOC

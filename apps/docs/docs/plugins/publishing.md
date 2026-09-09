@@ -4,12 +4,12 @@ sidebar_position: 4
 
 # Publishing Plugins
 
-Share your plugin with the AiSOC community via the marketplace.
+Share your plugin with the Intelligence SOC community via the marketplace.
 
 ## Steps
 
 1. **Build and test** your plugin locally.
-2. **Sign the plugin** with an Ed25519 key (see [Signing](#signing) below). Production AiSOC deployments default to `PLUGIN_TRUST_MODE=strict` and refuse to load unsigned code.
+2. **Sign the plugin** with an Ed25519 key (see [Signing](#signing) below). Production Intelligence SOC deployments default to `PLUGIN_TRUST_MODE=strict` and refuse to load unsigned code.
 3. **Publish to PyPI / pkg.go.dev** (or host on GitHub).
 4. **Add an entry** to `marketplace/index.json`:
 
@@ -33,7 +33,7 @@ Share your plugin with the AiSOC community via the marketplace.
 
 ## Signing
 
-AiSOC verifies plugins with Ed25519 before executing any code from `plugin.py`. The signing flow is deliberately mechanical so it slots into CI:
+Intelligence SOC verifies plugins with Ed25519 before executing any code from `plugin.py`. The signing flow is deliberately mechanical so it slots into CI:
 
 ### 1. Generate a publisher keypair (once)
 
@@ -86,7 +86,7 @@ The `signature_status` value is exposed on `GET /api/v1/plugins` so operators ca
 
 - Include a `README.md` with installation and configuration instructions.
 - Write tests with ≥ 80% coverage.
-- Follow the AiSOC [Code of Conduct](https://github.com/beenuar/AiSOC/blob/main/CODE_OF_CONDUCT.md).
+- Follow the Intelligence SOC [Code of Conduct](https://github.com/beenuar/AiSOC/blob/main/CODE_OF_CONDUCT.md).
 - Pin dependency versions for reproducibility.
 - Never log or store credentials in plain text.
 - Ship a signed `plugin.sig`. Unsigned plugins are refused in production.

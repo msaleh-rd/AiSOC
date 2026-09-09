@@ -1,6 +1,6 @@
 name: aisoc-action · build, test, dist-freshness
 
-# Gates the GitHub Action at packages/aisoc-action. Because a JS action runs the
+# Gates the GitHub Action at packages/isoc-action. Because a JS action runs the
 # committed dist/index.js directly, this workflow also asserts the checked-in
 # bundle matches a fresh build (so a contributor can't forget to rebuild) and
 # that the vendored verdict engine is in sync with its source.
@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [main, develop]
     paths:
-      - 'packages/aisoc-action/**'
+      - 'packages/isoc-action/**'
       - 'packages/aisoc-lite/src/verdict/**'
       - 'packages/report-card/**'
       - 'scripts/sync_vendored_verdict.py'
@@ -17,7 +17,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'packages/aisoc-action/**'
+      - 'packages/isoc-action/**'
       - '.github/workflows/aisoc-action.yml'
   workflow_dispatch:
 
@@ -48,12 +48,12 @@ jobs:
       - name: Vendored verdict engine is in sync
         run: python3 scripts/sync_vendored_verdict.py --check
 
-      - run: pnpm --filter @aisoc/report-card build
-      - run: pnpm --filter @aisoc/action typecheck
-      - run: pnpm --filter @aisoc/action test
+      - run: pnpm --filter @isoc/report-card build
+      - run: pnpm --filter @isoc/action typecheck
+      - run: pnpm --filter @isoc/action test
 
       - name: Committed dist matches a fresh build
         run: |
-          pnpm --filter @aisoc/action build
-          git diff --exit-code packages/aisoc-action/dist/ \
-            || (echo "::error::packages/aisoc-action/dist is stale — run 'pnpm --filter @aisoc/action build' and commit"; exit 1)
+          pnpm --filter @isoc/action build
+          git diff --exit-code packages/isoc-action/dist/ \
+            || (echo "::error::packages/isoc-action/dist is stale — run 'pnpm --filter @isoc/action build' and commit"; exit 1)

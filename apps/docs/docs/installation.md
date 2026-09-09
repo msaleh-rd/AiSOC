@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # One-click install
 
-The fastest way to a running AiSOC dashboard, with **zero assumed
+The fastest way to a running Intelligence SOC dashboard, with **zero assumed
 prerequisites**, is the bootstrap installer. It works against a
 freshly-imaged machine — no Docker, Node, pnpm, git, or even Homebrew
 required up front. It detects your OS, installs everything idempotently,
@@ -61,7 +61,7 @@ target component is already installed at a sufficient version.
 4.  **pnpm 8+** via `corepack enable && corepack prepare pnpm@latest`.
 5.  **Homebrew** (macOS only) — bootstrapped non-interactively if it
     isn't already installed.
-6.  **The AiSOC repo itself** — cloned to `$HOME/aisoc` (override with
+6.  **The Intelligence SOC repo itself** — cloned to `$HOME/aisoc` (override with
     `AISOC_DIR=/path/to/clone`). On a re-run the installer does
     `git fetch && git pull` instead.
 7.  **`pnpm install`** at the repo root to materialise the workspace.
@@ -87,7 +87,7 @@ target component is already installed at a sufficient version.
     proceeding.
 5.  **Node.js 20 LTS** via `winget install --id OpenJS.NodeJS.LTS`.
 6.  **pnpm 8+** via `corepack enable && corepack prepare pnpm@latest`.
-7.  **The AiSOC repo** — cloned to `$env:USERPROFILE\aisoc` (override
+7.  **The Intelligence SOC repo** — cloned to `$env:USERPROFILE\aisoc` (override
     with `-AisocDir 'C:\path\to\clone'`).
 8.  **`pnpm install`** + **`pnpm aisoc:demo`** as on Linux/macOS.
 
@@ -249,6 +249,6 @@ file an issue with the installer's full output —
 
 - [Quick start](./quickstart) — the underlying `pnpm aisoc:demo` flow + full developer stack
 - [Architecture](./architecture) — how the services in the demo wire together
-- [Connect your first source](./connectors) — point AiSOC at a real EDR / SIEM / cloud
+- [Connect your first source](./connectors) — point Intelligence SOC at a real EDR / SIEM / cloud
 - [Operations: Credentials](./operations/credentials) — credential vault key & rotation
 - [Deploy to Kubernetes](./deployment/kubernetes) — production install via Helm

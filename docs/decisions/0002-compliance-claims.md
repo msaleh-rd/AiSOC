@@ -2,14 +2,14 @@
 
 - **Status:** accepted
 - **Date:** 2026-06-28
-- **Decision-makers:** Beenu Arora (founder), AiSOC core team
-- **Plan reference:** [AiSOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.2; the Phase 1.3 fix already landed in v8.x.
+- **Decision-makers:** Beenu Arora (founder), Intelligence SOC core team
+- **Plan reference:** [Intelligence SOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.2; the Phase 1.3 fix already landed in v8.x.
 
 ## Context
 
-The original landing surface asserted **`SOC 2 · ISO 27001 · GDPR · DPDP`** on every deployment row of the `/sovereign` matrix as if those were attested certifications. They are not. No third-party audit has ever been commissioned against the AiSOC platform; what we have is an internal `SOC2View.tsx` self-attestation surface that helps *tenants* track *their* controls — not a SOC 2 report for AiSOC.
+The original landing surface asserted **`SOC 2 · ISO 27001 · GDPR · DPDP`** on every deployment row of the `/sovereign` matrix as if those were attested certifications. They are not. No third-party audit has ever been commissioned against the Intelligence SOC platform; what we have is an internal `SOC2View.tsx` self-attestation surface that helps *tenants* track *their* controls — not a SOC 2 report for Intelligence SOC.
 
-Phase 1.3 of the missing-pieces plan already softened those claims to **"controls aligned to"** across `/sovereign`, `Features.tsx`, and the README. That's a temporary patch. The strategic question is whether the AiSOC platform should commission a real audit programme, or commit permanently to the "controls aligned to" framing.
+Phase 1.3 of the missing-pieces plan already softened those claims to **"controls aligned to"** across `/sovereign`, `Features.tsx`, and the README. That's a temporary patch. The strategic question is whether the Intelligence SOC platform should commission a real audit programme, or commit permanently to the "controls aligned to" framing.
 
 The two paths from the plan are:
 

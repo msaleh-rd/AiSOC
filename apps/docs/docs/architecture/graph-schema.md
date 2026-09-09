@@ -6,7 +6,7 @@ description: The v1.0 graph schema materialised by services/ingest — node labe
 
 # Security knowledge graph schema
 
-AiSOC writes a security knowledge graph **at ingest time**, not at query time. Every alert, identity-assume, access event, and configuration snapshot lands in Neo4j as a graph fact, and downstream surfaces — the case console, the Effective Permissions view, the Attack Chains view, the agent's pre-fetched context bundle — read that graph instead of replaying raw events.
+Intelligence SOC writes a security knowledge graph **at ingest time**, not at query time. Every alert, identity-assume, access event, and configuration snapshot lands in Neo4j as a graph fact, and downstream surfaces — the case console, the Effective Permissions view, the Attack Chains view, the agent's pre-fetched context bundle — read that graph instead of replaying raw events.
 
 This page is the canonical reference for the schema:
 

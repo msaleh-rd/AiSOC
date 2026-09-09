@@ -1,4 +1,4 @@
-# AiSOC landing page — ready-to-set copy
+# Intelligence SOC landing page — ready-to-set copy
 
 > Companion to `landing-page-brief.md`. Every string below is drop-in
 > ready. Section IDs match §6 of the brief.
@@ -7,7 +7,7 @@
 
 ## `nav` — Sticky nav
 
-- **Wordmark:** `AiSOC`
+- **Wordmark:** `Intelligence SOC`
 - **Nav items (left → right):** `Product` · `Solutions` · `Connectors` ·
   `Benchmark` · `Pricing` · `Docs`
 - **GitHub chip:** `★ {count} on GitHub` (fall-back: `Star on GitHub`)
@@ -21,7 +21,7 @@
 - **Eyebrow:** `Open-source · MIT · self-hostable`
 - **H1:** `Detect. Triage. Hunt. Respond.`
 - **Sub-head:**
-  `AiSOC is the open agentic Security Operations Center. Four named
+  `Intelligence SOC is the open agentic Security Operations Center. Four named
   agents investigate every incident end-to-end, and every prompt, tool
   call, and rationale lands in a replayable ledger. Self-host in five
   minutes, take it air-gapped on a flag, or join the managed waitlist.`
@@ -51,7 +51,7 @@
 - **Eyebrow:** `Why we built this`
 - **H2:** `Your SOC is drowning in alerts.`
 - **Sub-head:**
-  `Three problems compound every shift. AiSOC was built to dissolve
+  `Three problems compound every shift. Intelligence SOC was built to dissolve
   them, not paper over them.`
 - **Pain bullets:**
   1. **Headline:** `Alert volume is up. Headcount is not.`
@@ -74,7 +74,7 @@
 - **Eyebrow:** `Four agents, one workflow`
 - **H2:** `One agent for each stage of an incident.`
 - **Sub-head:**
-  `AiSOC ships exactly four named agents — Detect, Triage, Hunt, and
+  `Intelligence SOC ships exactly four named agents — Detect, Triage, Hunt, and
   Respond. Each one has a fixed job, a published capability list, and
   a replayable audit trail. Sub-agents (phishing, identity, cloud,
   insider) are capabilities of Triage, never separate brands.`
@@ -103,7 +103,7 @@
 ## `demo` — Live demo
 
 - **Eyebrow:** `See it work`
-- **H2:** `Watch AiSOC investigate a live ransomware incident.`
+- **H2:** `Watch Intelligence SOC investigate a live ransomware incident.`
 - **Sub-head:**
   `INC-RT-001 is a LockBit 3.0 case that ships with every install. The
   ledger streams every prompt, tool call, and decision the agent made.
@@ -118,7 +118,7 @@
 
 ## `pillars` — Differentiation pillars
 
-- **Eyebrow:** `What makes AiSOC different`
+- **Eyebrow:** `What makes Intelligence SOC different`
 - **H2:** `Four promises we hold ourselves to.`
 
 - **Card P1 — Open source and transparent**
@@ -182,7 +182,7 @@
    plugins.`
 3. **Plugin SDKs.** `Python, TypeScript, Go — build a connector in 50
    lines.`
-4. **MCP server.** `Use AiSOC from Claude, Cursor, Continue, Cody — 11
+4. **MCP server.** `Use Intelligence SOC from Claude, Cursor, Continue, Cody — 11
    tools.`
 5. **Cursor extension.** `Investigate alerts without leaving your
    editor.`
@@ -255,7 +255,7 @@
 
 ## `deploy` — Deployment options
 
-- **Eyebrow:** `Run AiSOC where your data is allowed to live`
+- **Eyebrow:** `Run Intelligence SOC where your data is allowed to live`
 - **H2:** `Three deploy paths. Same code.`
 
 - **Card — Managed (waitlist)**
@@ -318,7 +318,7 @@
   `Be the first reference team.`
 - **Empty-state body:**
   `We are onboarding reference partners through Q2 2026. If your team
-  ships AiSOC into production, we will publish your case study under
+  ships Intelligence SOC into production, we will publish your case study under
   your byline, with the before/after metrics you choose.`
 - **Empty-state CTA:** `Become a reference partner`
 
@@ -354,7 +354,7 @@
 
 ## `faq` — FAQ
 
-1. **Q.** `Is AiSOC really open source?`
+1. **Q.** `Is Intelligence SOC really open source?`
    **A.** `Yes — the agent, the connectors, the detection rules, the
    benchmark dataset, and every piece of infrastructure code are
    MIT-licensed. There is no private fork.`
@@ -391,7 +391,7 @@
    route for hosted customers.`
 8. **Q.** `Why not just use an existing AI SOC vendor?`
    **A.** `Use whichever tools fit your risk and procurement model.
-   AiSOC's contribution is making the agent itself open, the decisions
+   Intelligence SOC's contribution is making the agent itself open, the decisions
    step-by-step auditable, and the benchmark reproducible — three
    guarantees closed-source platforms typically do not offer.`
 
@@ -421,7 +421,7 @@
 - **Column 5 — Status & GitHub:**
   `Status page` · `GitHub repo` · `Discord` · `RSS`
 - **Bottom row:**
-  `© 2024–present AiSOC contributors · MIT-licensed · v7.3.1` ·
+  `© 2024–present Intelligence SOC contributors · MIT-licensed · v7.3.1` ·
   social icons (GitHub, Discord, X) · language switcher (English
   default).
 

@@ -1,6 +1,6 @@
-# AiSOC — Community-Feedback-Driven Roadmap (2026-05-12)
+# Intelligence SOC — Community-Feedback-Driven Roadmap (2026-05-12)
 
-This directory captures the **active** planning artifacts for AiSOC, derived
+This directory captures the **active** planning artifacts for Intelligence SOC, derived
 from a community-feedback synthesis pass on 2026-05-12. It supersedes the
 "deferred beyond v7" sections of [`/ROADMAP.md`](../../../ROADMAP.md) for
 day-to-day prioritization while leaving the major-version history intact for

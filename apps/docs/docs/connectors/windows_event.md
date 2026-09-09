@@ -1,11 +1,11 @@
 ---
 title: Windows Event / Sysmon
-description: Ingest Security + Sysmon events via a WEF collector into AiSOC (windows_event connector).
+description: Ingest Security + Sysmon events via a WEF collector into Intelligence SOC (windows_event connector).
 ---
 
 # Windows Event / Sysmon
 
-The **Windows Event / Sysmon** connector (`windows_event`, category `edr`) pulls Security + Sysmon events via a WEF collector and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Windows Event / Sysmon** connector (`windows_event`, category `edr`) pulls Security + Sysmon events via a WEF collector and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Development Setup
 
-This guide walks through getting a full AiSOC dev environment on your
+This guide walks through getting a full Intelligence SOC dev environment on your
 laptop. If you only need a working demo (no code changes), prefer the
 one-shot path described in the [Quickstart](../quickstart) — it pulls
 prebuilt GHCR images and is ready in under five minutes.
@@ -122,7 +122,7 @@ applicable):
 
 ```bash
 # Frontend (Next.js console + Responder PWA route group)
-pnpm --filter @aisoc/web dev                 # http://localhost:3000
+pnpm --filter @isoc/web dev                 # http://localhost:3000
 
 # API gateway
 cd services/api
@@ -145,7 +145,7 @@ cd services/enrichment
 go run ./cmd/server                          # http://localhost:8080
 
 # MCP server (TypeScript, stdio)
-pnpm --filter @aisoc/mcp dev
+pnpm --filter @isoc/mcp dev
 ```
 
 The other Python services (`fusion`, `actions`, `threatintel`, `ueba`,
@@ -169,8 +169,8 @@ pytest services/agents/tests/
 ( cd packages/sdk-go && go test ./... )
 
 # Frontend (Next.js + Responder PWA)
-pnpm --filter @aisoc/web lint
-pnpm --filter @aisoc/web test
+pnpm --filter @isoc/web lint
+pnpm --filter @isoc/web test
 
 # Public eval harness (substrate self-consistency + one real measurement)
 pnpm eval:run
@@ -201,7 +201,7 @@ substrate self-consistency gates.
 
 ## 9. Hacking on content
 
-AiSOC ships a curated marketplace at
+Intelligence SOC ships a curated marketplace at
 [`marketplace/index.json`](https://github.com/beenuar/AiSOC/blob/main/marketplace/index.json)
 that aggregates 6,900+ detections (filtered by tier), 50+ playbooks, and
 15 first-party plugins. To add to the catalog:

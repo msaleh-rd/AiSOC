@@ -1,6 +1,6 @@
 # Production Hardening Runbook
 
-This runbook is the operator's checklist for taking an AiSOC deployment from "it boots" to "I would put real customer telemetry through it." It assumes you are running the platform from official images on Kubernetes via the Helm chart in [`infra/helm/aisoc/`](../../infra/helm/aisoc/), or via the production Compose profile.
+This runbook is the operator's checklist for taking an Intelligence SOC deployment from "it boots" to "I would put real customer telemetry through it." It assumes you are running the platform from official images on Kubernetes via the Helm chart in [`infra/helm/aisoc/`](../../infra/helm/aisoc/), or via the production Compose profile.
 
 If you only need a quick local demo, use [`pnpm aisoc:demo`](../../README.md#quickstart) instead — that flow intentionally skips most of the controls below.
 
@@ -48,7 +48,7 @@ If you only need a quick local demo, use [`pnpm aisoc:demo`](../../README.md#qui
 - [ ] Pull only signed images from `ghcr.io/beenuar/aisoc-*` and verify Cosign signatures in your admission controller.
 - [ ] Keep `securityContext.runAsNonRoot: true` and `readOnlyRootFilesystem: true` for every workload — these are the chart defaults; do not override unless you genuinely need to.
 - [ ] Run images with a read-only root filesystem and the minimum capability set (`drop: ["ALL"]`).
-- [ ] Enable `PodSecurityAdmission` in `restricted` mode on the namespace AiSOC runs in.
+- [ ] Enable `PodSecurityAdmission` in `restricted` mode on the namespace Intelligence SOC runs in.
 - [ ] Subscribe to GitHub Security Advisories for [`beenuar/AiSOC`](https://github.com/beenuar/AiSOC/security/advisories) and patch within the SLA window in [`SECURITY.md`](../../SECURITY.md).
 
 ## 5. Observability and audit

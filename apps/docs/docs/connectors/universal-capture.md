@@ -8,7 +8,7 @@ description: Webhook URLs, email relay, CEF syslog, and Splunk HEC — accept an
 
 The polling connector catalog covers ~26 vendors. **Universal capture** is the escape hatch for everything else.
 
-If a tool can do any of the following, AiSOC can ingest it:
+If a tool can do any of the following, Intelligence SOC can ingest it:
 
 - POST a webhook to a URL.
 - Send email to a mailbox.
@@ -72,7 +72,7 @@ curl -X POST https://ingest.tryaisoc.com/v1/inbox/aisoc_inbox_xxxxx \
 |---|---|---|
 | `Content-Type` | yes | `application/json` or `application/x-ndjson` |
 | `X-Signature` / `X-Hub-Signature-256` | if signing secret set | `hex(HMAC-SHA256(secret, body))`, optionally prefixed `sha256=` |
-| `X-AiSOC-Idempotency-Key` | optional | If set, repeated POSTs with the same key inside 24h are deduped |
+| `X-Intelligence SOC-Idempotency-Key` | optional | If set, repeated POSTs with the same key inside 24h are deduped |
 
 **Response**
 

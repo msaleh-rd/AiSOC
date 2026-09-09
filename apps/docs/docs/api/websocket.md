@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # WebSocket API Reference
 
-AiSOC streams real-time events over an authenticated WebSocket connection served by the `realtime` service (port 8086).
+Intelligence SOC streams real-time events over an authenticated WebSocket connection served by the `realtime` service (port 8086).
 
 ## Connection
 

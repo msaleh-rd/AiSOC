@@ -221,7 +221,7 @@ def test_mcp_serve_uses_local_dist(
 def test_mcp_serve_falls_back_to_npx(
     monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path
 ) -> None:
-    """When no dist build exists, the CLI uses ``npx @aisoc/mcp``."""
+    """When no dist build exists, the CLI uses ``npx @isoc/mcp``."""
     # Build a repo root that has compose but no MCP dist.
     (tmp_path / "docker-compose.yml").write_text("services: {}\n")
     captured: dict[str, object] = {}
@@ -239,7 +239,7 @@ def test_mcp_serve_falls_back_to_npx(
 
     args = captured["args"]
     assert args[0] == "/usr/bin/npx"
-    assert "@aisoc/mcp" in args
+    assert "@isoc/mcp" in args
     assert "serve" in args
 
 

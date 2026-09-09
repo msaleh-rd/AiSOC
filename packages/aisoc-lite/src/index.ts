@@ -2,7 +2,7 @@
  * Public library surface for `aisoc-lite`.
  *
  * The same deterministic verdict engine that powers the CLI is exported so the
- * GitHub Action (`packages/aisoc-action`) and other consumers can score alerts
+ * GitHub Action (`packages/isoc-action`) and other consumers can score alerts
  * without re-implementing the stages.
  */
 

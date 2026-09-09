@@ -1,13 +1,13 @@
 ---
 sidebar_position: 77
 title: Box
-description: Box enterprise admin audit log events into AiSOC via the Box Events API.
+description: Box enterprise admin audit log events into Intelligence SOC via the Box Events API.
 ---
 
 # Box
 
 The Box connector polls the **/2.0/events?stream_type=admin_logs**
-endpoint of the Box API and emits one AiSOC alert per admin event
+endpoint of the Box API and emits one Intelligence SOC alert per admin event
 (login, shared-link creation, MFA / device-trust changes, folder
 permission changes, file lifecycle).
 
@@ -44,9 +44,9 @@ is preserved on `raw_event` so detection rules can match on the
    the single most common setup failure.
 5. Generate a server-side access token via the Box SDK or the
    `/oauth2/token` endpoint and copy it.
-6. In AiSOC: **Connectors → Add connector → Box**.
+6. In Intelligence SOC: **Connectors → Add connector → Box**.
 7. Paste the access token.
-8. Click **Test connection**. AiSOC issues a `GET /2.0/users/me` and
+8. Click **Test connection**. Intelligence SOC issues a `GET /2.0/users/me` and
    confirms a `200`.
 9. Save.
 
@@ -56,7 +56,7 @@ The connector escalates Box `event_type` against a small high/medium
 ladder; everything else falls through to `info`. The canonical lists
 live in `services/connectors/app/connectors/box.py`.
 
-| AiSOC severity | Box `event_type` |
+| Intelligence SOC severity | Box `event_type` |
 |---|---|
 | `high`   | `SHIELD_ALERT`, `SHIELD_EXTERNAL_COLLAB_INVITE_BLOCKED`, `SHIELD_EXTERNAL_COLLAB_INVITE_ABNORMAL_LOCATION`, `GROUP_ADMIN_CREATED`, `ROLE_CHANGE_TO_ADMIN`, `MASTER_INVITE_ACCEPT`, `MASTER_INVITE_REJECT`, `APPLICATION_PUBLIC_KEY_DELETED`, `APPLICATION_PUBLIC_KEY_ADDED`, `ITEM_SHARED_LINK`, `DELETE_USER` |
 | `medium` | `COLLABORATION_INVITE`, `COLLABORATION_ACCEPT`, `COLLABORATION_REMOVE`, `COLLABORATION_ROLE_CHANGE`, `COLLABORATION_EXPIRATION`, `FAILED_LOGIN`, `ADD_LOGIN_ACTIVITY_DEVICE`, `REMOVE_LOGIN_ACTIVITY_DEVICE`, `ITEM_SHARED_UPDATE` |

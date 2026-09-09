@@ -1,15 +1,15 @@
-# @aisoc/mcp
+# @isoc/mcp
 
-> The official [Model Context Protocol](https://modelcontextprotocol.io) server for **AiSOC** — connect Claude Desktop, Cursor, Cody, Continue, and any MCP-aware assistant to your alerts, cases, detections, and the agent decision ledger.
+> The official [Model Context Protocol](https://modelcontextprotocol.io) server for **Intelligence SOC** — connect Claude Desktop, Cursor, Cody, Continue, and any MCP-aware assistant to your alerts, cases, detections, and the agent decision ledger.
 
 [![license](https://img.shields.io/badge/license-MIT-22c55e.svg)](https://github.com/beenuar/AiSOC/blob/main/LICENSE)
 [![status](https://img.shields.io/badge/status-monorepo--source--build-blue)](#install-from-source-today)
 [![npm release](https://img.shields.io/badge/npm-coming%20in%20v8.0-f59e0b)](https://github.com/beenuar/AiSOC/blob/main/CHANGELOG.md)
 [![tests](https://img.shields.io/badge/tests-50%20passing-brightgreen)](#development)
 
-> **Status — monorepo source build today; npm publish in v8.0.** Every command in this README that shows `npx -y @aisoc/mcp …` works once the package lands on npm. Until then, use the **source-build equivalents** shown right below each one — they call the same binary, take the same arguments, and write the same config files.
+> **Status — monorepo source build today; npm publish in v8.0.** Every command in this README that shows `npx -y @isoc/mcp …` works once the package lands on npm. Until then, use the **source-build equivalents** shown right below each one — they call the same binary, take the same arguments, and write the same config files.
 
-AiSOC is the open-source AI SOC where every agent decision is auditable. This package is the bridge that lets your assistant ask AiSOC questions like "show me the open P0 cases" or "replay the agent's reasoning on INC-0421" without leaving the chat.
+Intelligence SOC is the open-source AI SOC where every agent decision is auditable. This package is the bridge that lets your assistant ask Intelligence SOC questions like "show me the open P0 cases" or "replay the agent's reasoning on INC-0421" without leaving the chat.
 
 ---
 
@@ -22,7 +22,7 @@ pnpm install
 pnpm build           # writes dist/index.js (the executable bin)
 ```
 
-`dist/index.js` is the binary. Every command below shows the **today** invocation (`node dist/index.js …`) and the **v8.0 npm** invocation (`npx -y @aisoc/mcp …`) side by side — they accept identical flags.
+`dist/index.js` is the binary. Every command below shows the **today** invocation (`node dist/index.js …`) and the **v8.0 npm** invocation (`npx -y @isoc/mcp …`) side by side — they accept identical flags.
 
 ## Configure your assistant
 
@@ -34,24 +34,24 @@ node dist/index.js install --host claude \
   --aisoc-url https://aisoc.your-company.com \
   --api-key  aisoc_pat_xxxxxxxxxxxx
 # Claude Desktop — v8.0+:
-npx -y @aisoc/mcp install --host claude \
+npx -y @isoc/mcp install --host claude \
   --aisoc-url https://aisoc.your-company.com \
   --api-key  aisoc_pat_xxxxxxxxxxxx
 
 # Cursor — today:
 node dist/index.js install --host cursor --aisoc-url ... --api-key ...
 # Cursor — v8.0+:
-npx -y @aisoc/mcp install --host cursor --aisoc-url ... --api-key ...
+npx -y @isoc/mcp install --host cursor --aisoc-url ... --api-key ...
 
 # Continue.dev — today:
 node dist/index.js install --host continue --aisoc-url ... --api-key ...
 # Continue.dev — v8.0+:
-npx -y @aisoc/mcp install --host continue --aisoc-url ... --api-key ...
+npx -y @isoc/mcp install --host continue --aisoc-url ... --api-key ...
 
 # Cody — today (prints a snippet to paste; the extension reads VS Code settings):
 node dist/index.js install --host cody --aisoc-url ... --api-key ...
 # Cody — v8.0+:
-npx -y @aisoc/mcp install --host cody --aisoc-url ... --api-key ...
+npx -y @isoc/mcp install --host cody --aisoc-url ... --api-key ...
 ```
 
 Restart your assistant and the `aisoc` server will appear in its tool picker.
@@ -67,7 +67,7 @@ If you'd rather edit the JSON yourself, `install --dry-run` prints exactly what 
 node dist/index.js install --host claude --dry-run \
   --aisoc-url https://aisoc.your-company.com --api-key aisoc_xxx
 # v8.0+:
-npx -y @aisoc/mcp install --host claude --dry-run \
+npx -y @isoc/mcp install --host claude --dry-run \
   --aisoc-url https://aisoc.your-company.com --api-key aisoc_xxx
 ```
 
@@ -88,12 +88,12 @@ Paste the snippet the installer prints under `mcpServers` in your host's config.
   }
 }
 
-// v8.0+ (once @aisoc/mcp is on npm)
+// v8.0+ (once @isoc/mcp is on npm)
 {
   "mcpServers": {
     "aisoc": {
       "command": "npx",
-      "args": ["-y", "@aisoc/mcp", "serve"],
+      "args": ["-y", "@isoc/mcp", "serve"],
       "env": {
         "AISOC_URL": "https://aisoc.your-company.com",
         "AISOC_API_KEY": "aisoc_pat_xxxxxxxxxxxx"
@@ -113,7 +113,7 @@ Per-host config locations:
 | Continue.dev | `~/.continue/config.json` |
 | Cody | VS Code User Settings (JSON) → `cody.mcp.servers` |
 
-Print these as JSON any time with `npx @aisoc/mcp install --list-paths`.
+Print these as JSON any time with `npx @isoc/mcp install --list-paths`.
 
 ---
 
@@ -164,10 +164,10 @@ AISOC_URL=https://aisoc.your-company.com \
 AISOC_API_KEY=aisoc_pat_xxx \
 node dist/index.js doctor
 
-# v8.0+ (once @aisoc/mcp lands on npm):
+# v8.0+ (once @isoc/mcp lands on npm):
 AISOC_URL=https://aisoc.your-company.com \
 AISOC_API_KEY=aisoc_pat_xxx \
-npx -y @aisoc/mcp doctor
+npx -y @isoc/mcp doctor
 ```
 
 `doctor` checks DNS, TLS, the AiSOC `/health` endpoint, and that your API key is accepted. It exits non-zero on failure so you can wire it into a pre-flight script.
@@ -178,7 +178,7 @@ npx -y @aisoc/mcp doctor
 
 ```
 ┌──────────────┐        stdio JSON-RPC        ┌──────────────┐    HTTPS     ┌──────────────┐
-│ Claude /     │ ───────────────────────────► │ @aisoc/mcp   │ ───────────► │ AiSOC API    │
+│ Claude /     │ ───────────────────────────► │ @isoc/mcp   │ ───────────► │ Intelligence SOC API    │
 │ Cursor / IDE │ ◄─────────────────────────── │ (this pkg)   │ ◄─────────── │ + agents     │
 └──────────────┘                              └──────────────┘              └──────────────┘
                                                                                    │

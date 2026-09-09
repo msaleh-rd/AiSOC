@@ -1,7 +1,7 @@
 ---
 sidebar_position: 11
 title: GitLab Audit + Vulnerability Findings
-description: Group audit events and security vulnerability findings from GitLab SaaS or self-managed into AiSOC.
+description: Group audit events and security vulnerability findings from GitLab SaaS or self-managed into Intelligence SOC.
 ---
 
 # GitLab Audit + Vulnerability Findings
@@ -26,13 +26,13 @@ Events are normalized with `source: gitlab`, `category: vcs`.
 
 1. **GitLab → User Settings → Access Tokens**.
 2. Token name: `aisoc-connector` (or similar — choose something that makes the audit trail obvious).
-3. Expiration: 90 days max recommended; rotate via the AiSOC connector edit screen.
+3. Expiration: 90 days max recommended; rotate via the Intelligence SOC connector edit screen.
 4. Scopes: `api` (covers audit + security endpoints in one).
 5. Click **Create personal access token** and copy the value (`glpat-…`).
 
 If you'd rather not bind the token to a human user, use a **group access token** instead — same scopes, same flow, scoped to the group itself.
 
-### 2. Add the connector in AiSOC
+### 2. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → GitLab**.
 2. `gitlab_url` — leave default (`https://gitlab.com`) for SaaS, or paste the URL operators use for your self-managed instance (no trailing slash, e.g. `https://gitlab.corp.test`).

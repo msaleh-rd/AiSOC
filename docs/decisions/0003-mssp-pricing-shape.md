@@ -2,8 +2,8 @@
 
 - **Status:** accepted
 - **Date:** 2026-06-28
-- **Decision-makers:** Beenu Arora (founder), AiSOC core team
-- **Plan reference:** [AiSOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.3
+- **Decision-makers:** Beenu Arora (founder), Intelligence SOC core team
+- **Plan reference:** [Intelligence SOC missing pieces plan](../../plans/aisoc-missing-pieces/aisoc_missing_pieces_plan.md) §5.3
 
 ## Context
 

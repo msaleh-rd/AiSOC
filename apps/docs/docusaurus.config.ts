@@ -7,12 +7,12 @@ import type * as Preset from "@docusaurus/preset-classic";
 //   2. Custom domain          : https://docs.tryaisoc.com/  (served behind cloudflared tunnel)
 //
 // Override at build time with:
-//   DOCS_URL=https://docs.tryaisoc.com DOCS_BASE_URL=/ pnpm --filter @aisoc/docs build
+//   DOCS_URL=https://docs.tryaisoc.com DOCS_BASE_URL=/ pnpm --filter @isoc/docs build
 const DOCS_URL = process.env.DOCS_URL || "https://beenuar.github.io";
 const DOCS_BASE_URL = process.env.DOCS_BASE_URL || "/AiSOC/";
 
 const config: Config = {
-  title: "AiSOC",
+  title: "Intelligence SOC",
   tagline:
     "Open-source AI SOC platform. Agent decisions are recorded in an investigation ledger and a public eval harness runs in CI. MIT-licensed and self-hostable.",
   favicon: "img/favicon.ico",
@@ -29,14 +29,14 @@ const config: Config = {
       attributes: {
         name: "keywords",
         content:
-          "AiSOC, AI SOC, open source SOC, SIEM alternative, MITRE ATT&CK, Sigma, purple team, alert fusion, detection engineering, SOAR, security automation, tryaisoc, self-hosted SOC, threat hunting, incident response, cybersecurity, infosec, LangGraph, MCP server",
+          "Intelligence SOC, AiSOC, AI SOC, open source SOC, SIEM alternative, MITRE ATT&CK, Sigma, purple team, alert fusion, detection engineering, SOAR, security automation, tryaisoc, self-hosted SOC, threat hunting, incident response, cybersecurity, infosec, LangGraph, MCP server",
       },
     },
     {
       tagName: "meta",
       attributes: {
         property: "og:site_name",
-        content: "AiSOC Docs",
+        content: "Intelligence SOC Docs",
       },
     },
   ],
@@ -76,9 +76,9 @@ const config: Config = {
   themeConfig: {
     image: "img/aisoc-social-card.png",
     navbar: {
-      title: "AiSOC",
+      title: "Intelligence SOC",
       logo: {
-        alt: "AiSOC Logo",
+        alt: "Intelligence SOC Logo",
         src: "img/logo.svg",
       },
       items: [
@@ -131,7 +131,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} AiSOC Contributors. MIT License.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Intelligence SOC Contributors. MIT License.`,
     },
     prism: {
       theme: prismThemes.github,

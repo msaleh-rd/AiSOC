@@ -6,7 +6,7 @@ infrastructure" claim is precise rather than aspirational.
 
 ## What never leaves
 
-- AiSOC sends **no telemetry to the AiSOC project** and makes no "model
+- Intelligence SOC sends **no telemetry to the Intelligence SOC project** and makes no "model
   improvement" callbacks. There is no phone-home. (Gated: Phase 12 trust
   surface adds a no-telemetry CI assertion.)
 - Your database, object storage, graph, cache, and Kafka spine stay on your

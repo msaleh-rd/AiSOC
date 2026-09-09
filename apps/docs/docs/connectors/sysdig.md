@@ -1,7 +1,7 @@
 ---
 sidebar_position: 82
 title: Sysdig Secure
-description: Pull Sysdig Secure runtime / cloud detection events (Falco-style policy hits) into AiSOC.
+description: Pull Sysdig Secure runtime / cloud detection events (Falco-style policy hits) into Intelligence SOC.
 ---
 
 # Sysdig Secure
@@ -47,7 +47,7 @@ Events are normalized with `source: sysdig`, `category: siem` (runtime detection
 3. Scope: **Secure Events: Read** only. Do not grant Posture: Write or Compliance: Write — they are unnecessary for ingestion.
 4. Copy the token immediately. Sysdig will not show it again.
 
-### 2. Add the connector in AiSOC
+### 2. Add the connector in Intelligence SOC
 
 1. **Connectors → Add connector → Sysdig Secure**.
 2. `region` = the prefix from the table above.
@@ -64,9 +64,9 @@ Events are normalized with `source: sysdig`, `category: siem` (runtime detection
 
 ## Severity mapping
 
-Sysdig event severities use the Falco syslog ladder (0..7, lower = more severe). The connector folds this onto the AiSOC scale:
+Sysdig event severities use the Falco syslog ladder (0..7, lower = more severe). The connector folds this onto the Intelligence SOC scale:
 
-| Sysdig severity | AiSOC severity |
+| Sysdig severity | Intelligence SOC severity |
 |---|---|
 | 0 (Emergency) / 1 (Alert) | `critical` |
 | 2 (Critical) / 3 (Error) | `high` |

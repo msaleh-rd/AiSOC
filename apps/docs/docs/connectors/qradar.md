@@ -1,11 +1,11 @@
 ---
 title: IBM QRadar
-description: Ingest offenses (magnitude→severity) into AiSOC (qradar connector).
+description: Ingest offenses (magnitude→severity) into Intelligence SOC (qradar connector).
 ---
 
 # IBM QRadar
 
-The **IBM QRadar** connector (`qradar`, category `siem`) pulls offenses (magnitude→severity) and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **IBM QRadar** connector (`qradar`, category `siem`) pulls offenses (magnitude→severity) and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # REST API Reference
 
-AiSOC exposes a fully documented OpenAPI 3.1 REST API.
+Intelligence SOC exposes a fully documented OpenAPI 3.1 REST API.
 
 ## Base URL
 
@@ -279,5 +279,5 @@ Response includes `"next_cursor"` when more pages exist.
 | Go | [`packages/sdk-go`](https://github.com/beenuar/AiSOC/tree/main/packages/sdk-go) | Typed models + thin client helpers |
 
 In addition, the [Model Context Protocol server](../integrations/mcp)
-(`@aisoc/mcp`) exposes 11 of these endpoints as IDE-side tools for
+(`@isoc/mcp`) exposes 11 of these endpoints as IDE-side tools for
 Claude / Cursor / Continue / Cody.

@@ -1,5 +1,5 @@
 /**
- * @aisoc/report-card — dependency-free share-card renderer.
+ * @isoc/report-card — dependency-free share-card renderer.
  *
  * One visual language for every shareable AiSOC artifact:
  *   - `triage`   — the `aisoc triage --share` card and the noise-tuning

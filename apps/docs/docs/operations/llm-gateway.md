@@ -1,21 +1,21 @@
 ---
 title: LLM gateway (LiteLLM)
-description: Route every live LLM call through a single LiteLLM gateway — assign local or hosted models per task by alias, and get centralized latency/token/cost/error metrics — without changing AiSOC code.
+description: Route every live LLM call through a single LiteLLM gateway — assign local or hosted models per task by alias, and get centralized latency/token/cost/error metrics — without changing Intelligence SOC code.
 ---
 
 # LLM gateway (LiteLLM)
 
-AiSOC runs several distinct LLM workloads — triage, recon, investigation, the
+Intelligence SOC runs several distinct LLM workloads — triage, recon, investigation, the
 contextual copilot, summaries, reports, and natural-language generation. The
 **LiteLLM gateway** is the single entry point for every *live* LLM call these
-workloads make. AiSOC asks for a **logical task alias**; the gateway decides
+workloads make. Intelligence SOC asks for a **logical task alias**; the gateway decides
 which real provider and model that alias resolves to.
 
 ```
-AiSOC task ──▶ alias (e.g. "aisoc-triage") ──▶ LiteLLM ──▶ real model
+Intelligence SOC task ──▶ alias (e.g. "aisoc-triage") ──▶ LiteLLM ──▶ real model
 ```
 
-This gives operators two things without any AiSOC code change:
+This gives operators two things without any Intelligence SOC code change:
 
 1. **Per-task model assignment.** Point `aisoc-triage` at a cheap local model
    and `aisoc-investigation` at a strong hosted one — or swap either at any time
@@ -28,12 +28,12 @@ This gives operators two things without any AiSOC code change:
 
 The gateway sits in front of the LLM tier of the
 [multi-model router](../concepts/model-router.md). When no live model is
-reachable, AiSOC still degrades to its **deterministic offline path** — the
+reachable, Intelligence SOC still degrades to its **deterministic offline path** — the
 gateway is never on the critical path for a baseline triage.
 
 ## Task aliases
 
-The shipped aliases mirror AiSOC's workloads. They live in
+The shipped aliases mirror Intelligence SOC's workloads. They live in
 `infra/litellm/config.yaml`:
 
 | Alias                 | Workload                                   | Shipped default   |
@@ -52,17 +52,17 @@ point is that you change it. The alias names stay constant.
 ## Enable the gateway
 
 The `litellm` service is defined in `docker-compose.yml` and starts with the
-stack. To route AiSOC through it, set in your `.env`:
+stack. To route Intelligence SOC through it, set in your `.env`:
 
 ```bash
-LITELLM_MASTER_KEY=<a-strong-key>          # AiSOC authenticates to the gateway with this
+LITELLM_MASTER_KEY=<a-strong-key>          # Intelligence SOC authenticates to the gateway with this
 OPENAI_API_KEY=<your-real-provider-key>    # LiteLLM uses this to reach the upstream model
-OPENAI_BASE_URL=http://litellm:4000/v1     # send AiSOC's calls to the gateway
-# and set AiSOC's client key to the gateway key:
-# OPENAI_API_KEY=${LITELLM_MASTER_KEY}     # (in the AiSOC services' environment)
+OPENAI_BASE_URL=http://litellm:4000/v1     # send Intelligence SOC's calls to the gateway
+# and set Intelligence SOC's client key to the gateway key:
+# OPENAI_API_KEY=${LITELLM_MASTER_KEY}     # (in the Intelligence SOC services' environment)
 ```
 
-AiSOC now requests a task **alias** for every live call, so an alias only
+Intelligence SOC now requests a task **alias** for every live call, so an alias only
 resolves when it reaches the gateway. If you don't run the gateway, pin each
 role to a concrete provider model instead (the **escape hatch**):
 
@@ -72,14 +72,14 @@ AISOC_MODEL_PIN_INVESTIGATION=gpt-4o
 # … one per role: triage, recon, investigation, copilot, summary, report, nl
 ```
 
-With neither the gateway nor pin overrides configured, AiSOC uses its
+With neither the gateway nor pin overrides configured, Intelligence SOC uses its
 deterministic offline path. (`OPENAI_MODEL` still applies to the separate
 "explain this alert" / BYOK path.)
 
 ## Re-point a task to a local model
 
 Duplicate the alias in `infra/litellm/config.yaml` with a local backend. The
-alias name **must stay the same** so AiSOC is unaware of the swap:
+alias name **must stay the same** so Intelligence SOC is unaware of the swap:
 
 ```yaml
 - model_name: aisoc-triage

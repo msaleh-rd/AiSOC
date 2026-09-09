@@ -6,7 +6,7 @@ sidebar_position: 6
 
 # Air-gapped / Local-LLM Mode
 
-AiSOC can run **entirely within your network perimeter** with zero outbound LLM
+Intelligence SOC can run **entirely within your network perimeter** with zero outbound LLM
 calls.  The feature is controlled by a single environment variable and a
 companion Docker Compose overlay that wires in a local inference server (Ollama,
 LiteLLM, or vLLM).

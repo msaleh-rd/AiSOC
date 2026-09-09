@@ -18,7 +18,7 @@ pnpm aisoc:selfplay
 ```
 
 ```
-── AiSOC self-play campaign (canned, offline) ──
+── Intelligence SOC self-play campaign (canned, offline) ──
   [1] initial-access         T1566.001    ✗ MISSED    Spearphishing Attachment
   [2] execution              T1059.001    ✓ DETECTED (12.0s)  PowerShell
   [3] persistence            T1547.001    ✗ MISSED    Registry Run Keys / Startup Folder

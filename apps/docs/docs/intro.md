@@ -4,8 +4,8 @@ sidebar_position: 1
 
 # Introduction
 
-AiSOC is an open-source AI Security Operations Center maintained by
-the AiSOC community. The agent itself is MIT-licensed, self-hostable, and
+Intelligence SOC is an open-source AI Security Operations Center maintained by
+the Intelligence SOC community. The agent itself is MIT-licensed, self-hostable, and
 auditable: every LLM prompt, tool call, evidence citation, and decision is
 recorded in a replayable Investigation Ledger, and the substrate is gated by a
 public, reproducible eval harness on every PR targeting `main` / `develop`.
@@ -74,14 +74,14 @@ for the full list.
 - **Detection confidence** — each fused alert carries a `high / medium / low` confidence label and an ordered evidence chain. The label is derived from weighted factors, not manually assigned.
 - **Detection drift monitoring** — scheduled ATT&CK coverage snapshots enable "delta vs. last week" tracking on the MITRE heatmap.
 - **Hunt-as-Code** — YAML hunt definitions in `hunts/` with hypothesis, indicator matching (equals/in/regex/gte/lte/exists/contains_any/iendswith), and APScheduler-driven continuous execution. Results flow to Postgres via the Hunt API.
-- **Risk-Based Alerting (RBA)** — alerts contribute time-decayed risk points to entities (user, host, IP, domain). When an entity's score crosses a configurable threshold, AiSOC promotes it to an incident with contributing alerts attached.
+- **Risk-Based Alerting (RBA)** — alerts contribute time-decayed risk points to entities (user, host, IP, domain). When an entity's score crosses a configurable threshold, Intelligence SOC promotes it to an incident with contributing alerts attached.
 - **Federated search** — translate a single query into SPL, KQL, and ES|QL and fan out to connected SIEMs. Results are merged and deduplicated. A new natural-language `/hunt` surface accepts plain English and emits a deterministic template (the `HuntAgent` never writes raw queries), with saved hunts that deep-link into the [Investigation Rail](./console/investigation-rail).
 - **Live Actions dispatcher** — push real response actions to connected EDR / IAM / network surfaces (isolate host, disable account, block IP, revoke session) with HMAC-signed idempotency keys and human-approval gates on destructive actions. ([Live Actions](./concepts/live-actions))
 - **Slack ChatOps bot** — dedicated `aisoc` slash commands (`/aisoc triage`, `/aisoc approve`, `/aisoc status`, `/aisoc summary`) with interactive approval buttons and HMAC-signed callbacks. Human-in-the-loop triage without opening the console. (`services/slack-bot/`)
 - **ChatOps verification** — Slack/Teams interactive prompts with HMAC-signed callback choices (acknowledge / deny / escalate) for human-in-the-loop response actions.
 - **AI executive digest PDF** — branded A4 PDF with KPI tiles, alert-volume chart, top-rule table, and remediation summary, auto-emailed Monday 06:00 UTC via APScheduler. (`services/api/app/services/digest_pdf.py`)
 - **Threat actor attribution engine** — per-alert actor attribution with MITRE Group mapping, confidence scoring, Diamond Model labeling, and campaign clustering. (`services/threatintel/app/actors/attribution.py`)
-- **Air-gap / local-LLM mode** — run AiSOC with zero outbound HTTP using Ollama, LiteLLM, or vLLM via a single env-var toggle and a Docker Compose overlay. ([Air-gapped mode](./operations/air-gapped))
+- **Air-gap / local-LLM mode** — run Intelligence SOC with zero outbound HTTP using Ollama, LiteLLM, or vLLM via a single env-var toggle and a Docker Compose overlay. ([Air-gapped mode](./operations/air-gapped))
 - **BYOK — Bring Your Own LLM key** — per-tenant LLM credential management (API key, base URL, model) stored encrypted in `CredentialVault`; configurable from the Settings UI. ([Credentials](./operations/credentials))
 - **Saved views & drag-drop dashboard widgets** — analysts save custom alert filter presets and rearrange dashboard widgets; persisted per-user in Postgres.
 - **Playbook engine** — 50+ community SOAR playbooks with explicit decision trees and human-approval gates on destructive actions.
@@ -92,7 +92,7 @@ for the full list.
 - **AI-vs-AI adversary eval** — deterministic attacker-LLM mutator generates adversarial incidents to test detection resilience under synonym swap, leetspeak, zero-width injection, and fragmentation attacks.
 - **Marketplace** — 15 first-party plugins, 50+ playbooks, 6,900+ detections (filtered by tier: stable / beta / imported / community), surfaced in-app via [`marketplace/index.json`](https://github.com/beenuar/AiSOC/tree/main/marketplace).
 - **SDKs** — Python, TypeScript, and Go SDKs for client and plugin development; Ed25519-signed publishing.
-- **Model Context Protocol** — `@aisoc/mcp` exposes 13 tools to Claude, Cursor, Continue, and Cody so analysts can replay agent decisions and run governed warm-tier SELECTs from inside their IDE ([MCP integration](./integrations/mcp)).
+- **Model Context Protocol** — `@isoc/mcp` exposes 13 tools to Claude, Cursor, Continue, and Cody so analysts can replay agent decisions and run governed warm-tier SELECTs from inside their IDE ([MCP integration](./integrations/mcp)).
 
 ## Architecture Overview
 
@@ -122,7 +122,7 @@ See the full [Architecture](./architecture) page for the detailed service map an
 - [One-click install](./installation) — zero-prerequisite bootstrap for Linux, macOS, and Windows
 - [Quick Start](./quickstart) — `pnpm aisoc:demo`, under 5 minutes to a live investigation. The **Path C — founder-style CLI** flow (`docker compose -f infra/compose/docker-compose.dev.yml up -d` → `aisoc db upgrade` → `aisoc serve` → `aisoc submit examples/alerts/lateral-movement.json`) goes from fresh clone to a live alert at `http://localhost:3000/alerts` in under 90 seconds, with no Kafka / Fusion required for the first alert.
 - [Architecture](./architecture) — service map and data flow
-- [Glossary](./glossary) — security and AiSOC-specific terminology in one place
+- [Glossary](./glossary) — security and Intelligence SOC-specific terminology in one place
 - [FAQ](./operations/faq) — common questions about scope, deployment, data, and licensing
 
 ### Console workbenches (v1.5)
@@ -138,7 +138,7 @@ See the full [Architecture](./architecture) page for the detailed service map an
 - [Playbooks](./concepts/playbooks) — anatomy, triggers, conditions, approvals
 - [Cases](./concepts/cases) — including the Investigation Ledger
 - [Live Actions](./concepts/live-actions) — push real response actions to connected surfaces with approvals
-- [Automation maturity (L0–L4)](./concepts/automation-maturity) — how AiSOC climbs from human-driven to fully autonomous closure
+- [Automation maturity (L0–L4)](./concepts/automation-maturity) — how Intelligence SOC climbs from human-driven to fully autonomous closure
 - [Capabilities](./concepts/capabilities) — full feature inventory by tier
 
 ### Connect & extend

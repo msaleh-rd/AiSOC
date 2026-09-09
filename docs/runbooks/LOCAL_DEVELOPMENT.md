@@ -1,6 +1,6 @@
 # Local Development Runbook
 
-This runbook walks you from a freshly cloned repository to a running AiSOC stack on your laptop, and describes how to develop and debug each service in isolation.
+This runbook walks you from a freshly cloned repository to a running Intelligence SOC stack on your laptop, and describes how to develop and debug each service in isolation.
 
 ---
 

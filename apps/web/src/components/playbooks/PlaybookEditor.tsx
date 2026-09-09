@@ -433,7 +433,7 @@ export function PlaybookEditor({ playbookId }: PlaybookEditorProps) {
                 name: s.name,
               })),
             }}
-            eyebrow="Ask AiSOC about this playbook"
+            eyebrow="Ask Intelligence SOC about this playbook"
           />
         </div>
       ) : null}

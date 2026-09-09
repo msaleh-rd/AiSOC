@@ -99,7 +99,7 @@ const DEMO_RULES: DetectionRule[] = [
     id: 'rule-003',
     name: 'AWS GuardDuty High-Severity Finding',
     description:
-      'Forwards GuardDuty findings of severity 7+ into AiSOC as alerts and links them to the affected resource.',
+      'Forwards GuardDuty findings of severity 7+ into Intelligence SOC as alerts and links them to the affected resource.',
     language: 'eql',
     body: SAMPLE_EQL,
     enabled: false,
@@ -532,7 +532,7 @@ export function DetectionsView() {
             rules.length === 0 ? (
               <EmptyState
                 title="No detection rules yet"
-                description="Author your first detection in Sigma, KQL, or EQL — or import the AiSOC starter pack to bootstrap coverage across the MITRE ATT&CK matrix."
+                description="Author your first detection in Sigma, KQL, or EQL — or import the Intelligence SOC starter pack to bootstrap coverage across the MITRE ATT&CK matrix."
                 action={
                   <div className="flex flex-wrap items-center gap-2">
                     <Link

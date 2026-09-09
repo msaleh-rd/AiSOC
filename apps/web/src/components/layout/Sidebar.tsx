@@ -388,8 +388,8 @@ export function Sidebar() {
           </span>
         </div>
         <div>
-          <span className="text-fg-primary font-bold text-base tracking-tight">Ai</span>
-          <span className="text-brand-400 font-bold text-base tracking-tight">SOC</span>
+          <span className="text-fg-primary font-bold text-base tracking-tight">Intelligence</span>
+          <span className="text-brand-400 font-bold text-base tracking-tight"> SOC</span>
           <p className="text-xs text-fg-subtle -mt-0.5">open-source</p>
         </div>
         {/* Live indicator — decorative, status conveyed by the green dot label */}

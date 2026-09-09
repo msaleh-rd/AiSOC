@@ -1,6 +1,6 @@
 # Theming (light & dark)
 
-The AiSOC console ships dark-by-default and exposes a tri-state theme toggle in
+The Intelligence SOC console ships dark-by-default and exposes a tri-state theme toggle in
 the top bar (**dark → light → system → dark**). Users who pick **system** get
 their OS-level `prefers-color-scheme` rendered, with live updates if they flip
 their OS theme without reloading.

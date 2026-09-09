@@ -4,7 +4,7 @@
  */
 
 import type { AlertVerdict, TriageResult } from "./_vendor/verdict/index.js";
-import { coverageGrade } from "@aisoc/report-card";
+import { coverageGrade } from "@isoc/report-card";
 
 const VERDICT_EMOJI: Record<AlertVerdict["verdict"], string> = {
   true_positive: "🔴",

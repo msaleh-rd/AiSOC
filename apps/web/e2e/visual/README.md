@@ -18,14 +18,14 @@ because:
 
 ```bash
 # 1. Build storybook (once per shape-changing edit).
-pnpm --filter @aisoc/web build-storybook
+pnpm --filter @isoc/web build-storybook
 
 # 2. Run the visual suite — first run captures baselines, later runs
 #    diff against them.
-pnpm --filter @aisoc/web visual
+pnpm --filter @isoc/web visual
 
 # 3. After an intentional design change, refresh the baselines.
-pnpm --filter @aisoc/web visual:update
+pnpm --filter @isoc/web visual:update
 git add apps/web/e2e/visual/visual.spec.ts-snapshots
 git commit -m "design: refresh visual baselines for <change>"
 ```

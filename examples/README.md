@@ -11,7 +11,7 @@ fixture you can walk through the AiSOC agent funnel two ways:
 2. **Offline simulator** — `aisoc-sandbox demo --scenario <name>` runs
    the same scenario through a zero-dependency in-memory simulator.
    No Docker, no API key, completes in < 5 s. Install path:
-   `pip install -e packages/aisoc-sandbox` from the repo root, or
+   `pip install -e packages/isoc-sandbox` from the repo root, or
    (once v8.0 ships) `pip install aisoc-sandbox`.
 
 The five scenarios cover the most common attack patterns in modern
@@ -46,7 +46,7 @@ examples/
 ```
 
 The bundled offline scenarios live in
-[`packages/aisoc-sandbox/src/aisoc_sandbox/scenarios/`](../packages/aisoc-sandbox/src/aisoc_sandbox/scenarios/) — same IDs, simplified shape so the
+[`packages/isoc-sandbox/src/aisoc_sandbox/scenarios/`](../packages/isoc-sandbox/src/aisoc_sandbox/scenarios/) — same IDs, simplified shape so the
 simulator stays a single small package.
 
 ## Contributing a new scenario
@@ -57,11 +57,11 @@ or send a PR that adds:
 1. `examples/alerts/<id>.json` — production-shape fixture with at
    least one MITRE technique and a clear narrative in the `_description`.
 2. `examples/<id>.md` — walkthrough using the existing pages as a template.
-3. `packages/aisoc-sandbox/src/aisoc_sandbox/scenarios/<id>.json` —
+3. `packages/isoc-sandbox/src/aisoc_sandbox/scenarios/<id>.json` —
    simplified sandbox variant so `aisoc-sandbox demo --scenario <id>`
    works.
 4. Update the table in `examples/README.md` and (if relevant) the
-   tables in `README.md` and `packages/aisoc-sandbox/README.md`.
+   tables in `README.md` and `packages/isoc-sandbox/README.md`.
 
 A maintainer will pair the scenario with at least one detection rule
 in [`detections/`](../detections/) so the production funnel can

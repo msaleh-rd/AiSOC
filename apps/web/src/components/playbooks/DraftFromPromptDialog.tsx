@@ -155,7 +155,7 @@ export function DraftFromPromptDialog({ open, onClose }: DraftFromPromptDialogPr
               Draft a playbook from a prompt
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              Describe what should happen — AiSOC drafts the DAG, you review and save.
+              Describe what should happen — Intelligence SOC drafts the DAG, you review and save.
             </p>
           </div>
           <button

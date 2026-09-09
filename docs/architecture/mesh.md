@@ -1,6 +1,6 @@
 # Federated Threat Intel Mesh — threat model & design (v8 P1)
 
-The mesh is opt-in gossip between self-hosted AiSOC instances via a lightweight,
+The mesh is opt-in gossip between self-hosted Intelligence SOC instances via a lightweight,
 open-source hub (the community hub runs at `mesh.tryaisoc.com`; you can run your
 own). Its promise: **every install makes every other install smarter** — without
 any instance revealing its data.

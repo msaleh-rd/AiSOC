@@ -619,7 +619,7 @@ def _resolve_mcp_entry(repo_root: Path) -> tuple[list[str], str] | None:
 
     Looks for a built ``services/mcp/dist/index.js`` next to ``package.json``.
     Returns None if the build artifact is missing, so callers can fall back to
-    ``npx @aisoc/mcp``.
+    ``npx @isoc/mcp``.
     """
     dist = repo_root / "services" / "mcp" / "dist" / "index.js"
     if dist.exists():
@@ -637,8 +637,8 @@ def _mcp_argv(repo_root: Path, subcommand: str, extra: list[str]) -> tuple[list[
 
     npx = shutil.which("npx") or "npx"
     return (
-        [npx, "@aisoc/mcp", subcommand, *extra],
-        f"npx @aisoc/mcp {subcommand} {' '.join(extra)}".strip(),
+        [npx, "@isoc/mcp", subcommand, *extra],
+        f"npx @isoc/mcp {subcommand} {' '.join(extra)}".strip(),
     )
 
 
@@ -660,7 +660,7 @@ def mcp_serve(transport: str, port: int | None) -> None:
     """Launch the MCP server that exposes AiSOC to IDE assistants.
 
     Prefers the locally built ``services/mcp/dist/index.js`` (from
-    ``pnpm --filter @aisoc/mcp build``). Falls back to ``npx @aisoc/mcp``
+    ``pnpm --filter @isoc/mcp build``). Falls back to ``npx @isoc/mcp``
     when no local build is available.
     """
     repo_root = _find_repo_root()
@@ -692,7 +692,7 @@ def mcp_install(host: str) -> None:
     """Register the AiSOC MCP server with the given IDE assistant.
 
     Thin wrapper over ``aisoc-mcp install --host <host>`` that picks the local
-    dist build when available and falls back to ``npx @aisoc/mcp`` otherwise.
+    dist build when available and falls back to ``npx @isoc/mcp`` otherwise.
     """
     repo_root = _find_repo_root()
     argv, label = _mcp_argv(repo_root, "install", ["--host", host])

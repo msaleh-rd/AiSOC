@@ -53,11 +53,6 @@ const DESTINATIONS: ReadonlyArray<Destination> = [
       'Anonymous, pre-seeded investigation. No signup. Demo data resets daily at 00:00 UTC.',
   },
   {
-    label: 'See pricing',
-    href: '/pricing',
-    blurb: 'Free to self-host. Pay only when we host.',
-  },
-  {
     label: 'Read the docs',
     href: docs('intro'),
     blurb: 'Architecture, agent contract, deployment recipes, connector SDK.',

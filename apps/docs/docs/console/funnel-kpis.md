@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: Funnel KPIs and pipeline health
-description: How AiSOC turns raw telemetry into a six-tile operations funnel, an efficiency report, and a five-stage pipeline-health rail on the dashboard — backed by /metrics/funnel and /health/pipeline.
+description: How Intelligence SOC turns raw telemetry into a six-tile operations funnel, an efficiency report, and a five-stage pipeline-health rail on the dashboard — backed by /metrics/funnel and /health/pipeline.
 ---
 
 # Funnel KPIs and pipeline health
 
-Tier-1 SOC consoles open on the same picture: a row of funnel tiles that says how much signal made it into the analyst's queue, an efficiency report that says how well the pipeline converted raw events into alerts, and a per-stage health rail that says where the next outage will come from. v1.5 brings that picture to AiSOC's `/dashboard` without breaking the existing flat per-page layout.
+Tier-1 SOC consoles open on the same picture: a row of funnel tiles that says how much signal made it into the analyst's queue, an efficiency report that says how well the pipeline converted raw events into alerts, and a per-stage health rail that says where the next outage will come from. v1.5 brings that picture to Intelligence SOC's `/dashboard` without breaking the existing flat per-page layout.
 
 This page documents the three widgets, their data sources, and the endpoints they call.
 

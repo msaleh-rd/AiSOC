@@ -1,12 +1,12 @@
 ---
-title: The four AiSOC agents
+title: The four Intelligence SOC agents
 sidebar_label: Four agents
 sidebar_position: 2
 ---
 
-# The four AiSOC agents
+# The four Intelligence SOC agents
 
-AiSOC ships with **exactly four** named agents, one per stage of how a SOC
+Intelligence SOC ships with **exactly four** named agents, one per stage of how a SOC
 team actually thinks about an incident:
 
 | Agent       | Role in the SOC pipeline                                     |
@@ -26,7 +26,7 @@ but the *public* surface is just these four. Everything else is a
 > `TriageAgent`. They live in `app.agents.{phishing,identity,cloud,insider_threat}_agent`
 > internally, but they're never promoted to the four-agent surface in
 > docs, the UI, the landing page, or the SDK. If you find yourself writing
-> "the five AiSOC agents", something has drifted.
+> "the five Intelligence SOC agents", something has drifted.
 
 ---
 

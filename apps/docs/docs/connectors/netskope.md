@@ -1,11 +1,11 @@
 ---
 title: Netskope
-description: Ingest DLP/malware/anomaly alerts into AiSOC (netskope connector).
+description: Ingest DLP/malware/anomaly alerts into Intelligence SOC (netskope connector).
 ---
 
 # Netskope
 
-The **Netskope** connector (`netskope`, category `network`) pulls DLP/malware/anomaly alerts and normalizes each into the AiSOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
+The **Netskope** connector (`netskope`, category `network`) pulls DLP/malware/anomaly alerts and normalizes each into the Intelligence SOC alert shape, mapping the source severity onto the five-tier ladder (`info | low | medium | high | critical`).
 
 ## Setup
 

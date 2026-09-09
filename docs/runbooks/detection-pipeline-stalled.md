@@ -6,7 +6,7 @@
 ## What the alert means
 
 `sum(rate(aisoc_detections_emitted_total[15m]))` is **zero**
-while the ingest service is healthy. AiSOC's central product —
+while the ingest service is healthy. Intelligence SOC's central product —
 emitting alerts from telemetry — has stopped working. This is the
 single alert that should panic the on-call: every other alert
 indicates degradation; this one indicates the customer's SOC is

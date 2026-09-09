@@ -667,7 +667,7 @@ export function RuleEditor({ mode, ruleId }: RuleEditorProps) {
             hit_count: data.hitCount,
             last_triggered_at: data.lastTriggeredAt,
           }}
-          eyebrow="Ask AiSOC about this rule"
+          eyebrow="Ask Intelligence SOC about this rule"
         />
       ) : null}
 

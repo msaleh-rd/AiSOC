@@ -1,4 +1,4 @@
-# Getting help with AiSOC
+# Getting help with Intelligence SOC
 
 There are a few places to ask, in roughly the order you should try them:
 
@@ -42,7 +42,7 @@ zero local install, runs in your browser.
 If you've found a reproducible bug, open a [Bug report](https://github.com/beenuar/AiSOC/issues/new?template=bug_report.yml).
 Please include:
 
-- AiSOC `VERSION` (from `VERSION` or the `/api/v1/version` endpoint)
+- Intelligence SOC `VERSION` (from `VERSION` or the `/api/v1/version` endpoint)
 - Deployment path (Docker Compose / Render / Fly.io / Helm / Terraform / installer)
 - Exact reproduction steps
 - Logs from the failing service (`docker compose logs --tail=200 <service>`)
@@ -62,7 +62,7 @@ First-time contributors are welcome — pick a
 
 ## Response expectations
 
-AiSOC is community-maintained; response times are best-effort:
+Intelligence SOC is community-maintained; response times are best-effort:
 
 - Security advisories: usually triaged within 48 h.
 - Bug reports: triaged within a week for most weeks.

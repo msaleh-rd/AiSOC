@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Environment Variables
 
-This page is the source of truth for every environment variable AiSOC reads at runtime. Each section maps to a single service, mirroring the layout of [`services/`](https://github.com/beenuar/AiSOC/tree/main/services) in the repo.
+This page is the source of truth for every environment variable Intelligence SOC reads at runtime. Each section maps to a single service, mirroring the layout of [`services/`](https://github.com/beenuar/AiSOC/tree/main/services) in the repo.
 
 If you spot drift between this page and the code, please open a PR — the matching config files are linked at the top of every section.
 
@@ -20,7 +20,7 @@ The API uses bare environment variable names (no prefix). Booleans accept `true`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `APP_NAME` | `AiSOC API` | Display name in OpenAPI docs |
+| `APP_NAME` | `Intelligence SOC API` | Display name in OpenAPI docs |
 | `APP_VERSION` | `0.1.0` | Reported in `/healthz` |
 | `ENV` / `ENVIRONMENT` | `development` | One of `development`, `staging`, `production` |
 | `DEBUG` | `false` | Enables verbose error responses — never enable in production |
@@ -62,7 +62,7 @@ Source: [`services/api/app/services/audit.py`](https://github.com/beenuar/AiSOC/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PASSKEY_RP_ID` | `localhost` | Relying-party ID — must match the eTLD+1 of the PWA origin (no scheme, no port) |
-| `PASSKEY_RP_NAME` | `AiSOC` | Display name shown in the OS passkey prompt |
+| `PASSKEY_RP_NAME` | `Intelligence SOC` | Display name shown in the OS passkey prompt |
 | `PASSKEY_RP_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated list of allowed origins |
 | `PASSKEY_CHALLENGE_TTL_SECONDS` | `300` | Lifetime of a single ceremony challenge |
 
@@ -197,11 +197,11 @@ The MCP server runs as a sidecar that exposes Investigation Ledger tools to LLM 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AISOC_URL` | `http://localhost:8081` | Base URL of the AiSOC API |
+| `AISOC_URL` | `http://localhost:8081` | Base URL of the Intelligence SOC API |
 | `AISOC_API_URL` | falls back to `AISOC_URL` | Override the API URL independently if the API and web app live on separate hosts |
 | `AISOC_API_KEY` | — | Long-lived API key (preferred for server-to-server use) |
 | `AISOC_TOKEN` | — | Short-lived JWT (alternative to `AISOC_API_KEY`) |
-| `AISOC_TIMEOUT_MS` | `20000` | HTTP timeout for outbound calls to the AiSOC API |
+| `AISOC_TIMEOUT_MS` | `20000` | HTTP timeout for outbound calls to the Intelligence SOC API |
 | `AISOC_MCP_VERBOSE` | `0` | Set to `1` to log every tool invocation to stderr |
 
 ---
@@ -221,7 +221,7 @@ Source: [`services/ingest/internal/config/config.go`](https://github.com/beenuar
 | `NORMALIZER_MODE` | `auto` | `auto`, `strict`, or `passthrough` |
 | `MAX_BATCH_SIZE` | `1000` | Max events flushed per batch |
 | `WORKER_COUNT` | `4` | Number of normalization workers |
-| `TENANT_HEADER_KEY` | `X-AiSOC-Tenant` | HTTP header that carries the tenant slug |
+| `TENANT_HEADER_KEY` | `X-Intelligence SOC-Tenant` | HTTP header that carries the tenant slug |
 | `JWT_SECRET` | — | **Required outside `ENV=development`.** HMAC secret used to verify ingest tokens. |
 | `METRICS_PORT` | `9090` | Prometheus exporter port |
 | `SHODAN_API_KEY` | — | Optional — enables Shodan enrichment when paired with `SHODAN_ENRICH_ENABLED=true` |
@@ -316,7 +316,7 @@ The Next.js frontend reads only public, build-time variables. Anything sensitive
 
 ## CORS configuration
 
-CORS is configured the same way across every AiSOC service — Python (FastAPI), Go (`ingest`, `enrichment`), and TypeScript (`realtime`) — by reading a single environment variable. This is the variable to set when you put AiSOC behind a custom domain or want to restrict cross-origin access in production.
+CORS is configured the same way across every Intelligence SOC service — Python (FastAPI), Go (`ingest`, `enrichment`), and TypeScript (`realtime`) — by reading a single environment variable. This is the variable to set when you put Intelligence SOC behind a custom domain or want to restrict cross-origin access in production.
 
 ### Variables
 
