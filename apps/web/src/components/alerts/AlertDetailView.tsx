@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import useSWR from 'swr';
@@ -21,6 +21,7 @@ import { clsx } from 'clsx';
 import { ContextualActions } from '@/components/copilot/ContextualActions';
 import { ExplainDrawer } from '@/components/alerts/ExplainDrawer';
 import { CreateCaseModal } from '@/components/alerts/CreateCaseModal';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,79 +62,6 @@ const CONFIDENCE_CONFIG: Record<ConfidenceLabel, { label: string; badge: string;
   },
 };
 
-// Mock alert for development
-const MOCK_ALERT: Alert = {
-  id: 'alert-1',
-  title: 'Suspicious PowerShell execution detected',
-  description: 'A PowerShell script was executed with obfuscated content and attempted to download a payload from an external domain. The process was spawned by a user with administrative privileges outside of business hours.',
-  severity: 'critical',
-  status: 'new',
-  source: 'CrowdStrike',
-  sourceRef: 'CS-2024-789012',
-  tenantId: 'tenant-1',
-  riskScore: 95,
-  mitreAttack: [
-    { tactic: 'Execution', technique: 'PowerShell', techniqueId: 'T1059.001' },
-    { tactic: 'Defense Evasion', technique: 'Obfuscated Files or Information', techniqueId: 'T1027' },
-    { tactic: 'Command and Control', technique: 'Application Layer Protocol', techniqueId: 'T1071' },
-  ],
-  iocs: [
-    { type: 'ip', value: '185.220.101.45', malicious: true },
-    { type: 'domain', value: 'payload-c2.xyz', malicious: true },
-    { type: 'hash', value: 'a1b2c3d4e5f6789012345678901234567890abcd', malicious: true },
-  ],
-  tags: ['powershell', 'c2-beacon', 'high-priority'],
-  assignee: 'analyst@example.com',
-  createdAt: '2026-05-06T11:00:00Z',
-  updatedAt: '2026-05-06T11:30:00Z',
-  confidenceLabel: 'high',
-  confidenceScore: 0.86,
-  confidenceRationale: [
-    {
-      factor: 'severity',
-      label: 'Critical severity from source',
-      value: 1.0,
-      contribution: 0.20,
-      weight: 0.20,
-    },
-    {
-      factor: 'mitre_coverage',
-      label: '3 MITRE techniques mapped (T1059.001, T1027, T1071)',
-      value: 1.0,
-      contribution: 0.18,
-      weight: 0.18,
-    },
-    {
-      factor: 'threat_intel',
-      label: 'IOC matched against known C2 infrastructure',
-      value: 1.0,
-      contribution: 0.20,
-      weight: 0.20,
-    },
-    {
-      factor: 'ml_score',
-      label: 'Anomaly score 0.94 (UEBA baseline deviation)',
-      value: 0.94,
-      contribution: 0.14,
-      weight: 0.15,
-    },
-    {
-      factor: 'upstream_risk',
-      label: 'Affected user is in elevated-risk cohort',
-      value: 0.78,
-      contribution: 0.08,
-      weight: 0.10,
-    },
-    {
-      factor: 'ioc_density',
-      label: '3 distinct malicious IOCs in single event',
-      value: 0.85,
-      contribution: 0.06,
-      weight: 0.07,
-    },
-  ],
-  ledgerRunId: 'run-mock-c2-beacon-investigation',
-};
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
@@ -345,56 +273,17 @@ function LedgerEvidenceChain({ runId }: { runId: string }) {
 function AIInvestigation({ alertId }: { alertId: string }) {
   const [investigation, setInvestigation] = useState<AgentInvestigation | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const startInvestigation = async () => {
     setIsRunning(true);
+    setError(null);
     try {
       const result = await agentsApi.investigate(alertId);
       setInvestigation(result);
     } catch (err) {
-      // Show mock investigation for demo
-      setInvestigation({
-        id: 'inv-1',
-        alertId,
-        status: 'completed',
-        findings: `## AI Investigation Summary
-
-**Threat Classification:** Advanced Persistent Threat (APT) - High Confidence
-
-### Executive Summary
-The PowerShell execution event represents a multi-stage attack with C2 communication. The attacker leveraged legitimate administrative credentials obtained via credential stuffing to execute an obfuscated downloader script.
-
-### Key Findings
-1. **Initial Access**: Credential abuse from IP 185.220.101.45 (known Tor exit node)
-2. **Execution**: Obfuscated PowerShell base64 encoded payload downloading secondary stage
-3. **C2 Communication**: Established encrypted channel to payload-c2.xyz (newly registered domain, 3 days old)
-4. **Lateral Movement Risk**: Current user has admin rights on 12 additional systems
-
-### MITRE ATT&CK Coverage
-- T1059.001 (PowerShell) → Active
-- T1027 (Obfuscation) → Active  
-- T1071 (Application Layer Protocol) → Active
-
-### Recommended Actions
-1. Isolate affected endpoint immediately
-2. Block IP 185.220.101.45 at perimeter firewall
-3. Block domain payload-c2.xyz at DNS level
-4. Reset credentials for affected user account
-5. Hunt for similar PowerShell patterns across fleet`,
-        recommendations: [
-          'Isolate endpoint DESKTOP-ABC123 from network immediately',
-          'Block IP 185.220.101.45 at firewall',
-          'Block domain payload-c2.xyz at DNS',
-          'Reset password for user john.doe@company.com',
-          'Review admin rights across all systems',
-        ],
-        actions: [
-          { type: 'isolate_endpoint', target: 'DESKTOP-ABC123', status: 'pending' },
-          { type: 'block_ip', target: '185.220.101.45', status: 'pending' },
-          { type: 'block_domain', target: 'payload-c2.xyz', status: 'pending' },
-        ],
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      });
+      // A failed run must surface as a failure — never as fabricated findings.
+      setInvestigation(null);
+      setError(err instanceof Error ? err.message : 'Agent investigation failed.');
     }
     setIsRunning(false);
   };
@@ -404,6 +293,12 @@ The PowerShell execution event represents a multi-stage attack with C2 communica
       <div className="text-center py-8">
         <p className="text-sm text-gray-400 mb-1">Agent investigation</p>
         <p className="text-xs text-gray-600 mb-4">Run the agent on this alert to produce a markdown report, MITRE mapping, and a list of recommended actions. Every step is recorded in the case ledger.</p>
+        {error && (
+          <div className="mb-4 mx-auto max-w-md rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-left text-xs text-red-300">
+            <p className="font-medium">Investigation could not start</p>
+            <p className="mt-0.5 break-all text-red-300/80">{error}</p>
+          </div>
+        )}
         <button
           onClick={startInvestigation}
           disabled={isRunning}
@@ -414,6 +309,8 @@ The PowerShell execution event represents a multi-stage attack with C2 communica
               <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               Investigating...
             </span>
+          ) : error ? (
+            'Retry investigation'
           ) : (
             'Start AI Investigation'
           )}
@@ -834,10 +731,9 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
   // the alert to an existing one before running a playbook.
   const [createCaseOpen, setCreateCaseOpen] = useState(false);
 
-  const { data: alert, isLoading, mutate } = useSWR(
+  const { data: alert, error, isLoading, mutate } = useSWR(
     ['alert', alertId],
     () => alertsApi.get(alertId),
-    { fallbackData: { ...MOCK_ALERT, id: alertId, status } }
   );
 
   const handleStatusChange = async (newStatus: Alert['status']) => {
@@ -849,6 +745,16 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
       // handled gracefully
     }
   };
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Couldn't load alert"
+        error={error}
+        onRetry={() => void mutate()}
+      />
+    );
+  }
 
   if (isLoading || !alert) {
     return (
