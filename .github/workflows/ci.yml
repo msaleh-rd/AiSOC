@@ -316,6 +316,15 @@ jobs:
         # import `langchain_core` and `langchain_openai` at module scope —
         # so both packages are required at import time, even though the
         # fusion-client test itself only calls into `app.tools.fusion`.
+        # `test_llm_egress_redaction.py` closes the "no data exfiltration"
+        # OVERCLAIM tracked in docs/audit/REALITY_REPORT.md: it captures the
+        # exact outbound HTTP body sent to the LLM by `explain.py` and
+        # `auto_triage_agent.py` and asserts planted PII never appears
+        # verbatim. `test_explain_endpoint.py` / `test_auto_triage_injection.py`
+        # / `test_auto_triage_dispositions.py` were previously never gated in
+        # this job at all (same class of gap as `test_prompt_sanitizer.py`
+        # before it was added here) — added alongside the redaction test
+        # since they exercise the same call sites.
         run: |
           pip install --quiet pytest pytest-asyncio respx langchain-core langchain-openai langgraph jsonschema
           cd services/agents
@@ -329,6 +338,10 @@ jobs:
             tests/test_prompt_sanitizer.py \
             tests/test_prompt_envelope.py \
             tests/test_privacy_redactor.py \
+            tests/test_llm_egress_redaction.py \
+            tests/test_explain_endpoint.py \
+            tests/test_auto_triage_injection.py \
+            tests/test_auto_triage_dispositions.py \
             tests/test_cost_governor.py \
             tests/test_model_router.py \
             tests/test_llm_ops.py \

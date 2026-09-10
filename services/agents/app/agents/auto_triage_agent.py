@@ -38,6 +38,7 @@ from app.llm import safe_ainvoke
 from app.llm.factory import make_chat_model
 from app.memory.distillation import build_signature_for_state, compounding_memory
 from app.models.state import AgentStatus, InvestigationState
+from app.privacy.redactor import default_pseudonymizer
 from app.prompt_serialization import format_extra_fields_for_llm
 from app.prompting.envelope import make_nonce, scan_evidence_fields, system_rule
 
@@ -140,11 +141,19 @@ def set_threshold(value: float) -> float:
     return AUTO_CLOSE_THRESHOLD
 
 
-def _build_alert_context(state: InvestigationState) -> str:
-    """Serialise the alert into a compact string the LLM can reason over."""
-    raw = state.raw_alert
+def _build_alert_context(state: InvestigationState, pseudonymizer: Any) -> str:
+    """Serialise the alert into a compact string the LLM can reason over.
+
+    ``raw`` is pseudonymized before any field is read (internal IPs, emails,
+    paths, secrets, internal hostnames, usernames become opaque tokens like
+    ``IP_1``/``HOST_2``) so the highest-volume, always-on LLM call this
+    service makes never sends raw customer PII to a (potentially
+    third-party) model. Callers rehydrate any LLM-authored text derived from
+    this context (e.g. the rationale) before it reaches an analyst.
+    """
+    raw = pseudonymizer.redact_value(state.raw_alert or {})
     parts = [
-        f"Alert Summary: {sanitize_text(state.alert_summary)}",
+        f"Alert Summary: {sanitize_text(pseudonymizer.redact(state.alert_summary))}",
         f"Severity (vendor): {sanitize_text(str(raw.get('severity', 'unknown')))}",
         f"Risk Score (vendor): {sanitize_text(str(raw.get('risk_score', 'N/A')))}",
     ]
@@ -230,7 +239,8 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
     injection = scan_evidence_fields((str(k), v) for k, v in raw.items() if isinstance(v, str | int | float | list | dict))
     nonce = make_nonce()
 
-    alert_context = _build_alert_context(state)
+    pseudonymizer = default_pseudonymizer(tenant_id=str(state.tenant_id))
+    alert_context = _build_alert_context(state, pseudonymizer)
 
     llm = make_chat_model("triage", temperature=0.0, max_tokens=512)
 
@@ -258,7 +268,7 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
 
     verdict = result["verdict"]
     confidence = result["confidence"]
-    rationale = result["rationale"]
+    rationale = pseudonymizer.rehydrate(result["rationale"])
 
     _metrics["total_processed"] += 1
     _metrics["confidence_sum"] += confidence
