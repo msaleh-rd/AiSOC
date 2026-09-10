@@ -45,6 +45,18 @@ The shipped aliases mirror Intelligence SOC's workloads. They live in
 | `aisoc-summary`       | Alert / incident summaries                 |
 | `aisoc-report`        | Analyst-facing report write-ups            |
 | `aisoc-nl`            | NL→query / NL→detection translation        |
+| `aisoc-embed`         | ATT&CK semantic search / RAG embeddings    |
+
+`aisoc-embed` is the one alias that isn't a chat/completion workload — it
+requires an **embedding-capable** model (e.g. `text-embedding-3-small`,
+`nomic-embed-text-v1.5`), not the chat model `LLM_MODEL` serves, and its
+`litellm_params.model` reads from `EMBEDDING_MODEL` instead. The embedding
+vector dimension is configured separately via `AISOC_EMBEDDING_DIMENSIONS`
+(`services/agents`, default `768`) and must match whatever the configured
+model actually outputs — changing `EMBEDDING_MODEL` to a model with a
+different native size requires updating that env var too, and dropping/
+recreating the `attck_techniques` Qdrant collection if it was already created
+at the old dimension.
 
 Each alias's `litellm_params.model` is itself an env var
 (`os.environ/LLM_MODEL` by default) rather than a hardcoded literal, so you can

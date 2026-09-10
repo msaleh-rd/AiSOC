@@ -81,6 +81,27 @@ model_list:
       api_base: os.environ/LM_STUDIO_URL
       api_key: os.environ/LM_STUDIO_API_KEY
 
+  # ── Embeddings: ATT&CK technique semantic search / RAG (Qdrant-backed). ───────
+  # Distinct from the chat aliases above — requires an embedding-capable model,
+  # not the chat/completion model in LLM_MODEL. Vector dimension must match
+  # AISOC_EMBEDDING_DIMENSIONS in services/agents (default 768, matching the
+  # nomic-embed-text-v1.5 default below); changing EMBEDDING_MODEL to a model
+  # with a different native dimension requires updating that env var too, and
+  # dropping/recreating the `attck_techniques` Qdrant collection if it was
+  # already created at the old size.
+  - model_name: aisoc-embed
+    litellm_params:
+      model: os.environ/EMBEDDING_MODEL
+      api_base: os.environ/LM_STUDIO_URL
+      api_key: os.environ/LM_STUDIO_API_KEY
+    # Without an explicit mode, LiteLLM's router can't tell this deployment
+    # apart from a chat/completion one for a custom OpenAI-compatible backend,
+    # and silently excludes it when routing /v1/embeddings requests — surfacing
+    # as a confusing "no healthy deployments for this model" error even though
+    # the deployment is configured correctly and reachable.
+    model_info:
+      mode: embedding
+
   # ── Local / air-gapped example (Ollama) ───────────────────────────────────────
   # Duplicate any alias above with a local backend to keep the call on-prem. The
   # alias name MUST stay the same so AiSOC is unaware of the swap:

@@ -58,7 +58,7 @@ services:
     container_name: aisoc-redis
     command: redis-server --appendonly yes --requirepass redis_dev_secret
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -246,6 +246,12 @@ services:
       AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:-}}
       AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-${ISOC_CREDENTIAL_KEY_ROTATION_FROM:-}}
       CONNECTORS_SERVICE_URL: http://connectors:8087
+      # Container-to-container URL — the realtime service's actual internal
+      # listen port (PORT: 4000 on the realtime service below), NOT the
+      # 8086 host port mapping. Fixes push/event fan-out silently failing
+      # ("All connection attempts failed" against realtime:8086, which
+      # nothing inside the Docker network is listening on).
+      REALTIME_BASE_URL: http://realtime:4000
       # Issue #478 — LiteLLM gateway. This service's live LLM endpoints
       # (translation, hunts, KB, phishing, NL-detection, alert explain) route
       # through the gateway by default — see the note on the `agents` service
@@ -407,11 +413,29 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-aisoc-copilot}
       LLM_GATEWAY_URL: http://litellm:4000/v1
       ATTCK_DATA_PATH: /app/data/enterprise-attack.json
+      # Optional Temporal.io durability overlay — off unless AISOC_AGENT_TEMPORAL_MODE=1
+      # is set (e.g. in .env) AND the `temporal` profile services are running
+      # (temporal server + agents-temporal-worker). When enabled, /investigate
+      # routes through the durable InvestigationWorkflow instead of the
+      # in-process LangGraph pipeline. See services/agents/app/temporal/.
+      AISOC_AGENT_TEMPORAL_MODE: ${AISOC_AGENT_TEMPORAL_MODE:-0}
+      AISOC_TEMPORAL_HOST: temporal:7233
+      # Container-to-container URL — the realtime service's actual internal
+      # listen port (PORT: 4000 on the realtime service below), NOT the
+      # 8086 host port mapping. Without this, app/api/investigate.py and
+      # app/api/triage.py's default (http://realtime:8086) points at a port
+      # nothing in the Docker network listens on, and every step/agent-event
+      # forward silently fails (logged as debug-level `realtime_emit_skipped`).
+      REALTIME_URL: http://realtime:4000
+      # HuntCorpus (app/hunt/loader.py) reads YAML hunt definitions from this
+      # directory; without the mount below it's empty inside the container and
+      # the scheduler logs `hunt.corpus.missing` / loads 0 rules.
+      AISOC_HUNTS_DIR: /app/hunts
+    volumes:
+      - ./hunts:/app/hunts:ro
     networks:
       - aisoc
     restart: unless-stopped
-
-  # ─── LLM gateway (LiteLLM) — issue #478 ─────────────────────────────────────
   # Single entry point for every live LLM call. AiSOC requests a logical task
   # alias (aisoc-triage, aisoc-investigation, …); the mapping alias → real model
   # lives entirely in infra/litellm/config.yaml, so operators swap local/hosted
@@ -441,6 +465,9 @@ services:
       # The actual model every alias sends upstream (config.yaml reads this via
       # os.environ/LLM_MODEL) — change models by editing this one var, no YAML edit.
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-20b}
+      # Embedding-capable model for the aisoc-embed alias (ATT&CK semantic
+      # search/RAG) — distinct from LLM_MODEL, must be an embedding model.
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-openai/text-embedding-nomic-embed-text-v1.5}
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:
@@ -684,7 +711,13 @@ services:
 
   temporal-admin-tools:
     profiles: ["temporal"]
-    image: temporalio/admin-tools:1.24.2
+    # NOTE: temporalio/admin-tools does not publish a tag matching every
+    # server release 1:1 (e.g. no 1.24.x tag exists as of writing). Pin to the
+    # closest published admin-tools release <= the temporal server version
+    # above (temporalio/auto-setup:1.24.2) — 1.23.1 is compatible with 1.24.x
+    # servers. Verify with `docker pull temporalio/admin-tools:<tag>` before
+    # bumping either this or the server image.
+    image: temporalio/admin-tools:1.23.1
     container_name: aisoc-temporal-admin-tools
     depends_on:
       - temporal

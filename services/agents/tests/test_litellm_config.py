@@ -3,7 +3,8 @@
 `infra/litellm/config.yaml` is the single place that maps AiSOC's logical task
 aliases to real models. These assertions keep that file honest:
 
-* the shipped alias set is exactly AiSOC's seven workloads,
+* the shipped alias set is exactly AiSOC's seven chat workloads plus the
+  embeddings alias,
 * every alias resolves a `model` and a credential (env-based, never inline),
 * the prometheus observability callback stays wired (the /metrics contract that
   `infra/docker/prometheus.yml` scrapes as job `aisoc-litellm`),
@@ -34,6 +35,12 @@ EXPECTED_ALIASES = {
     "aisoc-nl",
 }
 
+# Embeddings are a distinct API shape (embeddings.create, no text/deterministic
+# fallback chain) from the seven chat/completion workloads above, so this
+# alias is intentionally excluded from app.llm.model_pins's role set — see
+# test_role_pins_have_matching_gateway_alias.
+EMBEDDING_ALIAS = "aisoc-embed"
+
 
 def _load() -> dict:
     assert CONFIG_PATH.is_file(), f"missing LiteLLM config at {CONFIG_PATH}"
@@ -50,7 +57,8 @@ def test_config_parses_and_has_model_list():
 def test_shipped_aliases_are_the_seven_workloads():
     cfg = _load()
     aliases = {entry["model_name"] for entry in cfg["model_list"]}
-    assert aliases == EXPECTED_ALIASES, f"alias drift: {aliases ^ EXPECTED_ALIASES}"
+    expected = EXPECTED_ALIASES | {EMBEDDING_ALIAS}
+    assert aliases == expected, f"alias drift: {aliases ^ expected}"
 
 
 def test_every_alias_resolves_a_model_and_env_credential():
@@ -81,5 +89,6 @@ def test_master_key_comes_from_env():
 
 def test_model_pins_roles_match_gateway_aliases_exactly():
     # Ties the code's logical roles to the gateway config: every pinned role has
-    # an ``aisoc-<role>`` alias in the config, and vice versa — no drift either way.
+    # an ``aisoc-<role>`` alias in the config, and vice versa — no drift either
+    # way. aisoc-embed is deliberately excluded: it's not a chat/completion role.
     assert {f"aisoc-{role}" for role in all_roles()} == EXPECTED_ALIASES

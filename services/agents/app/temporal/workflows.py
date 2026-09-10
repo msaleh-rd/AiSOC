@@ -29,8 +29,18 @@ from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 _ACTIVITY_TIMEOUT = timedelta(minutes=3)
+_ACTIVITY_RETRY_POLICY = RetryPolicy(
+    maximum_attempts=5,
+    # A pydantic ValidationError (e.g. a non-UUID incident_id/tenant_id
+    # slipping past the adapter's validation) is a permanent failure — no
+    # amount of retrying will fix bad input, so don't retry it into an
+    # unbounded loop. Everything else (transient LLM/DB/network errors)
+    # still gets the bounded 5-attempt retry above.
+    non_retryable_error_types=["ValidationError"],
+)
 _DEFAULT_CONFIDENCE_THRESHOLD = 0.6
 _DEFAULT_MAX_REINVESTIGATIONS = 2
 _APPROVAL_TIMEOUT = timedelta(hours=1)
@@ -148,6 +158,7 @@ class InvestigationWorkflow:
             name,
             state,
             start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            retry_policy=_ACTIVITY_RETRY_POLICY,
         )
         self._state = result
         return result
