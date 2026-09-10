@@ -360,6 +360,85 @@ jobs:
           python3 ../../scripts/check_scoreboard.py --check
 
   # ──────────────────────────────────────────────
+  # Temporal.io live workflow tests (Phase C).
+  #
+  # `services/agents/tests/test_temporal_workflow.py` exercises
+  # `InvestigationWorkflow` end-to-end against a *real* Temporal server —
+  # never gated in CI before this job, because the SDK's bundled
+  # time-skipping test server (`WorkflowEnvironment.start_time_skipping()`)
+  # auto-downloads an ephemeral binary with no request timeout in the
+  # underlying Rust HTTP client, which can hang the whole run on a
+  # network-filtered runner. The test now uses
+  # `WorkflowEnvironment.from_client()` against a real Temporal server
+  # brought up via this repo's own `docker-compose.yml` (`--profile
+  # temporal`), mirroring local dev exactly instead of reinventing the
+  # service-container wiring. Narrow scope (one test file), an explicit
+  # job timeout, and an explicit readiness poll (rather than assuming the
+  # container is usable the instant it starts) guard against the exact
+  # indefinite-hang failure mode this investigation uncovered when these
+  # tests were first ever run for real.
+  # ──────────────────────────────────────────────
+  temporal-live-tests:
+    name: Agents — Temporal live workflow tests
+    runs-on: ubuntu-latest
+    needs: python-lint
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Start Temporal + Postgres (docker compose --profile temporal)
+        run: docker compose --profile temporal up -d postgres temporal
+      - name: Wait for Temporal to accept client connections
+        run: |
+          pip install --quiet "temporalio>=1.7,<2.0"
+          python3 - <<'PY'
+          import asyncio
+          import sys
+
+          from temporalio.client import Client
+
+
+          async def main() -> None:
+              last_exc: Exception | None = None
+              for attempt in range(30):
+                  try:
+                      await Client.connect("localhost:7233")
+                      print(f"Temporal ready after {attempt + 1} attempt(s)")
+                      return
+                  except Exception as exc:  # noqa: BLE001 — readiness probe, retry on anything
+                      last_exc = exc
+                      await asyncio.sleep(2)
+              print(f"Temporal never became ready: {last_exc!r}", file=sys.stderr)
+              sys.exit(1)
+
+
+          asyncio.run(main())
+          PY
+      - name: Install agents dependencies
+        # Same import chain as the other agents test steps in `python-test`
+        # above: `test_temporal_workflow.py` -> `app.temporal.activities` ->
+        # `app.graph.workflow` node functions -> `langchain_core` /
+        # `langchain_openai` / `langgraph` at module scope, plus the
+        # `pydantic` model stack for `InvestigationState`.
+        run: |
+          pip install --quiet \
+            "fastapi" "pydantic[email]" "pydantic-settings" "structlog" "pyyaml" \
+            "langchain-core" "langchain-openai" "langgraph" \
+            "pytest" "pytest-asyncio"
+      - name: Run Temporal live workflow tests
+        working-directory: services/agents
+        env:
+          AISOC_TEMPORAL_LIVE_TESTS: "1"
+          AISOC_TEMPORAL_HOST: "localhost:7233"
+        run: python3 -m pytest tests/test_temporal_workflow.py -v --tb=short
+      - name: Tear down Temporal stack
+        if: always()
+        run: docker compose --profile temporal down -v
+
+  # ──────────────────────────────────────────────
   # Python micro-services unit tests
   #   `services/fusion`, `services/honeytokens`, and `services/purple-team`
   #   used to ship with no Python tests gated in CI at all — only ruff +

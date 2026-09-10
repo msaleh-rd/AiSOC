@@ -2,19 +2,27 @@
 Tests for ``app.temporal.workflows.InvestigationWorkflow`` — Phase 5 Temporal
 overlay.
 
-Uses ``temporalio.testing.WorkflowEnvironment`` (the SDK's bundled
-time-skipping test server) so these tests never require a real Temporal
-cluster. The bundled test server binary is downloaded and cached on first
-use, which needs outbound network access — so this whole module is marked
-``integration`` (same convention as the Kafka/Neo4j/Postgres integration
-tests registered in pyproject.toml) and, more importantly, is skipped
-outright unless ``AISOC_TEMPORAL_LIVE_TESTS=1`` is set. The download can
-hang rather than fail fast when the network is unreachable/filtered (no DNS
-error, just a stalled connect), and unlike a slow-but-finite test, a hang
-would block an entire ``pytest`` run — the explicit opt-in keeps default
-``pytest tests/`` runs (in this repo's sandboxes and most CI runners without
-egress) fast and hang-proof. Enable it in an environment known to have
-network access to verify real coverage end-to-end.
+Runs against a **real, already-running Temporal server** via
+``temporalio.testing.WorkflowEnvironment.from_client()`` rather than the
+SDK's bundled time-skipping test server
+(``WorkflowEnvironment.start_time_skipping()``). The bundled server
+auto-downloads an ephemeral binary on first use with no request timeout in
+the underlying Rust HTTP client (confirmed in the installed ``temporalio``
+1.32.0's vendored ``sdk-core``), so on a filtered/offline network the
+download stalls indefinitely rather than failing fast — a hang that would
+block an entire ``pytest`` run. Pointing at a real server side-steps the
+download entirely: this repo already ships one at ``aisoc-temporal:7233``
+(``docker compose --profile temporal up``, or ``localhost:7233`` when run
+from the host). The 4 tests here are short-lived and signal-driven, not
+timing-dependent, so losing the bundled server's time-skipping semantics is
+an acceptable tradeoff.
+
+This whole module is marked ``integration`` (same convention as the
+Kafka/Neo4j/Postgres integration tests registered in pyproject.toml) and is
+skipped outright unless ``AISOC_TEMPORAL_LIVE_TESTS=1`` is set, since it
+needs a reachable Temporal server. Point ``AISOC_TEMPORAL_HOST`` at it
+(defaults to ``localhost:7233``, same convention as
+``app.temporal.client.temporal_target_host``).
 """
 
 from __future__ import annotations
@@ -28,9 +36,9 @@ import pytest
 
 if not os.environ.get("AISOC_TEMPORAL_LIVE_TESTS"):
     pytest.skip(
-        "Temporal live workflow tests need to download the bundled test-server "
-        "binary on first use, which can hang rather than fail fast without "
-        "network access. Set AISOC_TEMPORAL_LIVE_TESTS=1 to enable them.",
+        "Temporal live workflow tests need a real, reachable Temporal server "
+        "(docker compose --profile temporal up). Set AISOC_TEMPORAL_LIVE_TESTS=1 "
+        "and AISOC_TEMPORAL_HOST (default localhost:7233) to enable them.",
         allow_module_level=True,
     )
 
@@ -52,6 +60,7 @@ from app.temporal.activities import (  # noqa: E402
     run_swarm_activity,
     triage_activity,
 )
+from app.temporal.client import temporal_target_host  # noqa: E402
 from app.temporal.workflows import InvestigationWorkflow  # noqa: E402
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -69,11 +78,8 @@ _ACTIVITIES = [
 
 @pytest.fixture
 async def temporal_env():
-    env = await WorkflowEnvironment.start_time_skipping()
-    try:
-        yield env
-    finally:
-        await env.shutdown()
+    client = await Client.connect(temporal_target_host())
+    yield WorkflowEnvironment.from_client(client)
 
 
 def _request(**overrides) -> dict:
@@ -100,7 +106,7 @@ async def test_workflow_runs_full_pipeline_and_completes(temporal_env: WorkflowE
         result = await client.execute_workflow(
             InvestigationWorkflow.run,
             _request(),
-            id=f"wf-{uuid.uuid4()}",
+            id=str(uuid.uuid4()),
             task_queue=task_queue,
         )
 
@@ -122,7 +128,7 @@ async def test_workflow_reports_progress_via_query(temporal_env: WorkflowEnviron
         handle = await client.start_workflow(
             InvestigationWorkflow.run,
             _request(),
-            id=f"wf-{uuid.uuid4()}",
+            id=str(uuid.uuid4()),
             task_queue=task_queue,
         )
         result = await handle.result()
@@ -169,7 +175,7 @@ async def test_workflow_skips_full_pipeline_when_auto_triage_closes(
         result = await client.execute_workflow(
             InvestigationWorkflow.run,
             _request(),
-            id=f"wf-{uuid.uuid4()}",
+            id=str(uuid.uuid4()),
             task_queue=task_queue,
         )
 
@@ -210,7 +216,7 @@ async def test_workflow_hitl_approval_gate_blocks_until_signal(temporal_env: Wor
         handle = await client.start_workflow(
             InvestigationWorkflow.run,
             _request(),
-            id=f"wf-{uuid.uuid4()}",
+            id=str(uuid.uuid4()),
             task_queue=task_queue,
         )
 
