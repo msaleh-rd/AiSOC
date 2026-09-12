@@ -49,6 +49,15 @@ ARG NEXT_PUBLIC_WS_URL=""
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
+# lib/api.ts's TENANT_ID constant falls back to this when no logged-in user
+# / tenant-switcher override is present in localStorage. Some endpoints
+# (e.g. the fusion entity-risk queue) require an explicit ?tenant_id= query
+# param rather than deriving it from the auth context, so leaving this
+# unset (which falls back to the literal string "default") sends an invalid
+# UUID and those calls fail validation, silently falling back to mock data.
+ARG NEXT_PUBLIC_TENANT_ID=""
+ENV NEXT_PUBLIC_TENANT_ID=${NEXT_PUBLIC_TENANT_ID}
+
 # ─── Build-time demo-mode flags (client-side bundle) ────────────────────────
 # These drive the in-bundle demo experience read by `apps/web/src/lib/demoMode.ts`:
 #   - NEXT_PUBLIC_DEMO_MODE: gates the banner, auto-login, and read-only UI

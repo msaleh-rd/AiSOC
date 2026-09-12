@@ -1157,6 +1157,86 @@ export interface EntityRiskStats {
  */
 const FUSION_PATH = '/api/v1/fusion';
 
+// ─── Fusion payload normalization ────────────────────────────────────────────
+//
+// The live fusion service's wire shapes drifted from the typed UI contract
+// above (it emits `severities` / `contributors` / `promoted_at` /
+// `tracked_entities` / `score_bands`; the UI expects `severity_histogram` /
+// `contributions` / `promoted` / `display_score` / `total` / `bands`).
+// Rather than crash the Entities queue on undefined property reads, we
+// accept both shapes here and project them onto the UI contract.
+
+const EMPTY_HISTOGRAM: Record<AlertSeverity, number> = {
+  critical: 0,
+  high: 0,
+  medium: 0,
+  low: 0,
+  info: 0,
+};
+
+function normalizeEntityRecord(raw: Record<string, any>, threshold: number): EntityRiskRecord {
+  const score = typeof raw.score === 'number' ? raw.score : 0;
+  const contributions: EntityRiskContribution[] = Array.isArray(raw.contributions)
+    ? raw.contributions
+    : Array.isArray(raw.contributors)
+      ? raw.contributors.map((c: Record<string, any>) => ({
+          alert_id: c.alert_id ?? '',
+          severity: (c.severity ?? 'info') as AlertSeverity,
+          raw_points: typeof c.points === 'number' ? c.points : (c.raw_points ?? 0),
+          observed_at: c.at ?? c.observed_at ?? '',
+          title: c.detection ?? c.title ?? null,
+          source: c.source ?? null,
+        }))
+      : [];
+  return {
+    tenant_id: raw.tenant_id ?? '',
+    entity_type: (raw.entity_type ?? 'host') as EntityType,
+    entity_value: raw.entity_value ?? '',
+    score,
+    display_score: typeof raw.display_score === 'number' ? raw.display_score : Math.round(score),
+    threshold: typeof raw.threshold === 'number' ? raw.threshold : threshold,
+    promoted: typeof raw.promoted === 'boolean' ? raw.promoted : Boolean(raw.promoted_at),
+    promoted_incident_id: raw.promoted_incident_id ?? null,
+    last_seen: raw.last_seen ?? '',
+    first_seen: raw.first_seen ?? raw.last_seen ?? '',
+    contributions,
+    severity_histogram: {
+      ...EMPTY_HISTOGRAM,
+      ...(raw.severity_histogram ?? raw.severities ?? {}),
+    },
+    alert_count:
+      typeof raw.alert_count === 'number' ? raw.alert_count : contributions.length,
+  };
+}
+
+function normalizeQueueResponse(raw: Record<string, any>): EntityRiskQueueResponse {
+  const threshold = typeof raw.threshold === 'number' ? raw.threshold : 80;
+  const entities = Array.isArray(raw.entities) ? raw.entities : [];
+  return {
+    tenant_id: raw.tenant_id ?? '',
+    threshold,
+    entities: entities.map((e: Record<string, any>) => normalizeEntityRecord(e, threshold)),
+  };
+}
+
+function normalizeStatsResponse(raw: Record<string, any>): EntityRiskStats {
+  const bands = raw.bands ?? raw.score_bands ?? {};
+  return {
+    tenant_id: raw.tenant_id ?? '',
+    threshold: typeof raw.threshold === 'number' ? raw.threshold : 80,
+    total: raw.total ?? raw.tracked_entities ?? 0,
+    promoted: raw.promoted ?? raw.promoted_entities ?? 0,
+    bands: {
+      critical: bands.critical ?? 0,
+      high: bands.high ?? 0,
+      medium: bands.medium ?? 0,
+      low: bands.low ?? 0,
+    },
+    alert_count: raw.alert_count ?? 0,
+    alert_to_incident_ratio: raw.alert_to_incident_ratio ?? null,
+  };
+}
+
 export const entityRiskApi = {
   /** Top-N entities by current decayed risk score. */
   queue: (params: {
@@ -1164,27 +1244,27 @@ export const entityRiskApi = {
     limit?: number;
     promotedOnly?: boolean;
   } = {}) =>
-    request<EntityRiskQueueResponse>(`${FUSION_PATH}/entity-risk/queue`, {
+    request<Record<string, any>>(`${FUSION_PATH}/entity-risk/queue`, {
       params: {
         tenant_id: params.tenantId ?? TENANT_ID,
         limit: params.limit ?? 25,
         promoted_only: params.promotedOnly ? 'true' : undefined,
       },
-    }),
+    }).then(normalizeQueueResponse),
 
   /** Tenant-scoped queue stats for dashboards (banding, totals, threshold). */
   stats: (tenantId?: string) =>
-    request<EntityRiskStats>(`${FUSION_PATH}/entity-risk/stats`, {
+    request<Record<string, any>>(`${FUSION_PATH}/entity-risk/stats`, {
       params: { tenant_id: tenantId ?? TENANT_ID },
-    }),
+    }).then(normalizeStatsResponse),
 
   /** Full risk record for a single entity (drawer detail). */
   get: (entityType: EntityType, entityValue: string, tenantId?: string) => {
     const pathType = entityType === 'ip' ? 'src_ip' : entityType;
-    return request<EntityRiskRecord>(
+    return request<Record<string, any>>(
       `${FUSION_PATH}/entity-risk/${pathType}/${encodeURIComponent(entityValue)}`,
       { params: { tenant_id: tenantId ?? TENANT_ID } },
-    );
+    ).then((raw) => normalizeEntityRecord(raw, typeof raw.threshold === 'number' ? raw.threshold : 80));
   },
 };
 

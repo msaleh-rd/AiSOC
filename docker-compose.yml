@@ -246,6 +246,11 @@ services:
       AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:-}}
       AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-${ISOC_CREDENTIAL_KEY_ROTATION_FROM:-}}
       CONNECTORS_SERVICE_URL: http://connectors:8087
+      # Without this, app/api/v1/endpoints/fusion.py always short-circuits
+      # to its stub/empty fallback and the console's Entities (Risk-Based
+      # Alerting) tab permanently shows the hardcoded demo queue, even when
+      # the fusion service is up and healthy.
+      FUSION_SERVICE_URL: http://fusion:8003
       # Container-to-container URL — the realtime service's actual internal
       # listen port (PORT: 4000 on the realtime service below), NOT the
       # 8086 host port mapping. Fixes push/event fan-out silently failing
@@ -853,6 +858,18 @@ services:
         # this turns off the "demo data resets daily" banner, the
         # "Self-host AiSOC" CTA, and the read-only write-blocking UI.
         NEXT_PUBLIC_DEMO_MODE: ""
+        # Server-side rewrite targets — Next.js bakes these into
+        # .next/routes-manifest.json at `next build` time (NOT read at
+        # container start), so they must be passed as build args, not
+        # `environment:`. Values match this compose file's Docker DNS names.
+        API_URL: http://api:8000
+        AGENTS_URL: http://agents:8084
+        REALTIME_URL: http://realtime:4000
+        # Client-bundle tenant fallback — also inlined at build time. Must
+        # match the demo tenant every seed/ingest script uses, or endpoints
+        # that require an explicit ?tenant_id= (e.g. fusion entity-risk)
+        # silently fail and fall back to mock data.
+        NEXT_PUBLIC_TENANT_ID: "00000000-0000-0000-0000-000000000001"
     image: ghcr.io/beenuar/aisoc-web:${AISOC_VERSION:-latest}
     pull_policy: missing
     container_name: aisoc-web
@@ -865,6 +882,14 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_WS_URL: ws://localhost:8086
       NODE_ENV: production
+      # apps/web/next.config.js bakes this into the client bundle, defaulting
+      # to the literal string "default" when unset. lib/api.ts's TENANT_ID
+      # constant then falls back to that literal string (since it's truthy)
+      # instead of the real demo-tenant UUID, so every client call that must
+      # pass an explicit ?tenant_id= query param (e.g. the fusion entity-risk
+      # queue) sends tenant_id=default, fails UUID validation, and the
+      # Entities tab silently falls back to its hardcoded mock data.
+      NEXT_PUBLIC_TENANT_ID: "00000000-0000-0000-0000-000000000001"
     networks:
       - aisoc
     restart: unless-stopped

@@ -53,6 +53,22 @@ _PROMOTED_KEY = "aisoc:fusion:rba:promoted:"
 ENTITY_TYPES: tuple[str, ...] = ("user", "host", "src_ip", "domain")
 
 
+def _iso_z(dt: datetime) -> str:
+    """Render a datetime as ISO-8601 UTC with a single ``Z`` suffix.
+
+    Naively appending ``"Z"`` to ``isoformat()`` produced invalid strings
+    like ``2026-09-12T12:25:55+00:00Z`` for timezone-aware datetimes —
+    ``new Date()`` in the browser returns Invalid Date for those, which
+    crashed the console's entity drawer.
+    """
+    iso = dt.isoformat()
+    if iso.endswith("+00:00"):
+        return iso[:-6] + "Z"
+    if dt.tzinfo is None:
+        return iso + "Z"
+    return iso  # non-UTC offset: keep the explicit offset, no Z
+
+
 @dataclass(frozen=True)
 class EntitySignal:
     """A single alert's contribution to one entity."""
@@ -88,10 +104,10 @@ class EntityRiskRecord:
             "entity_value": self.entity_value,
             "score": round(self.score, 2),
             "alert_count": self.alert_count,
-            "last_seen": self.last_seen.isoformat() + "Z",
+            "last_seen": _iso_z(self.last_seen),
             "contributing_alerts": self.contributing_alerts,
             "severities": self.severities,
-            "promoted_at": (self.promoted_at.isoformat() + "Z") if self.promoted_at else None,
+            "promoted_at": _iso_z(self.promoted_at) if self.promoted_at else None,
             "contributors": self.contributors or [],
         }
 
@@ -270,7 +286,7 @@ class EntityRiskEngine:
                 "severity": sig.severity,
                 "detection": sig.detection,
                 "points": sig.points,
-                "at": sig.occurred_at.isoformat() + "Z",
+                "at": _iso_z(sig.occurred_at),
             }
         )
         if len(contributors) > 25:
