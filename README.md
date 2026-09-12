@@ -55,7 +55,7 @@ The first row is new: [`aisoc-sandbox`](packages/isoc-sandbox/) is a zero-depend
 > [![Nightly cold cache](https://img.shields.io/github/actions/workflow/status/beenuar/AiSOC/compose-smoke-nightly.yml?branch=main&label=compose-smoke%20%28nightly%2C%20cold%29&style=flat-square)](https://github.com/beenuar/AiSOC/actions/workflows/compose-smoke-nightly.yml)
 > [![E2E](https://img.shields.io/github/actions/workflow/status/beenuar/AiSOC/e2e.yml?branch=main&label=e2e%20%28seeded%20console%29&style=flat-square)](https://github.com/beenuar/AiSOC/actions/workflows/e2e.yml)
 
-Full multi-platform deploy guide is in [`apps/docs/docs/installation.md`](apps/docs/docs/installation.md) (Render, Fly.io, Docker Compose, Kubernetes, Terraform). Production-grade install with full storage tier: [`infra/helm/`](infra/helm/) or [`infra/terraform/`](infra/terraform/).
+Full multi-platform deploy guide is in [`apps/docs/docs/installation.md`](apps/docs/docs/installation.md) (Render, Fly.io, Docker Compose, Kubernetes, Terraform). Production-grade install with full storage tier: [`infra/helm/`](infra/helm/) or [`infra/terraform/`](infra/terraform/). To ingest real Wazuh/Suricata exports (including CAM-style dumps), use the full stack (`docker compose up -d`, not `pnpm aisoc:demo`) and run `python scripts/ingest_local_logs.py --root "D:\\path\\to\\log-export-root" --dry-run` then `python scripts/ingest_local_logs.py --root "D:\\path\\to\\log-export-root"`; expected files are `security/wazuh__alerts_*.json` and `network/*_suricata_eve.json`, and results appear in `http://127.0.0.1:3000/alerts`.
 
 ---
 

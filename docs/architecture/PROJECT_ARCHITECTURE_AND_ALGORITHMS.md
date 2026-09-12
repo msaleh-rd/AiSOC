@@ -60,6 +60,26 @@ Poison events never crash the consumer or get silently dropped — they are
 schema-validated first (`event_schema.py`) and routed to a dead-letter queue
 (`dlq.py`) on failure, with the failure reason preserved for operator review.
 
+### 1.1 Local log ingestion path (operator workflow)
+
+For real exported telemetry (for example CAM-style Wazuh + Suricata dumps),
+the host-side importer in `scripts/ingest_local_logs.py` sends batches to the
+same public ingest contract used by connectors:
+
+```
+POST http://localhost:8081/v1/ingest/batch
+X-Tenant-ID: 00000000-0000-0000-0000-000000000001 (default)
+```
+
+Supported files in this first-pass importer:
+
+- `security/wazuh__alerts_*.json` (JSON-lines)
+- `network/*_suricata_eve.json` (`event_type == "alert"` only)
+
+Operationally this must run against the full compose stack (`docker compose up -d`),
+not the slim `pnpm aisoc:demo` profile, because the script depends on the
+`services/ingest` endpoint (port 8081) and downstream Kafka/fusion consumers.
+
 ---
 
 ## 2. Ingest (`services/ingest`, Go)
