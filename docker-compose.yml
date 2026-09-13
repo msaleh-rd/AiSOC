@@ -432,6 +432,20 @@ services:
       # in-process LangGraph pipeline. See services/agents/app/temporal/.
       AISOC_AGENT_TEMPORAL_MODE: ${AISOC_AGENT_TEMPORAL_MODE:-0}
       AISOC_TEMPORAL_HOST: temporal:7233
+      # ReAct supervisor loop (v8.1) — observe→reason→act investigation graph.
+      # Off by default; set AISOC_AGENT_SUPERVISED_MODE=1 in .env to route
+      # /investigate through the supervised graph (supervisor picks among
+      # gather_evidence | run_specialist | compress_events | perform_rca |
+      # run_swarm | finalize_response each cycle). See
+      # services/agents/app/orchestrator/supervisor.py.
+      AISOC_AGENT_SUPERVISED_MODE: ${AISOC_AGENT_SUPERVISED_MODE:-0}
+      # In-process LangGraph pipeline for /investigate (used by the supervised
+      # graph when AISOC_AGENT_SUPERVISED_MODE=1). Default off.
+      AISOC_INVESTIGATE_USE_GRAPH: ${AISOC_INVESTIGATE_USE_GRAPH:-0}
+      # Canonical determinism switch — forces heuristic (no-LLM) agents even
+      # when a gateway/key is configured. Useful when LiteLLM has no live
+      # upstream (air-gapped / no local model server running).
+      AISOC_DETERMINISTIC: ${AISOC_DETERMINISTIC:-0}
       # Container-to-container URL — the realtime service's actual internal
       # listen port (PORT: 4000 on the realtime service below), NOT the
       # 8086 host port mapping. Without this, app/api/investigate.py and

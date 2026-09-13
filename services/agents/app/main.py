@@ -59,10 +59,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     openai_key = os.getenv("OPENAI_API_KEY", "")
     if qdrant_url and openai_key:
         try:
-            await embed_techniques_into_qdrant(
-                qdrant_url=qdrant_url,
-                openai_api_key=openai_key,
+            # Hard cap — this is best-effort warmup. Without it, a stalled
+            # Qdrant/embeddings call (e.g. client/server version mismatch or
+            # an unroutable embeddings alias behind the LLM gateway) blocks
+            # the whole lifespan and /readyz never flips to 200.
+            await asyncio.wait_for(
+                embed_techniques_into_qdrant(
+                    qdrant_url=qdrant_url,
+                    openai_api_key=openai_key,
+                ),
+                timeout=float(os.getenv("AISOC_ATTCK_EMBED_TIMEOUT_S", "60")),
             )
+        except TimeoutError:
+            logger.warning("ATT&CK Qdrant embedding timed out — continuing startup without RAG warmup")
         except Exception as exc:
             logger.warning("ATT&CK Qdrant embedding skipped", error=str(exc))
 

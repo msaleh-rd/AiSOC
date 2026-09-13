@@ -81,8 +81,24 @@ async def start_investigation(
 
 @router.get("/investigations/{run_id}")
 async def get_investigation(run_id: str):
-    """Get the status and results of an investigation run."""
+    """Get the status and results of an investigation run.
+
+    Two launch surfaces share this poll route: POST /investigations (this
+    module) and POST /cases/{id}/investigate (app.api.investigate, whose
+    router is registered after this one, so this handler wins the route
+    match). Each keeps its own in-memory status cache, so we must consult
+    both — otherwise runs launched via /cases/{id}/investigate 404 here and
+    the web console silently falls back to demo data.
+    """
     run = _runs.get(run_id)
+    if not run:
+        from app.api import investigate as _investigate  # noqa: PLC0415 — avoid import cycle at module load
+
+        run = _investigate._runs.get(run_id)  # noqa: SLF001 — shared status cache lookup
+        if run:
+            # Match investigate.py's slim poll contract: reports are served
+            # by their dedicated endpoints, not the poll route.
+            return {k: v for k, v in run.items() if k not in ("report_md", "report_html")}
     if not run:
         raise HTTPException(status_code=404, detail="Investigation run not found")
     return run
