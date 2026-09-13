@@ -352,6 +352,18 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           const inv = await casesApi.getInvestigation(caseId, result.run_id);
           setInvestigationData(inv as Record<string, unknown>);
           setInvestigationStatus(inv.status);
+          // The WS is best-effort (dev proxies often drop the upgrade), so
+          // surface the polled audit_log as live steps too — whichever
+          // source has more events wins, so WS and polling never fight.
+          if (Array.isArray(inv.audit_log) && inv.audit_log.length > 0) {
+            const polled = inv.audit_log.map((e) => ({
+              kind: String(e.kind ?? 'step'),
+              agent: String(e.agent ?? ''),
+              summary: String(e.summary ?? ''),
+              ts: String(e.ts ?? ''),
+            }));
+            setLiveSteps((prev) => (polled.length > prev.length ? polled : prev));
+          }
           if (inv.status === 'completed' || inv.status === 'failed') {
             stopPolling();
             setInvestigating(false);
@@ -1026,9 +1038,9 @@ function InvestigationPanel({
             <div>
               <p className="text-[11px] text-slate-500 mb-1">IOCs found:</p>
               <ul className="space-y-0.5">
-                {(recon.iocs as Array<{ type: string; value: string }>).slice(0, 5).map((ioc) => (
-                  <li key={ioc.value} className="text-[11px] font-mono text-slate-300">
-                    <span className="text-slate-500">[{ioc.type}]</span> {ioc.value}
+                {(recon.iocs as Array<{ type?: unknown; value?: unknown }>).slice(0, 5).map((ioc, i) => (
+                  <li key={`${String(ioc.value ?? i)}`} className="text-[11px] font-mono text-slate-300">
+                    <span className="text-slate-500">[{String(ioc.type ?? 'ioc')}]</span> {String(ioc.value ?? '')}
                   </li>
                 ))}
               </ul>
@@ -1036,8 +1048,8 @@ function InvestigationPanel({
           )}
           {Array.isArray(recon?.mitre_techniques) && recon.mitre_techniques.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {(recon.mitre_techniques as string[]).map((t) => (
-                <span key={t} className="rounded bg-orange-500/10 px-1.5 py-0.5 text-[10px] text-orange-300 ring-1 ring-orange-500/20">{t}</span>
+              {(recon.mitre_techniques as unknown[]).map((t, i) => (
+                <span key={`${String(t)}-${i}`} className="rounded bg-orange-500/10 px-1.5 py-0.5 text-[10px] text-orange-300 ring-1 ring-orange-500/20">{String(t)}</span>
               ))}
             </div>
           )}
@@ -1069,12 +1081,24 @@ function InvestigationPanel({
           {responder?.summary != null && <p className="text-xs text-slate-400">{String(responder.summary)}</p>}
           {Array.isArray(responder?.recommended_actions) && (
             <ul className="space-y-1">
-              {(responder.recommended_actions as string[]).slice(0, 4).map((action, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
-                  <span className="mt-0.5 h-1.5 w-1.5 flex-none rounded-full bg-amber-400" />
-                  {action}
-                </li>
-              ))}
+              {(responder.recommended_actions as unknown[]).slice(0, 4).map((item, i) => {
+                // LLM output ships either plain strings or
+                // { priority, action, rationale, risk } objects — rendering an
+                // object as a React child hard-crashes the page (React #31).
+                const obj = (item ?? {}) as Record<string, unknown>;
+                const text = typeof item === 'string' ? item : String(obj.action ?? obj.summary ?? '');
+                const rationale = typeof item === 'object' && obj.rationale != null ? String(obj.rationale) : null;
+                if (!text) return null;
+                return (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
+                    <span className="mt-0.5 h-1.5 w-1.5 flex-none rounded-full bg-amber-400" />
+                    <span>
+                      {text}
+                      {rationale && <span className="block text-[11px] text-slate-500">{rationale}</span>}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
           {responder?.risk_level != null && (
