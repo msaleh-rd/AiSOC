@@ -764,9 +764,17 @@ function normalizeAlert(raw: unknown): Alert {
     confidenceLabel: (r.confidence_label ?? r.confidenceLabel) as
       | ConfidenceLabel
       | undefined,
-    confidenceScore:
-      pickNum('confidence_score', 'confidenceScore') ??
-      pickNum('confidence', 'confidence'),
+    // Normalize to 0–1 at the mapping boundary. The platform convention for
+    // ``confidence`` is an int 0–100 (fusion ConfidenceScorer), while
+    // ``confidence_score`` may already be a 0–1 float. UI components render
+    // ``score * 100`%` — an unnormalized 0–100 value displays as e.g. "4500%".
+    confidenceScore: (() => {
+      const v =
+        pickNum('confidence_score', 'confidenceScore') ??
+        pickNum('confidence', 'confidence');
+      if (v === undefined) return undefined;
+      return v > 1 ? Math.min(v, 100) / 100 : v;
+    })(),
     confidenceRationale,
     ledgerRunId: pickStr('ledger_run_id', 'ledgerRunId'),
     disposition: (r.disposition ?? null) as Alert['disposition'],

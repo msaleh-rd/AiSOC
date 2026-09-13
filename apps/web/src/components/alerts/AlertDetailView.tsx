@@ -822,7 +822,7 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
                 score={alert.confidenceScore}
               />
             )}
-            <span className="text-xs text-gray-500">Risk Score: <span className="text-white font-bold">{alert.riskScore}</span></span>
+            <span className="text-xs text-gray-500">Risk Score: <span className="text-white font-bold">{Number(alert.riskScore.toFixed(2))}</span></span>
           </div>
           <h1 className="text-lg font-semibold text-gray-100">{alert.title}</h1>
           <p className="text-sm text-gray-500 mt-1" suppressHydrationWarning>{alert.source} · {format(new Date(alert.createdAt), 'MMM d, yyyy HH:mm:ss')}</p>

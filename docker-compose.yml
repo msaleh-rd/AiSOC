@@ -446,6 +446,10 @@ services:
       # when a gateway/key is configured. Useful when LiteLLM has no live
       # upstream (air-gapped / no local model server running).
       AISOC_DETERMINISTIC: ${AISOC_DETERMINISTIC:-0}
+      # Wall-clock budget for one /investigate run. The 120s default assumes a
+      # fast hosted model; slow local models (LM Studio at ~13 tok/s) need
+      # several minutes per supervised run — override in .env.
+      AISOC_INVESTIGATION_MAX_SECONDS: ${AISOC_INVESTIGATION_MAX_SECONDS:-120}
       # Container-to-container URL — the realtime service's actual internal
       # listen port (PORT: 4000 on the realtime service below), NOT the
       # 8086 host port mapping. Without this, app/api/investigate.py and

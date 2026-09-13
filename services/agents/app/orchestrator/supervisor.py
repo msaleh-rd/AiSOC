@@ -104,7 +104,8 @@ class ReActSupervisor:
         model: str | None = None,
     ) -> None:
         self._litellm_url = litellm_url or os.getenv("LITELLM_URL", "http://litellm:4000")
-        self._model = model or os.getenv("AISOC_SUPERVISOR_MODEL", "gpt-4o-mini")
+        self._model = model or os.getenv("AISOC_SUPERVISOR_MODEL", "aisoc-investigation")
+        self._api_key = os.getenv("OPENAI_API_KEY", "") or os.getenv("LITELLM_MASTER_KEY", "")
 
     async def decide(self, state: InvestigationState) -> SupervisorDecision:
         """Observe the investigation state and decide the next action.
@@ -218,7 +219,10 @@ class ReActSupervisor:
     async def _llm_decide(self, prompt: str) -> SupervisorDecision:
         import httpx
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{self._litellm_url}/v1/chat/completions",
                 json={
@@ -228,7 +232,7 @@ class ReActSupervisor:
                     "max_tokens": 500,
                     "response_format": {"type": "json_object"},
                 },
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()

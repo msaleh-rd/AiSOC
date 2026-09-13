@@ -26,6 +26,17 @@ if str(_AGENTS_ROOT) not in sys.path:
 from app.temporal import adapter as adapter_mod  # noqa: E402
 from app.temporal import client as client_mod  # noqa: E402
 
+# Pre-generated UUIDs for deterministic tests — the adapter now validates
+# that case_id is a UUID (non-UUID strings hit the early-return error path).
+_CASE_1 = str(uuid4())
+_CASE_2 = str(uuid4())
+_CASE_3 = str(uuid4())
+_CASE_4 = str(uuid4())
+_TENANT_A = str(uuid4())
+_TENANT_B = str(uuid4())
+_TENANT_C = str(uuid4())
+_TENANT_D = str(uuid4())
+
 
 class _FakeHandle:
     """Stand-in for ``temporalio.client.WorkflowHandle``."""
@@ -73,10 +84,10 @@ async def test_stream_kwargs_yields_done_with_rendered_report(monkeypatch: pytes
 
     events = await _collect(
         adapter_mod.TemporalOrchestratorAdapter().stream_kwargs(
-            case_id="case-1",
+            case_id=_CASE_1,
             alert_summary="Suspicious login",
             raw_alert={},
-            tenant_id="tenant-a",
+            tenant_id=_TENANT_A,
         )
     )
 
@@ -84,7 +95,7 @@ async def test_stream_kwargs_yields_done_with_rendered_report(monkeypatch: pytes
     done_events = [e for e in events if e["type"] == "done"]
     assert len(done_events) == 1
     (done,) = done_events
-    assert done["case_id"] == "case-1"
+    assert done["case_id"] == _CASE_1
     state = done["state"]
     assert state["verdict"] == "true_positive"
     assert state["rca_findings"] == {"root_cause_entity": "user:alice"}
@@ -93,7 +104,7 @@ async def test_stream_kwargs_yields_done_with_rendered_report(monkeypatch: pytes
 
     # At least the step observed before completion should surface.
     step_events = [e for e in events if e["type"] == "step"]
-    assert all(e["case_id"] == "case-1" for e in step_events)
+    assert all(e["case_id"] == _CASE_1 for e in step_events)
 
 
 @pytest.mark.asyncio
@@ -110,10 +121,10 @@ async def test_stream_kwargs_preserves_run_id(monkeypatch: pytest.MonkeyPatch) -
     run_id = uuid4()
     events = await _collect(
         adapter_mod.TemporalOrchestratorAdapter().stream_kwargs(
-            case_id="case-2",
+            case_id=_CASE_2,
             alert_summary="x",
             raw_alert={},
-            tenant_id="tenant-b",
+            tenant_id=_TENANT_B,
             run_id=run_id,
         )
     )
@@ -132,10 +143,10 @@ async def test_stream_kwargs_yields_error_when_start_fails(monkeypatch: pytest.M
 
     events = await _collect(
         adapter_mod.TemporalOrchestratorAdapter().stream_kwargs(
-            case_id="case-3",
+            case_id=_CASE_3,
             alert_summary="x",
             raw_alert={},
-            tenant_id="tenant-c",
+            tenant_id=_TENANT_C,
         )
     )
 
@@ -156,10 +167,10 @@ async def test_stream_kwargs_yields_error_when_workflow_raises(monkeypatch: pyte
 
     events = await _collect(
         adapter_mod.TemporalOrchestratorAdapter().stream_kwargs(
-            case_id="case-4",
+            case_id=_CASE_4,
             alert_summary="x",
             raw_alert={},
-            tenant_id="tenant-d",
+            tenant_id=_TENANT_D,
         )
     )
 

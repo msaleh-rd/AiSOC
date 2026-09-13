@@ -300,8 +300,12 @@ async def verify_react_supervisor(compressed_events: list[dict], rca_findings: d
     print(f"    Cycle 2 Decision: action='{d2.action}', goal='{d2.specific_goal}'")
     assert d2.action in ("perform_rca", "run_swarm", "run_specialist")
 
-    # Simulate RCA populated (confidence 0.88 >= 0.75)
-    state.rca_findings = rca_findings
+    # Simulate RCA populated (confidence 0.88 >= 0.75) — override the real
+    # RCA output's confidence (which may be < 0.75 depending on the synthetic
+    # graph) so the supervisor's finalize threshold is met deterministically.
+    rca_override = dict(rca_findings)
+    rca_override["confidence"] = 0.88
+    state.rca_findings = rca_override
     state.add_finding("RCA confirmed root cause as host-web-01")
 
     # Iteration 3: With RCA and evidence -> finalize

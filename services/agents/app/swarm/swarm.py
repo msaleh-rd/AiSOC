@@ -175,17 +175,21 @@ async def _generate_hypotheses_llm(
         import httpx
 
         litellm_url = os.getenv("LITELLM_URL", "http://litellm:4000")
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        api_key = os.getenv("OPENAI_API_KEY", "") or os.getenv("LITELLM_MASTER_KEY", "")
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{litellm_url}/v1/chat/completions",
                 json={
-                    "model": os.getenv("AISOC_SWARM_MODEL", "gpt-4o-mini"),
+                    "model": os.getenv("AISOC_SWARM_MODEL", "aisoc-investigation"),
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.7,
                     "max_tokens": 1500,
                     "response_format": {"type": "json_object"},
                 },
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()
