@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -274,18 +274,47 @@ function AIInvestigation({ alertId }: { alertId: string }) {
   const [investigation, setInvestigation] = useState<AgentInvestigation | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+  useEffect(() => stopPolling, []);
+
   const startInvestigation = async () => {
     setIsRunning(true);
     setError(null);
+    stopPolling();
     try {
       const result = await agentsApi.investigate(alertId);
       setInvestigation(result);
+      // Launch returns immediately with status=running — poll until the
+      // orchestrator finishes so findings/recommendations materialize.
+      if (result.status === 'running' || result.status === 'pending') {
+        pollRef.current = setInterval(async () => {
+          try {
+            const inv = await agentsApi.getInvestigation(result.id);
+            setInvestigation(inv);
+            if (inv.status === 'completed' || inv.status === 'failed') {
+              stopPolling();
+              setIsRunning(false);
+            }
+          } catch {
+            // transient poll errors — keep trying until a terminal status
+          }
+        }, 5000);
+      } else {
+        setIsRunning(false);
+      }
     } catch (err) {
       // A failed run must surface as a failure — never as fabricated findings.
       setInvestigation(null);
       setError(err instanceof Error ? err.message : 'Agent investigation failed.');
+      setIsRunning(false);
     }
-    setIsRunning(false);
   };
 
   if (!investigation) {

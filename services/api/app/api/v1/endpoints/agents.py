@@ -34,14 +34,17 @@ Tenant scoping invariants:
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Annotated, Any
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.v1.deps import AuthUser, DBSession, require_permission
 from app.api.v1.endpoints.connectors import _fetch_catalog, _safe_log_val
+from app.models.alert import Alert
 from app.models.connector import Connector
 
 logger = logging.getLogger(__name__)
@@ -344,3 +347,121 @@ async def list_agent_tools(
         tool_count=len(tools),
         connector_count=contributing_instances,
     )
+
+
+# ------------------------------------------------- alert-scoped investigation
+#
+# The alert detail page's "AI Investigation" panel launches the same Pillar-1
+# orchestrator the case workspace uses, but keyed off an alert instead of a
+# case. We proxy to the agents service (like /cases/{id}/investigate does)
+# and map its run payload onto the AgentInvestigation shape the web client
+# expects: launch returns immediately with status=running, then the client
+# polls GET /agents/investigations/{run_id} until completed/failed.
+
+
+class AgentInvestigateRequest(BaseModel):
+    alert_id: str = Field(..., alias="alertId", min_length=1)
+
+    model_config = {"populate_by_name": True}
+
+
+def _run_to_investigation(run: dict[str, Any], alert_id: str) -> dict[str, Any]:
+    """Map an agents-service run payload to the web AgentInvestigation shape."""
+    recommendations: list[str] = []
+    responder = run.get("responder") or {}
+    for item in responder.get("recommended_actions") or []:
+        if isinstance(item, str):
+            recommendations.append(item)
+        elif isinstance(item, dict):
+            action = str(item.get("action") or "").strip()
+            rationale = str(item.get("rationale") or "").strip()
+            if action:
+                recommendations.append(f"{action} — {rationale}" if rationale else action)
+
+    findings_parts: list[str] = []
+    for key, label in (("recon", "Recon"), ("forensic", "Forensic"), ("responder", "Response")):
+        summary = (run.get(key) or {}).get("summary")
+        if summary:
+            findings_parts.append(f"{label}: {summary}")
+    if run.get("error"):
+        findings_parts.append(f"Error: {run['error']}")
+
+    status = run.get("status") or "running"
+    if status not in ("pending", "running", "completed", "failed"):
+        status = "failed" if run.get("error") else "running"
+
+    return {
+        "id": str(run.get("run_id") or ""),
+        "alertId": alert_id,
+        "status": status,
+        "findings": "\n\n".join(findings_parts) or None,
+        "recommendations": recommendations,
+        "actions": [],
+        "startedAt": run.get("started_at"),
+        "completedAt": run.get("completed_at"),
+    }
+
+
+@router.post("/investigate", summary="Launch an AI investigation for an alert")
+async def investigate_alert(
+    body: AgentInvestigateRequest,
+    current_user: AuthUser,
+    db: DBSession,
+) -> dict[str, Any]:
+    # Local import avoids a circular import at module load (cases imports
+    # services that import connectors, which this module already feeds).
+    from app.api.v1.endpoints.cases import _agents_proxy
+
+    try:
+        alert_uuid = uuid.UUID(body.alert_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="alertId must be a UUID") from exc
+
+    alert = (
+        await db.execute(
+            select(Alert.title, Alert.description).where(
+                Alert.id == alert_uuid,
+                Alert.tenant_id == current_user.tenant_id,
+            )
+        )
+    ).first()
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+
+    title, description = alert
+    alert_summary = f"{title}\n\n{description}" if description else str(title)
+
+    resp = await _agents_proxy(
+        "POST",
+        f"/api/v1/cases/{alert_uuid}/investigate",
+        json={"alert_summary": alert_summary, "tenant_id": str(current_user.tenant_id)},
+    )
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    launched = resp.json()
+
+    logger.info(
+        "agents.investigate.launched tenant_id=%s alert_id=%s run_id=%s",
+        current_user.tenant_id,
+        alert_uuid,
+        _safe_log_val(str(launched.get("run_id", ""))),
+    )
+    return _run_to_investigation(
+        {"run_id": launched.get("run_id"), "status": "running"},
+        str(alert_uuid),
+    )
+
+
+@router.get("/investigations/{run_id}", summary="Poll an alert investigation run")
+async def get_alert_investigation(
+    run_id: str,
+    current_user: AuthUser,  # noqa: ARG001 — auth gate; run ids are unguessable UUIDs
+) -> dict[str, Any]:
+    from app.api.v1.endpoints.cases import _agents_proxy
+
+    safe_run_id = quote(run_id, safe="")
+    resp = await _agents_proxy("GET", f"/api/v1/investigations/{safe_run_id}")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    run = resp.json()
+    return _run_to_investigation(run, str(run.get("case_id") or ""))
