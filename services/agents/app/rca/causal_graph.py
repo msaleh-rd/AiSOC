@@ -78,12 +78,15 @@ class CausalGraphBuilder:
             entity_events[event.entity_id].append(event)
             self._add_entity_node(event)
 
-        # Add edges from known dependencies.
+        # Add edges from known dependencies. Edges represent cause -> effect
+        # (matching the temporal-inference edges below): if `entity` depends
+        # on `dep`, then a failure/anomaly in `dep` is the upstream cause and
+        # `entity` is the downstream effect, so the edge points dep -> entity.
         if known_dependencies:
             for entity, deps in known_dependencies.items():
                 for dep in deps:
                     if entity in self._graph and dep in self._graph:
-                        self._graph.add_edge(entity, dep, weight=1.0, relationship="dependency")
+                        self._graph.add_edge(dep, entity, weight=1.0, relationship="dependency")
 
         # Infer causal edges from temporal ordering within sliding windows.
         self._infer_temporal_edges(sorted_events)

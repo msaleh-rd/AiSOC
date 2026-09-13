@@ -119,8 +119,55 @@ class TestValidation:
             action="gather_evidence",
         )
         validated = supervisor._validate(decision, state)
-        # Should fall back to heuristic, which will pick a different action
-        assert validated.action != "gather_evidence" or validated.action == "gather_evidence"
+        # gather_evidence is at its cap, so validation must fall back to the
+        # heuristic decision tree, which (no compressed_events yet) picks
+        # compress_events next — never staying on the capped action.
+        assert validated.action == "compress_events"
+
+    def test_drops_hallucinated_target_entities(self) -> None:
+        """target_entities the LLM invents that aren't part of the observed
+        blackboard (state.entities / raw_alert) must be stripped."""
+        state = _make_state(
+            entities=[{"type": "host", "id": "web-server-01"}],
+            raw_alert={"src_ip": "10.0.0.1", "hostname": "web-server-01"},
+        )
+        supervisor = ReActSupervisor()
+        decision = SupervisorDecision(
+            assessment="",
+            thought="",
+            action="gather_evidence",
+            target_entities=["web-server-01", "10.0.0.1", "attacker-injected-entity"],
+        )
+        validated = supervisor._validate(decision, state)
+        assert set(validated.target_entities) == {"web-server-01", "10.0.0.1"}
+
+    def test_tool_call_budget_exhausted_forces_finalize(self) -> None:
+        """decide() must force finalize_response once iteration_count reaches
+        max_iterations (the runner's InvestigationBudget.max_tool_calls),
+        bypassing _validate's usual 'finalize needs findings' guard so it
+        never loops forever."""
+        import asyncio
+
+        state = _make_state(iteration_count=8, max_iterations=8, findings=[])
+        supervisor = ReActSupervisor()
+        decision = asyncio.run(supervisor.decide(state))
+        assert decision.action == "finalize_response"
+
+    def test_goal_drift_is_logged_not_blocking(self, caplog) -> None:
+        """Goal drift detection is advisory: it logs but never changes the
+        selected action."""
+        state = _make_state(
+            supervisor_history=[{"specific_goal": "Gather baseline evidence for lateral movement"}],
+        )
+        supervisor = ReActSupervisor()
+        decision = SupervisorDecision(
+            assessment="",
+            thought="",
+            action="compress_events",
+            specific_goal="Completely unrelated goal about pizza toppings",
+        )
+        validated = supervisor._validate(decision, state)
+        assert validated.action == "compress_events"
 
 
 class TestFeatureFlag:

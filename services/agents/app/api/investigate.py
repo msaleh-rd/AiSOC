@@ -25,8 +25,10 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSoc
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
 
+from app.graph.adapter import GraphOrchestratorAdapter
 from app.investigator import InvestigatorOrchestrator
 from app.orchestrator.router import RouterOrchestrator
+from app.temporal.adapter import TemporalOrchestratorAdapter
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1", tags=["investigations"])
@@ -44,6 +46,26 @@ _INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", "")
 # the flag is on; otherwise keep the legacy ``InvestigatorOrchestrator`` path.
 # Read at call time so operators can flip without restarting the service.
 USE_ROUTER_FLAG = "AISOC_INVESTIGATE_USE_ROUTER"
+# Selects the LangGraph fixed/supervised pipeline (`run_full_investigation`)
+# instead of the router/investigator orchestrators. Default off; takes
+# priority over ``USE_ROUTER_FLAG`` when both are set, since it's the more
+# specific / newer opt-in. See ``app.graph.adapter.GraphOrchestratorAdapter``.
+USE_GRAPH_FLAG = "AISOC_INVESTIGATE_USE_GRAPH"
+# Routes /investigate through the durable Temporal workflow overlay
+# (app.temporal.workflows.InvestigationWorkflow) instead of any in-process
+# orchestrator. Default off; takes priority over both other flags when set,
+# since durability is the most specific/newest opt-in and requires its own
+# running Temporal server + worker (see the `temporal` Docker Compose
+# profile) — an operator who explicitly enabled it wants the durable path,
+# not a silent fallback. See app.temporal.adapter.TemporalOrchestratorAdapter.
+USE_TEMPORAL_FLAG = "AISOC_AGENT_TEMPORAL_MODE"
+
+
+def _flag_enabled(name: str) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return False
+    return raw.strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
 def is_router_investigate_enabled() -> bool:
@@ -54,10 +76,23 @@ def is_router_investigate_enabled() -> bool:
     unset case, keeps the investigator path. Mirrors the convention used by
     :func:`app.orchestrator.router.is_parallel_topology_enabled`.
     """
-    raw = os.environ.get(USE_ROUTER_FLAG)
-    if raw is None:
-        return False
-    return raw.strip().lower() in {"1", "true", "yes", "on", "enabled"}
+    return _flag_enabled(USE_ROUTER_FLAG)
+
+
+def is_graph_investigate_enabled() -> bool:
+    """Return True if /investigate should use the LangGraph pipeline (default off).
+
+    Same truthy-parsing convention as :func:`is_router_investigate_enabled`.
+    """
+    return _flag_enabled(USE_GRAPH_FLAG)
+
+
+def is_temporal_investigate_enabled() -> bool:
+    """Return True if /investigate should use the durable Temporal workflow (default off).
+
+    Same truthy-parsing convention as :func:`is_router_investigate_enabled`.
+    """
+    return _flag_enabled(USE_TEMPORAL_FLAG)
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +101,8 @@ def is_router_investigate_enabled() -> bool:
 _runs: dict[str, dict[str, Any]] = {}
 _orch = InvestigatorOrchestrator()
 _router_orch = RouterOrchestrator()
+_graph_orch = GraphOrchestratorAdapter()
+_temporal_orch = TemporalOrchestratorAdapter()
 
 
 def _investigate_stream(
@@ -76,12 +113,32 @@ def _investigate_stream(
     tenant_id: str,
     run_id: UUID | None = None,
 ):
-    """Pick the orchestrator at call time based on ``AISOC_INVESTIGATE_USE_ROUTER``.
+    """Pick the orchestrator at call time based on env flags.
 
-    Both orchestrators expose an investigator-compatible ``stream`` /
-    ``stream_kwargs`` surface that yields the same ``step`` / ``done`` /
-    ``error`` event taxonomy, so the consumer below can stay shape-agnostic.
+    Checked in order: ``AISOC_AGENT_TEMPORAL_MODE`` (durable Temporal
+    workflow), ``AISOC_INVESTIGATE_USE_GRAPH`` (in-process LangGraph
+    pipeline), then ``AISOC_INVESTIGATE_USE_ROUTER`` (four-agent router),
+    else the legacy investigator. All four expose an investigator-compatible
+    ``stream`` / ``stream_kwargs`` surface that yields the same ``step`` /
+    ``done`` / ``error`` event taxonomy, so the consumer below can stay
+    shape-agnostic.
     """
+    if is_temporal_investigate_enabled():
+        return _temporal_orch.stream_kwargs(
+            case_id=case_id,
+            alert_summary=alert_summary,
+            raw_alert=raw_alert,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
+    if is_graph_investigate_enabled():
+        return _graph_orch.stream_kwargs(
+            case_id=case_id,
+            alert_summary=alert_summary,
+            raw_alert=raw_alert,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
     if is_router_investigate_enabled():
         return _router_orch.stream_kwargs(
             case_id=case_id,
@@ -185,6 +242,13 @@ async def _run_and_store(run_id: str, case_id: str, req: InvestigateRequest) -> 
                         "recon": state_data.get("recon", {}),
                         "forensic": state_data.get("forensic", {}),
                         "responder": state_data.get("responder", {}),
+                        # Populated only by the LangGraph pipeline
+                        # (GraphOrchestratorAdapter); empty for the
+                        # investigator/router paths, which don't have
+                        # these fields on their state.
+                        "rca_findings": state_data.get("rca_findings", {}),
+                        "supervisor_history": state_data.get("supervisor_history", []),
+                        "compressed_events": state_data.get("compressed_events", []),
                         "completed_at": datetime.utcnow().isoformat(),
                         "error": None,
                     }

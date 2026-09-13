@@ -33,6 +33,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Background distillation engine that turns confirmed triage and analyst
   verdicts into signature-keyed priors with Bayesian adjustment, confidence
   modifiers, and few-shot exemplar retrieval for future triage runs.
+- **The 6 features above are now wired into production and bug-fixed, not
+  just implemented in isolation.** RCA switched from a custom power-iteration
+  PageRank to real `nx.pagerank()`, fixed a reversed dependency-edge direction
+  (criticality now scores by descendants, not predecessors) and a wrong
+  target-entity selection (now derived from the actual alert entity, not
+  "first event"). Swarm `tokens_spent` now reflects real LiteLLM `usage`
+  instead of a hardcoded constant, and gained a MITRE tactic-diversity
+  complexity signal. The ReAct supervisor loop
+  (`AISOC_AGENT_SUPERVISED_MODE`, default off) is now actually selectable by
+  `run_full_investigation()`, enforces `max_tool_calls`, sanitises
+  hallucinated target entities, and logs goal drift. Compounding memory is now
+  tenant-scoped (fixing a cross-tenant leak in the previous flat-dict design)
+  and is wired into live `triage_agent`/`auto_triage_agent` confidence
+  scoring, closing the loop end-to-end. A new
+  `GraphOrchestratorAdapter` (`services/agents/app/graph/adapter.py`, behind
+  `AISOC_INVESTIGATE_USE_GRAPH`, default off) makes this pipeline reachable
+  from the real Case Workspace `/cases/{id}/investigate` path for the first
+  time — previously it was only reachable via a separate, unused API. The
+  Case Workspace UI gained a Root Cause Analysis card that renders when
+  `rca_findings` is present.
+- **Optional Temporal.io durability overlay (`services/agents/app/temporal/`).**
+  An `InvestigationWorkflow` re-implements the same 5-phase investigation
+  sequence as durable Temporal activities (reusing the existing LangGraph node
+  functions, not duplicating logic), with an adaptive re-investigation loop,
+  a human-in-the-loop approval gate (`workflow.wait_condition`, 1-hour
+  timeout), and queryable live progress. Reachable via
+  `TemporalOrchestratorAdapter` behind `AISOC_AGENT_TEMPORAL_MODE` (default
+  off) and the new `temporal` Docker Compose profile (off by default;
+  `docker compose --profile temporal up`). Zero impact on the default
+  in-process path — `temporalio` is an optional dependency
+  (`poetry install -E temporal`).
 
 ### Changed
 
@@ -64,7 +95,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **UEBA can no longer read an unscoreable baseline as normal behaviour.** A
+- **Local dev Temporal-overlay stack: five live bugs found and fixed while
+  hardening the `docker compose --profile temporal` path end-to-end.**
+  1. `aisoc-embed` (the ATT&CK semantic-search embedding alias in
+     `infra/litellm/config.yaml`) always failed with LiteLLM's
+     `"no healthy deployments for this model"`, even though the alias loaded
+     correctly at gateway startup. Root cause: LiteLLM cannot infer a
+     provider for `/v1/embeddings` calls from `api_base` alone the way it
+     does for chat completions — `EMBEDDING_MODEL` needed the same explicit
+     `openai/` prefix `LLM_MODEL` already carries. Fixed in `.env`,
+     `.env.example`, and `docker-compose.yml`; also added
+     `model_info: {mode: embedding}` to the alias so LiteLLM's router
+     classifies it correctly. Verified end-to-end: all 697 MITRE ATT&CK
+     techniques now embed into Qdrant successfully (previously 0).
+  2. `temporal-admin-tools` was pinned to `temporalio/admin-tools:1.24.2`,
+     a tag that was never published (`admin-tools` doesn't track the
+     server's version 1:1). Repinned to `1.23.1`, the closest published
+     release compatible with the `1.24.2` server image.
+  3. `HuntCorpus` (`services/agents/app/hunt/loader.py`) loaded 0 hunts
+     inside the `agents` container because the repo's `hunts/` directory was
+     never mounted into it. Added an `AISOC_HUNTS_DIR`-backed volume mount;
+     the scheduler now loads and schedules all 5 shipped hunt definitions.
+  4. Agent step/investigation events silently failed to reach the realtime
+     service (`realtime_emit_skipped: All connection attempts failed`)
+     because `app.api.investigate`/`app.api.triage`'s default
+     `REALTIME_URL` (`http://realtime:8086`) pointed at the *host* port
+     mapping, not the container's actual internal listen port (`4000`,
+     matching `infra/compose/docker-compose.demo.yml` and the Helm chart).
+     Added an explicit `REALTIME_URL`/`REALTIME_BASE_URL` env var to the
+     `agents`/`api` services in `docker-compose.yml` pointing at
+     `http://realtime:4000`.
+  5. Audited `GraphOrchestratorAdapter` and `RouterOrchestrator` for the same
+     unvalidated-UUID crash class that `TemporalOrchestratorAdapter` had
+     (non-UUID `case_id`/`tenant_id` crashing `InvestigationState`
+     validation). Both already coerce arbitrary caller strings via a
+     non-raising deterministic `uuid5` fallback (`_coerce_uuid`) — no fix
+     needed, confirmed safe by inspection.
+
+
   feature that had never been observed, had too few samples, or had zero
   variance produced a `0.0` z-score — the same value an observation sitting
   exactly on its own mean produces. Since the composite is a root-sum-of-

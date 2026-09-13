@@ -58,7 +58,7 @@ services:
     container_name: aisoc-redis
     command: redis-server --appendonly yes --requirepass redis_dev_secret
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -228,6 +228,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
+      # IPv6 loopback so browsers resolving `localhost` to ::1 also work
+      - "[::1]:8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://aisoc:${POSTGRES_PASSWORD:-aisoc_dev_secret}@postgres:5432/aisoc
       REDIS_URL: redis://:redis_dev_secret@redis:6379/0
@@ -246,6 +248,17 @@ services:
       AISOC_CREDENTIAL_KEY: ${AISOC_CREDENTIAL_KEY:-${ISOC_CREDENTIAL_KEY:-}}
       AISOC_CREDENTIAL_KEY_ROTATION_FROM: ${AISOC_CREDENTIAL_KEY_ROTATION_FROM:-${ISOC_CREDENTIAL_KEY_ROTATION_FROM:-}}
       CONNECTORS_SERVICE_URL: http://connectors:8087
+      # Without this, app/api/v1/endpoints/fusion.py always short-circuits
+      # to its stub/empty fallback and the console's Entities (Risk-Based
+      # Alerting) tab permanently shows the hardcoded demo queue, even when
+      # the fusion service is up and healthy.
+      FUSION_SERVICE_URL: http://fusion:8003
+      # Container-to-container URL — the realtime service's actual internal
+      # listen port (PORT: 4000 on the realtime service below), NOT the
+      # 8086 host port mapping. Fixes push/event fan-out silently failing
+      # ("All connection attempts failed" against realtime:8086, which
+      # nothing inside the Docker network is listening on).
+      REALTIME_BASE_URL: http://realtime:4000
       # Issue #478 — LiteLLM gateway. This service's live LLM endpoints
       # (translation, hunts, KB, phishing, NL-detection, alert explain) route
       # through the gateway by default — see the note on the `agents` service
@@ -407,11 +420,29 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-aisoc-copilot}
       LLM_GATEWAY_URL: http://litellm:4000/v1
       ATTCK_DATA_PATH: /app/data/enterprise-attack.json
+      # Optional Temporal.io durability overlay — off unless AISOC_AGENT_TEMPORAL_MODE=1
+      # is set (e.g. in .env) AND the `temporal` profile services are running
+      # (temporal server + agents-temporal-worker). When enabled, /investigate
+      # routes through the durable InvestigationWorkflow instead of the
+      # in-process LangGraph pipeline. See services/agents/app/temporal/.
+      AISOC_AGENT_TEMPORAL_MODE: ${AISOC_AGENT_TEMPORAL_MODE:-0}
+      AISOC_TEMPORAL_HOST: temporal:7233
+      # Container-to-container URL — the realtime service's actual internal
+      # listen port (PORT: 4000 on the realtime service below), NOT the
+      # 8086 host port mapping. Without this, app/api/investigate.py and
+      # app/api/triage.py's default (http://realtime:8086) points at a port
+      # nothing in the Docker network listens on, and every step/agent-event
+      # forward silently fails (logged as debug-level `realtime_emit_skipped`).
+      REALTIME_URL: http://realtime:4000
+      # HuntCorpus (app/hunt/loader.py) reads YAML hunt definitions from this
+      # directory; without the mount below it's empty inside the container and
+      # the scheduler logs `hunt.corpus.missing` / loads 0 rules.
+      AISOC_HUNTS_DIR: /app/hunts
+    volumes:
+      - ./hunts:/app/hunts:ro
     networks:
       - aisoc
     restart: unless-stopped
-
-  # ─── LLM gateway (LiteLLM) — issue #478 ─────────────────────────────────────
   # Single entry point for every live LLM call. AiSOC requests a logical task
   # alias (aisoc-triage, aisoc-investigation, …); the mapping alias → real model
   # lives entirely in infra/litellm/config.yaml, so operators swap local/hosted
@@ -441,6 +472,9 @@ services:
       # The actual model every alias sends upstream (config.yaml reads this via
       # os.environ/LLM_MODEL) — change models by editing this one var, no YAML edit.
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-20b}
+      # Embedding-capable model for the aisoc-embed alias (ATT&CK semantic
+      # search/RAG) — distinct from LLM_MODEL, must be an embedding model.
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-openai/text-embedding-nomic-embed-text-v1.5}
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:
@@ -655,6 +689,110 @@ services:
       - aisoc
     restart: unless-stopped
 
+  # ─── Temporal.io overlay (optional durability layer for investigations) ───
+  # Off by default — gated behind the `temporal` profile. Opt in with
+  # `docker compose --profile temporal up` and set
+  # AISOC_AGENT_TEMPORAL_MODE=1 on the `agents` service to route
+  # /investigate through the durable `InvestigationWorkflow`. The in-process
+  # LangGraph pipeline (including supervised mode) remains the default and
+  # is completely unaffected when this profile isn't enabled. See
+  # services/agents/app/temporal/.
+  temporal:
+    profiles: ["temporal"]
+    image: temporalio/auto-setup:1.24.2
+    container_name: aisoc-temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: aisoc
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-aisoc_dev_secret}
+      POSTGRES_SEEDS: postgres
+    ports:
+      - "127.0.0.1:7233:7233"
+    networks:
+      - aisoc
+    restart: unless-stopped
+
+  temporal-admin-tools:
+    profiles: ["temporal"]
+    # NOTE: temporalio/admin-tools does not publish a tag matching every
+    # server release 1:1 (e.g. no 1.24.x tag exists as of writing). Pin to the
+    # closest published admin-tools release <= the temporal server version
+    # above (temporalio/auto-setup:1.24.2) — 1.23.1 is compatible with 1.24.x
+    # servers. Verify with `docker pull temporalio/admin-tools:<tag>` before
+    # bumping either this or the server image.
+    image: temporalio/admin-tools:1.23.1
+    container_name: aisoc-temporal-admin-tools
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    networks:
+      - aisoc
+    stdin_open: true
+    tty: true
+
+  temporal-ui:
+    profiles: ["temporal"]
+    image: temporalio/ui:2.31.2
+    container_name: aisoc-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "127.0.0.1:8233:8080"
+    networks:
+      - aisoc
+    restart: unless-stopped
+
+  agents-temporal-worker:
+    # Runs the same agents image as a Temporal worker process
+    # (`python -m app.temporal.worker`) instead of the FastAPI server,
+    # consuming the `aisoc-investigations` task queue. Gated behind the same
+    # `temporal` profile as the server above.
+    profiles: ["temporal"]
+    build:
+      context: ./services/agents
+      dockerfile: Dockerfile
+    image: ghcr.io/beenuar/aisoc-agents:${AISOC_VERSION:-latest}
+    pull_policy: missing
+    container_name: aisoc-agents-temporal-worker
+    entrypoint: ["python", "-m", "app.temporal.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aisoc:${POSTGRES_PASSWORD:-aisoc_dev_secret}@postgres:5432/aisoc
+      REDIS_URL: redis://:redis_dev_secret@redis:6379/4
+      CORE_API_URL: http://api:8000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      QDRANT_URL: http://qdrant:6333
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4j_dev_secret
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://litellm:4000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-${LITELLM_MASTER_KEY:-sk-aisoc-local}}
+      OPENAI_MODEL: ${OPENAI_MODEL:-aisoc-copilot}
+      LLM_GATEWAY_URL: http://litellm:4000/v1
+      ATTCK_DATA_PATH: /app/data/enterprise-attack.json
+      AISOC_TEMPORAL_HOST: temporal:7233
+    networks:
+      - aisoc
+    restart: unless-stopped
+
   realtime:
     build:
       context: ./services/realtime
@@ -669,6 +807,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8086:4000"
+      # IPv6 loopback so browsers resolving `localhost` to ::1 also work
+      - "[::1]:8086:4000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       REDIS_URL: redis://:redis_dev_secret@redis:6379
@@ -722,6 +862,18 @@ services:
         # this turns off the "demo data resets daily" banner, the
         # "Self-host AiSOC" CTA, and the read-only write-blocking UI.
         NEXT_PUBLIC_DEMO_MODE: ""
+        # Server-side rewrite targets — Next.js bakes these into
+        # .next/routes-manifest.json at `next build` time (NOT read at
+        # container start), so they must be passed as build args, not
+        # `environment:`. Values match this compose file's Docker DNS names.
+        API_URL: http://api:8000
+        AGENTS_URL: http://agents:8084
+        REALTIME_URL: http://realtime:4000
+        # Client-bundle tenant fallback — also inlined at build time. Must
+        # match the demo tenant every seed/ingest script uses, or endpoints
+        # that require an explicit ?tenant_id= (e.g. fusion entity-risk)
+        # silently fail and fall back to mock data.
+        NEXT_PUBLIC_TENANT_ID: "00000000-0000-0000-0000-000000000001"
     image: ghcr.io/beenuar/aisoc-web:${AISOC_VERSION:-latest}
     pull_policy: missing
     container_name: aisoc-web
@@ -730,10 +882,20 @@ services:
       - realtime
     ports:
       - "127.0.0.1:3000:3000"
+      # IPv6 loopback so browsers resolving `localhost` to ::1 also work
+      - "[::1]:3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_WS_URL: ws://localhost:8086
       NODE_ENV: production
+      # apps/web/next.config.js bakes this into the client bundle, defaulting
+      # to the literal string "default" when unset. lib/api.ts's TENANT_ID
+      # constant then falls back to that literal string (since it's truthy)
+      # instead of the real demo-tenant UUID, so every client call that must
+      # pass an explicit ?tenant_id= query param (e.g. the fusion entity-risk
+      # queue) sends tenant_id=default, fails UUID validation, and the
+      # Entities tab silently falls back to its hardcoded mock data.
+      NEXT_PUBLIC_TENANT_ID: "00000000-0000-0000-0000-000000000001"
     networks:
       - aisoc
     restart: unless-stopped

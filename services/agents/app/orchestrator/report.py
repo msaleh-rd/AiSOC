@@ -191,6 +191,32 @@ def render_router_report_md(
                 lines.append(f"- `{cleaned}`")
         lines.append("")
 
+    # 5b. Root cause analysis (graph pipeline only — router/investigator
+    # never populate ``rca_findings``, so this section is skipped for them).
+    rca = state.rca_findings or {}
+    if rca:
+        rca_rows: list[tuple[str, str]] = []
+        if rca.get("root_cause_entity"):
+            rca_rows.append(("Root cause", _md_escape(rca["root_cause_entity"])))
+        if rca.get("attack_type"):
+            rca_rows.append(("Attack type", _md_escape(rca["attack_type"])))
+        if "confidence" in rca:
+            rca_rows.append(("Confidence", _fmt_confidence(rca["confidence"])))
+        if rca.get("confidence_level"):
+            rca_rows.append(("Confidence level", _md_escape(rca["confidence_level"])))
+        if "estimated_blast_radius" in rca:
+            rca_rows.append(("Estimated blast radius", _md_escape(rca["estimated_blast_radius"])))
+        if rca.get("remediation_complexity"):
+            rca_rows.append(("Remediation complexity", _md_escape(rca["remediation_complexity"])))
+        if rca_rows:
+            lines.append("## Root Cause Analysis")
+            lines.append("")
+            lines.append("| Field | Value |")
+            lines.append("|-------|-------|")
+            for label, value in rca_rows:
+                lines.append(f"| {label} | {value} |")
+            lines.append("")
+
     # 6. Proposed actions --------------------------------------------------
     actions_lines = _proposed_actions_table(state.proposed_actions)
     if actions_lines:

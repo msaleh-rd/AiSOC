@@ -129,10 +129,28 @@ async def run_full_investigation(
     budget: InvestigationBudget | None = None,
     persist: bool = True,
 ) -> InvestigationState:
-    """Run the FULL graph (auto-triage → … → attack-path). Manual API entry."""
-    from app.graph.workflow import investigation_graph  # noqa: PLC0415 — avoid import cycle
+    """Run the FULL graph (auto-triage → … → attack-path). Manual API entry.
 
-    return await _run(investigation_graph, state, budget=budget, persist=persist, seq_start=0)
+    When ``AISOC_AGENT_SUPERVISED_MODE=1`` (default off), runs the dynamic
+    ReAct supervisor loop (:func:`app.graph.workflow.get_supervised_graph`)
+    instead of the fixed pipeline. The supervised graph re-enters its own
+    supervisor node per iteration; it enforces the total tool-call budget
+    (``InvestigationBudget.max_tool_calls``) via ``state.max_iterations``,
+    which is set from the same budget object the runner uses for its
+    wall-clock timeout. Behavior for existing deployments is unchanged
+    unless the flag is explicitly opted into.
+    """
+    from app.graph.workflow import get_supervised_graph, investigation_graph  # noqa: PLC0415 — avoid import cycle
+    from app.orchestrator.supervisor import is_supervised_mode_enabled  # noqa: PLC0415 — avoid import cycle
+
+    if is_supervised_mode_enabled():
+        graph = get_supervised_graph()
+        budget = budget or default_budget()
+        state = state.model_copy(update={"max_iterations": budget.max_tool_calls})
+    else:
+        graph = investigation_graph
+
+    return await _run(graph, state, budget=budget, persist=persist, seq_start=0)
 
 
 async def run_escalation(

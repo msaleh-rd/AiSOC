@@ -43,6 +43,23 @@ const SEVERITY_DOT: Record<string, string> = {
   info: 'bg-gray-500',
 };
 
+/**
+ * Crash-proof relative time. The fusion service historically emitted
+ * malformed ISO strings (offset + trailing Z, e.g. "...+00:00Z") — date-fns
+ * throws a RangeError on Invalid Date, which took down the whole page.
+ * Sanitise the double-suffix form and fall back to a dash for anything
+ * unparsable rather than crashing the renderer.
+ */
+function safeTimeAgo(value: string | null | undefined): string {
+  if (!value) return '—';
+  let v = value;
+  const doubleSuffix = /([+-]\d{2}:\d{2})Z$/.exec(v);
+  if (doubleSuffix) v = v.slice(0, -1);
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return formatDistanceToNow(d, { addSuffix: true });
+}
+
 const MOCK_ENTITIES: EntityRiskRecord[] = [
   {
     tenant_id: 'demo', entity_type: 'user' as EntityType, entity_value: 'jsmith@acme.corp',
@@ -291,9 +308,7 @@ function EntityRow({
           <span className="text-gray-700">·</span>
           <span className="text-xs text-gray-500" suppressHydrationWarning>
             last seen{' '}
-            {formatDistanceToNow(new Date(record.last_seen), {
-              addSuffix: true,
-            })}
+            {safeTimeAgo(record.last_seen)}
           </span>
         </div>
       </div>
@@ -389,9 +404,7 @@ function EntityDetailDrawer({
               </p>
               <p className="text-[10px] text-gray-500 mt-0.5" suppressHydrationWarning>
                 first seen{' '}
-                {formatDistanceToNow(new Date(record.first_seen), {
-                  addSuffix: true,
-                })}
+                {safeTimeAgo(record.first_seen)}
               </p>
             </div>
           </div>
@@ -441,9 +454,7 @@ function EntityDetailDrawer({
                         {c.source && <span>{c.source}</span>}
                         {c.source && <span className="text-gray-700">·</span>}
                         <span suppressHydrationWarning>
-                          {formatDistanceToNow(new Date(c.observed_at), {
-                            addSuffix: true,
-                          })}
+                          {safeTimeAgo(c.observed_at)}
                         </span>
                       </div>
                     </div>

@@ -155,7 +155,8 @@ Ranked. Five total. Each one cites the shipped feature behind it.
   Investigation Ledger and is replayable step-by-step.
 - **Repo evidence.** `services/agents/app/agents/__init__.py`,
   `apps/docs/docs/architecture/agents.md`,
-  `apps/web/src/components/copilot/InvestigationTimeline.tsx`.
+  `apps/web/src/components/cases/InvestigationLedger.tsx` +
+  `apps/web/src/components/cases/replay/useReplayController.ts`.
 - **Metric to display.** Wet-eval sub-minute p50, sub-2-minute p95
   (target gate — labelled wet-eval per `AGENTS.md`).
 - **Persona.** SOC manager primary, analyst secondary.
@@ -265,7 +266,8 @@ Hunt, Respond — per `apps/docs/docs/architecture/agents.md`. A test
 (`services/agents/tests/test_four_agent_facade.py`) fails CI if a fifth
 public agent class is introduced. Every prompt and tool call lands in
 the Investigation Ledger, rendered as a replayable timeline in
-`apps/web/src/components/copilot/InvestigationTimeline.tsx`. The
+`apps/web/src/components/cases/InvestigationLedger.tsx` (scrubber logic
+in `apps/web/src/components/cases/replay/useReplayController.ts`). The
 LLM-input contract (v8.0 T2.3) wraps tool input/output in a fail-closed
 Pydantic validator so silent malformed-prompt bugs cannot reach
 production. BYOK per-tenant LLM credentials are encrypted with Fernet
@@ -873,7 +875,7 @@ Condensed teardown lives at `docs/design/landing-page-references.md`.
 | Feature                                | Repo path / service                                                                          | Persona served      | Value prop bucket   | Landing section(s)            | Status        |
 |----------------------------------------|----------------------------------------------------------------------------------------------|---------------------|---------------------|-------------------------------|---------------|
 | Four-agent topology                    | `services/agents/app/agents/__init__.py` · `apps/docs/docs/architecture/agents.md`            | Analyst, manager    | V1 (audit-speed)    | hero, solution, pillars (P3)  | Shipped       |
-| Investigation Ledger                   | `apps/web/src/components/copilot/InvestigationTimeline.tsx`                                   | Analyst, CISO       | V1                  | demo, features-detect, pillars (P3) | Shipped |
+| Investigation Ledger                   | `apps/web/src/components/cases/InvestigationLedger.tsx`                                       | Analyst, CISO       | V1                  | demo, features-detect, pillars (P3) | Shipped |
 | Ingest-side graph writer               | `services/ingest/internal/graph/`                                                            | Detection engineer  | V2 (graph-native)   | features-detect, pillars (P2) | Coming (v8.0 T1.1 scaffold) |
 | Graph schema v1.0                      | `schemas/graph-schema.yaml` · `apps/docs/docs/architecture/graph-schema.md`                  | Detection engineer  | V2                  | pillars (P2)                  | Shipped       |
 | Effective Permissions resolver         | `apps/web/src/components/graph/` (Subagent C)                                                | Detection engineer  | V2                  | features-detect               | In flight (T3.2) |

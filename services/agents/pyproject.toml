@@ -36,6 +36,10 @@ asyncpg = ">=0.29,<0.32"
 # NetworkX is used by the causal-graph RCA engine (app.rca) to build
 # entity graphs and run PageRank for root cause identification.
 networkx = ">=3.2,<4.0"
+# networkx>=3.6's public nx.pagerank() always delegates to its scipy-backed
+# implementation (_pagerank_scipy), so scipy is a required transitive
+# dependency for real PageRank RCA scoring, not just an optional extra.
+scipy = ">=1.11,<2.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.25"}
 apscheduler = "^3.10.4"
 pyyaml = "^6.0.1"
@@ -47,6 +51,15 @@ cryptography = ">=46,<51"
 # editor loads it, and by scripts/lint_playbooks.py. Pinned to the
 # 4.x line that ships Draft 2020-12 support.
 jsonschema = ">=4.21,<5.0"
+# Optional Temporal.io overlay (issue: full Temporal integration). Only
+# imported by app/temporal/* — the in-process LangGraph path remains the
+# default and has zero import-time dependency on this package. Install with
+# `poetry install -E temporal` (or `pip install temporalio`) to run the
+# worker / enable AISOC_AGENT_TEMPORAL_MODE.
+temporalio = {version = ">=1.7,<2.0", optional = true}
+
+[tool.poetry.extras]
+temporal = ["temporalio"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<10.0"

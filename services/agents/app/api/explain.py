@@ -117,6 +117,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.rate_limit import RateLimitDecision, TokenBucketLimiter
+from app.privacy.redactor import default_pseudonymizer
 from app.security.llm_resolver import LlmConfig, resolve_llm_config
 
 logger = structlog.get_logger()
@@ -557,6 +558,7 @@ async def _llm_summary(
     mitre_techs: list[dict[str, Any]],
     fallback: str,
     llm_config: LlmConfig,
+    tenant_id: str = "",
 ) -> str:
     """Ask the model for a tightly-scoped summary, with a hard fallback.
 
@@ -569,6 +571,14 @@ async def _llm_summary(
     its ``allowed`` flag, base URL, model, and api_key. This keeps all
     BYOK / air-gap layering decisions in one place and means this
     function has zero awareness of where the credentials came from.
+
+    Before anything leaves the process for a (potentially third-party)
+    LLM, the alert fields are pseudonymized via
+    :func:`app.privacy.redactor.default_pseudonymizer` (internal IPs,
+    emails, paths, secrets, internal hostnames, usernames become opaque
+    ``USER_1`` / ``HOST_2`` / ``IP_3`` tokens). The model's response is
+    rehydrated back to real values before it reaches the analyst — the
+    LLM only ever reasons over tokens, never raw customer PII.
     """
     if not llm_config.allowed or not llm_config.api_key:
         return fallback
@@ -580,6 +590,7 @@ async def _llm_summary(
         url = f"{base}/chat/completions"
         model = llm_config.model
 
+        pseudonymizer = default_pseudonymizer(tenant_id=tenant_id)
         tech_lines = [f"- {t['id']} {t['name']} ({', '.join(t.get('tactic_names') or []) or 'unknown tactic'})" for t in mitre_techs]
         prompt_alert = {
             "title": alert.get("title"),
@@ -588,6 +599,7 @@ async def _llm_summary(
             "description": alert.get("description"),
             "tags": alert.get("tags") or [],
         }
+        redacted_alert = pseudonymizer.redact_value(prompt_alert)
 
         messages = [
             {
@@ -605,7 +617,7 @@ async def _llm_summary(
                 "role": "user",
                 "content": json.dumps(
                     {
-                        "alert": prompt_alert,
+                        "alert": redacted_alert,
                         "mitre_techniques": tech_lines,
                     },
                     indent=2,
@@ -620,7 +632,8 @@ async def _llm_summary(
                 json={"model": model, "messages": messages, "max_tokens": 900},
             )
             resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"].strip()
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+            return pseudonymizer.rehydrate(content)
 
     except Exception as exc:
         logger.warning("explain.llm_error", error=str(exc))
@@ -648,7 +661,9 @@ async def _stream_explanation(req: ExplainRequest, llm_config: LlmConfig) -> Asy
         fallback_summary = _build_summary(alert, mitre_ids)
         # Run the LLM call concurrently with the deterministic emissions
         # so the drawer paints fast even on a cold network.
-        summary_task = asyncio.create_task(_llm_summary(alert, mitre_cards, fallback_summary, llm_config))
+        summary_task = asyncio.create_task(
+            _llm_summary(alert, mitre_cards, fallback_summary, llm_config, tenant_id=req.tenant_id)
+        )
 
         yield _frame({"kind": "section", "id": "summary", "title": "What happened"})
         # Stream the summary word-by-word once it resolves.

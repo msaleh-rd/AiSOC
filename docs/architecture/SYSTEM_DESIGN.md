@@ -81,6 +81,20 @@ This document describes the end-to-end architecture of the Intelligence SOC plat
                        └──────────────────────────────────┘
 ```
 
+### 1.1 Practical local ingest (real exported logs)
+
+For local validation with real Wazuh/Suricata exports (including CAM-style
+datasets), use the host-side importer:
+
+```bash
+docker compose up -d
+python scripts/ingest_local_logs.py --root "D:\\path\\to\\log-export-root"
+```
+
+The script posts to `services/ingest` (`/v1/ingest/batch` on `localhost:8081`),
+which then feeds Kafka and fusion. This requires the full compose stack; the
+slim demo profile is intentionally insufficient for this pipeline path.
+
 ---
 
 ## 2. Service Responsibilities

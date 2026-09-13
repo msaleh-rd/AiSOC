@@ -8,6 +8,7 @@ from __future__ import annotations
 import structlog
 
 from app.confidence import score_triage
+from app.memory.distillation import build_signature_for_state, compounding_memory
 from app.models.state import ActionRisk, AgentStatus, InvestigationState, ProposedAction
 from app.tools.mitre import map_techniques_to_kill_chain
 
@@ -108,6 +109,23 @@ async def run_triage(state: InvestigationState) -> InvestigationState:
         )
 
     confidence, basis, verdict = score_triage(state)
+
+    # --- Compounding memory: nudge confidence using historical verdict priors
+    # for this alert signature (closes the loop between record_outcome's
+    # write path and live triage — see app.memory.distillation). Best-effort;
+    # never let a memory lookup failure break triage.
+    try:
+        signature = build_signature_for_state(state, classification=severity)
+        await compounding_memory.ensure_fresh(str(state.tenant_id))
+        adjustment = compounding_memory.get_memory_verdict_adjustment(
+            signature, tenant_id=str(state.tenant_id)
+        )
+        if adjustment:
+            confidence = max(0.0, min(1.0, confidence + adjustment))
+            basis = [*basis, f"Compounding memory: {adjustment:+.2f} for signature '{signature}'"]
+    except Exception as exc:  # noqa: BLE001 — memory lookup is best-effort
+        logger.debug("triage.compounding_memory_lookup_failed", error=str(exc)[:200])
+
     state.confidence = confidence
     state.confidence_basis = basis
     state.verdict = verdict

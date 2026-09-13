@@ -36,7 +36,9 @@ from app.agents.dispositions import (
 from app.investigator.prompt_sanitizer import sanitize_text, wrap_untrusted
 from app.llm import safe_ainvoke
 from app.llm.factory import make_chat_model
+from app.memory.distillation import build_signature_for_state, compounding_memory
 from app.models.state import AgentStatus, InvestigationState
+from app.privacy.redactor import default_pseudonymizer
 from app.prompt_serialization import format_extra_fields_for_llm
 from app.prompting.envelope import make_nonce, scan_evidence_fields, system_rule
 
@@ -139,11 +141,19 @@ def set_threshold(value: float) -> float:
     return AUTO_CLOSE_THRESHOLD
 
 
-def _build_alert_context(state: InvestigationState) -> str:
-    """Serialise the alert into a compact string the LLM can reason over."""
-    raw = state.raw_alert
+def _build_alert_context(state: InvestigationState, pseudonymizer: Any) -> str:
+    """Serialise the alert into a compact string the LLM can reason over.
+
+    ``raw`` is pseudonymized before any field is read (internal IPs, emails,
+    paths, secrets, internal hostnames, usernames become opaque tokens like
+    ``IP_1``/``HOST_2``) so the highest-volume, always-on LLM call this
+    service makes never sends raw customer PII to a (potentially
+    third-party) model. Callers rehydrate any LLM-authored text derived from
+    this context (e.g. the rationale) before it reaches an analyst.
+    """
+    raw = pseudonymizer.redact_value(state.raw_alert or {})
     parts = [
-        f"Alert Summary: {sanitize_text(state.alert_summary)}",
+        f"Alert Summary: {sanitize_text(pseudonymizer.redact(state.alert_summary))}",
         f"Severity (vendor): {sanitize_text(str(raw.get('severity', 'unknown')))}",
         f"Risk Score (vendor): {sanitize_text(str(raw.get('risk_score', 'N/A')))}",
     ]
@@ -229,7 +239,8 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
     injection = scan_evidence_fields((str(k), v) for k, v in raw.items() if isinstance(v, str | int | float | list | dict))
     nonce = make_nonce()
 
-    alert_context = _build_alert_context(state)
+    pseudonymizer = default_pseudonymizer(tenant_id=str(state.tenant_id))
+    alert_context = _build_alert_context(state, pseudonymizer)
 
     llm = make_chat_model("triage", temperature=0.0, max_tokens=512)
 
@@ -257,7 +268,7 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
 
     verdict = result["verdict"]
     confidence = result["confidence"]
-    rationale = result["rationale"]
+    rationale = pseudonymizer.rehydrate(result["rationale"])
 
     _metrics["total_processed"] += 1
     _metrics["confidence_sum"] += confidence
@@ -279,6 +290,25 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
         f"LLM confidence: {confidence:.2f}",
         f"Rationale: {rationale}",
     ]
+
+    # --- Compounding memory: nudge confidence using historical verdict priors
+    # for this alert signature, before the auto-close threshold check below
+    # so a recurring known-FP pattern actually lowers auto-close likelihood
+    # (and vice versa for a recurring confirmed-TP pattern). Best-effort.
+    try:
+        signature = build_signature_for_state(state, classification=verdict)
+        await compounding_memory.ensure_fresh(str(state.tenant_id))
+        adjustment = compounding_memory.get_memory_verdict_adjustment(
+            signature, tenant_id=str(state.tenant_id)
+        )
+        if adjustment:
+            confidence = max(0.0, min(1.0, confidence + adjustment))
+            state.confidence = confidence
+            state.confidence_basis.append(
+                f"Compounding memory: {adjustment:+.2f} for signature '{signature}'"
+            )
+    except Exception as exc:  # noqa: BLE001 — memory lookup is best-effort
+        logger.debug("auto_triage.compounding_memory_lookup_failed", error=str(exc)[:200])
 
     state.add_finding(f"Auto-triage: verdict={verdict}, confidence={confidence:.2f}, latency={elapsed_ms}ms")
     state.add_finding(f"Auto-triage rationale: {rationale}")

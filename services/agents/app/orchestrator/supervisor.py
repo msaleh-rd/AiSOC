@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -111,6 +112,28 @@ class ReActSupervisor:
         Falls back to a deterministic heuristic if the LLM is unavailable.
         """
         start = time.monotonic()
+
+        # Hard global stop: the runner's total tool-call budget
+        # (``InvestigationBudget.max_tool_calls``, threaded through as
+        # ``state.max_iterations``) has been exhausted. Force finalize
+        # regardless of what the LLM/heuristic would otherwise pick, and
+        # skip ``_validate`` (whose "can't finalize without findings" rule
+        # would otherwise fight this and loop forever).
+        if state.iteration_count >= state.max_iterations:
+            logger.warning(
+                "supervisor.tool_call_budget_exhausted",
+                iteration_count=state.iteration_count,
+                max_iterations=state.max_iterations,
+            )
+            return SupervisorDecision(
+                assessment=(
+                    f"Tool-call budget ({state.max_iterations}) exhausted after "
+                    f"{state.iteration_count} iterations. Finalizing with available evidence."
+                ),
+                thought="Global iteration/tool-call cap reached; forcing finalize_response.",
+                action="finalize_response",
+                specific_goal="Generate response plan with available evidence before budget cutoff",
+            )
 
         # Build the observation prompt.
         prompt = self._build_prompt(state)
@@ -296,6 +319,17 @@ class ReActSupervisor:
         counts = state.action_counts or {}
         max_iter = state.max_action_iterations
 
+        # Drop any target_entities the LLM invented/hallucinated that aren't
+        # part of the observed investigation blackboard, so a prompt-injected
+        # or hallucinated entity reference can never be acted on downstream.
+        decision = self._sanitize_entities(decision, state)
+
+        # Advisory-only: log when the stated goal has drifted from the
+        # original investigative context. Does not block the action, since
+        # some goal evolution across phases (gather -> compress -> RCA) is
+        # expected and legitimate.
+        self._detect_goal_drift(decision, state)
+
         # Enforce per-action limits.
         if counts.get(decision.action, 0) >= max_iter:
             logger.warning(
@@ -316,3 +350,59 @@ class ReActSupervisor:
             decision.specific_goal = "Need at least one investigation step before finalizing"
 
         return decision
+
+    @staticmethod
+    def _sanitize_entities(
+        decision: SupervisorDecision, state: InvestigationState
+    ) -> SupervisorDecision:
+        """Filter ``target_entities`` down to entities actually observed on
+        the investigation blackboard (``state.entities``) or referenced by
+        the original alert. The LLM's ``target_entities`` field is untrusted
+        output parsed straight from JSON — without this filter, a
+        hallucinated or prompt-injected entity reference would flow
+        unfiltered into whatever downstream tool/action consumes it.
+        """
+        if not decision.target_entities:
+            return decision
+
+        known: set[str] = set()
+        for entity in state.entities or []:
+            if isinstance(entity, dict) and entity.get("id"):
+                known.add(str(entity["id"]))
+        for key in ("hostname", "username", "src_ip", "dst_ip", "entity_id", "entity"):
+            value = (state.raw_alert or {}).get(key)
+            if value:
+                known.add(str(value))
+
+        sanitized = [e for e in decision.target_entities if str(e) in known]
+        dropped = [e for e in decision.target_entities if str(e) not in known]
+        if dropped:
+            logger.warning("supervisor.dropped_unknown_target_entities", dropped=dropped[:10])
+        decision.target_entities = sanitized
+        return decision
+
+    @staticmethod
+    def _detect_goal_drift(decision: SupervisorDecision, state: InvestigationState) -> None:
+        """Log when the supervisor's stated goal shares no vocabulary with
+        the original investigative context (the first recorded goal, or the
+        alert summary if this is the first decision). Heuristic and
+        advisory only — goal evolution across phases is expected.
+        """
+        if not state.supervisor_history:
+            return  # this decision establishes the goal baseline
+
+        baseline = str(state.supervisor_history[0].get("specific_goal", "")) or state.alert_summary
+        current = decision.specific_goal or ""
+        baseline_words = {w for w in re.findall(r"[a-z0-9]{4,}", baseline.lower())}
+        current_words = {w for w in re.findall(r"[a-z0-9]{4,}", current.lower())}
+        if not baseline_words or not current_words:
+            return
+
+        overlap = len(baseline_words & current_words) / len(baseline_words)
+        if overlap == 0:
+            logger.warning(
+                "supervisor.goal_drift_detected",
+                baseline_goal=baseline[:150],
+                current_goal=current[:150],
+                iteration=state.iteration_count,
+            )

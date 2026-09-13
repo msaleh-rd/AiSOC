@@ -33,6 +33,14 @@ ATTCK_CDN_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-a
 ATTCK_DATA_PATH = os.getenv("ATTCK_DATA_PATH", "/data/enterprise-attack.json")
 _CACHE_TTL_HOURS = 24
 _EMBED_BATCH_SIZE = 50
+# Routed through the LiteLLM gateway's `aisoc-embed` alias by default (see
+# infra/litellm/config.yaml), which resolves to whatever embedding-capable
+# model is actually configured (EMBEDDING_MODEL env var) — never hardcode a
+# specific vendor's proprietary embedding model name here, since that breaks
+# for every non-OpenAI backend (LM Studio, Ollama, vLLM, ...). Override with
+# AISOC_EMBEDDING_MODEL/AISOC_EMBEDDING_DIMENSIONS to call a provider directly.
+_EMBEDDING_MODEL = os.getenv("AISOC_EMBEDDING_MODEL", "aisoc-embed")
+_EMBEDDING_DIMENSIONS = int(os.getenv("AISOC_EMBEDDING_DIMENSIONS", "768"))
 
 
 # ─── Data Model ───────────────────────────────────────────────────────────────
@@ -346,10 +354,10 @@ async def embed_techniques_into_qdrant(
     try:
         await qdrant.create_collection(
             collection_name=collection,
-            vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=_EMBEDDING_DIMENSIONS, distance=Distance.COSINE),
             on_disk_payload=True,
         )
-        logger.info("Created Qdrant collection for ATT&CK", collection=collection)
+        logger.info("Created Qdrant collection for ATT&CK", collection=collection, dimensions=_EMBEDDING_DIMENSIONS)
     except Exception:
         pass  # Collection already exists
 
@@ -362,9 +370,9 @@ async def embed_techniques_into_qdrant(
         texts = [f"{t.id} {t.name}: {t.description or ''} Tactics: {', '.join(t.tactic_names or [])}" for t in batch]
         try:
             resp = await oai.embeddings.create(
-                model="text-embedding-3-large",
+                model=_EMBEDDING_MODEL,
                 input=texts,
-                dimensions=3072,
+                dimensions=_EMBEDDING_DIMENSIONS,
             )
             vectors = [e.embedding for e in resp.data]
             points = [
@@ -417,9 +425,9 @@ async def semantic_technique_search(
 
     try:
         emb_resp = await oai.embeddings.create(
-            model="text-embedding-3-large",
+            model=_EMBEDDING_MODEL,
             input=[query],
-            dimensions=3072,
+            dimensions=_EMBEDDING_DIMENSIONS,
         )
         query_vector = emb_resp.data[0].embedding
 

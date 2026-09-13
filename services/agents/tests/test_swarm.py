@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import httpx
+import pytest
+import respx
+
 from app.swarm.complexity import assess_complexity
 from app.swarm.debate import hold_debate
 from app.swarm.hypotheses import HYPOTHESES
-from app.swarm.swarm import run_swarm_sync
+from app.swarm.swarm import run_swarm_llm, run_swarm_sync
 
 RANSOMWARE = {
     "alert_summary": "Ransomware encrypting files on host; vssadmin deleted shadow copies; ransom note dropped",
@@ -30,6 +34,26 @@ def test_complexity_gate_fires_on_multi_entity_multi_technique():
     assert a.technique_count >= 3
     # A simple benign alert should not trip the swarm.
     assert not assess_complexity(BENIGN).is_complex
+
+
+def test_complexity_gate_fires_on_tactic_diversity_alone():
+    """Two techniques spanning distinct MITRE tactics (Initial Access +
+    Impact) should trip the complexity gate even with few entities/techniques,
+    since spanning multiple kill-chain stages signals a multi-stage attack."""
+    signal = {
+        "alert_summary": "Exploit of public-facing app followed by data destruction",
+        "techniques": ["T1190", "T1486"],  # TA0001 (Initial Access), TA0040 (Impact)
+    }
+    a = assess_complexity(signal)
+    assert a.tactic_count == 2
+    assert a.is_complex
+    assert any("tactic" in r for r in a.reasons)
+
+    # A single technique (single tactic) alone should not trip on tactics.
+    single_tactic = {"alert_summary": "isolated event", "techniques": ["T1486"]}
+    a2 = assess_complexity(single_tactic)
+    assert a2.tactic_count == 1
+    assert not a2.is_complex
 
 
 def test_swarm_fans_out_and_scores_hypotheses():
@@ -66,3 +90,43 @@ def test_memory_prior_can_shift_the_ranking():
     outcome = hold_debate(results, memory_priors={"false_positive_backup": 1.0})
     keys = [h.key for h in outcome.ranked]
     assert keys[0] == "false_positive_backup"
+
+
+@respx.mock
+async def test_llm_swarm_reports_real_token_usage_not_a_fake_constant(monkeypatch: pytest.MonkeyPatch):
+    """Regression test: tokens_spent must reflect the real LiteLLM ``usage``
+    field from the single shared generation call, distributed across the
+    hypotheses it produced — not a fabricated per-agent constant."""
+    monkeypatch.setenv("AISOC_SWARM_LLM_ENABLED", "1")
+    monkeypatch.setenv("LITELLM_URL", "http://litellm-test:4000")
+
+    respx.post("http://litellm-test:4000/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"hypotheses": ['
+                                '{"hypothesis": "ransomware staging", "supporting_techniques": ["T1486"], '
+                                '"contradicting_keywords": [], "is_benign": false, "confidence": 0.8},'
+                                '{"hypothesis": "false positive backup", "supporting_techniques": [], '
+                                '"contradicting_keywords": ["backup"], "is_benign": true, "confidence": 0.3}'
+                                "]}"
+                            )
+                        }
+                    }
+                ],
+                "usage": {"prompt_tokens": 300, "completion_tokens": 100, "total_tokens": 400},
+            },
+        )
+    )
+
+    results = await run_swarm_llm(RANSOMWARE, max_agents=5)
+
+    assert len(results) == 2
+    total_tokens = sum(r.tokens_spent for r in results)
+    # The real total from the mocked usage field, not len(results) * 500.
+    assert total_tokens == 400
+    assert all(r.tokens_spent > 0 for r in results)

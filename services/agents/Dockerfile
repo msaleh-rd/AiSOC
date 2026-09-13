@@ -20,7 +20,7 @@ COPY pyproject.toml poetry.lock* ./
 # a working agents service. The previous fallback omitted opentelemetry-*
 # and a handful of other deps, producing images that crashed on import.
 RUN set -eux; \
-    if poetry install --no-interaction --no-ansi --without dev --no-root; then \
+    if poetry install --no-interaction --no-ansi --without dev --no-root -E temporal; then \
         echo "[agents] poetry install succeeded"; \
     else \
         echo "[agents] poetry install failed; using pip fallback"; \
@@ -50,7 +50,8 @@ RUN set -eux; \
             "sqlalchemy[asyncio]>=2.0.25,<3" \
             "apscheduler>=3.10.4,<4" \
             "pyyaml>=6.0.1,<7" \
-            "cryptography>=46,<50" ; \
+            "cryptography>=46,<50" \
+            "temporalio>=1.7,<2" ; \
     fi
 
 # Smoke-import the modules the orchestrator pulls in at module load time.

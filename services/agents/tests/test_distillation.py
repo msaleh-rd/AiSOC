@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from uuid import uuid4
+
 import pytest
 
 from app.memory.distillation import (
@@ -9,6 +12,8 @@ from app.memory.distillation import (
     DistillationReport,
     SignaturePrior,
     build_alert_signature,
+    build_signature_for_state,
+    compounding_memory,
 )
 
 
@@ -137,3 +142,90 @@ class TestCompoundingMemory:
         # depending on whether the institutional layer has a database; if
         # running without postgres the priors will be empty (expected).
         # This test validates the code paths don't crash.
+
+
+class TestTenantScopedPriors:
+    """Regression tests for the tenant-isolation fix in distill()/adjustment
+    lookups — distill() used to overwrite a single flat cache on every call,
+    so distilling tenant B silently discarded tenant A's priors."""
+
+    def setup_method(self) -> None:
+        self.memory = CompoundingMemory()
+
+    def test_tenant_scoped_adjustment_does_not_leak_across_tenants(self) -> None:
+        sig = "malware:execution:t1059"
+        self.memory._tenant_priors["tenant-a"] = {
+            sig: SignaturePrior(alert_signature=sig, total_count=10, false_positive_count=10),
+        }
+        self.memory._tenant_priors["tenant-b"] = {
+            sig: SignaturePrior(alert_signature=sig, total_count=10, false_positive_count=0),
+        }
+
+        adj_a = self.memory.get_memory_verdict_adjustment(sig, tenant_id="tenant-a")
+        adj_b = self.memory.get_memory_verdict_adjustment(sig, tenant_id="tenant-b")
+        assert adj_a < 0  # all false positives for tenant A
+        assert adj_b > 0  # all confirmed for tenant B
+
+        # A tenant with no distilled priors at all must never fall back to
+        # another tenant's cache.
+        assert self.memory.get_memory_verdict_adjustment(sig, tenant_id="tenant-c") == 0.0
+
+    @pytest.mark.asyncio
+    async def test_distill_does_not_clobber_other_tenants(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """distill(tenant_b) must not erase tenant_a's already-distilled priors."""
+        sig = "malware:execution:t1059"
+
+        async def _fake_search(tenant_id, **kwargs):  # noqa: ANN001, ARG001
+            entries = {
+                "tenant-a": [{"value": {"alert_signature": sig, "entries": [{"verdict": "true_positive"}] * 5}}],
+                "tenant-b": [{"value": {"alert_signature": sig, "entries": [{"verdict": "false_positive"}] * 5}}],
+            }
+            return entries.get(tenant_id, [])
+
+        import app.memory.distillation as distillation_module
+
+        monkeypatch.setattr(distillation_module, "institutional_search", _fake_search)
+
+        await self.memory.distill("tenant-a")
+        await self.memory.distill("tenant-b")
+
+        assert self.memory._tenant_priors["tenant-a"][sig].false_positive_count == 0
+        assert self.memory._tenant_priors["tenant-b"][sig].false_positive_count == 5
+
+
+@pytest.mark.asyncio
+async def test_repeated_false_positive_signature_lowers_live_triage_confidence():
+    """End-to-end: a well-established false-positive prior for a signature
+    must lower confidence when ``run_triage()`` executes for a new alert with
+    that same signature — proves the read path is actually wired into live
+    triage (app.agents.triage_agent), not just unit-testable in isolation."""
+    from app.agents.triage_agent import run_triage
+    from app.models.state import InvestigationState
+
+    def _make_state(tenant_id) -> InvestigationState:
+        return InvestigationState(
+            incident_id=uuid4(),
+            tenant_id=tenant_id,
+            alert_summary="Suspicious login anomaly detected",
+            raw_alert={"hostname": "host-01", "mitre_techniques": ["T1078"]},
+        )
+
+    tenant_id = uuid4()
+
+    baseline_state = await run_triage(_make_state(tenant_id))
+    baseline_confidence = baseline_state.confidence
+
+    signature = build_signature_for_state(baseline_state, classification="high")
+    compounding_memory._tenant_priors[str(tenant_id)] = {
+        signature: SignaturePrior(alert_signature=signature, total_count=10, false_positive_count=10),
+    }
+    compounding_memory._last_distilled_at[str(tenant_id)] = time.time()
+
+    try:
+        adjusted_state = await run_triage(_make_state(tenant_id))
+    finally:
+        compounding_memory._tenant_priors.pop(str(tenant_id), None)
+        compounding_memory._last_distilled_at.pop(str(tenant_id), None)
+
+    assert any("Compounding memory" in b for b in adjusted_state.confidence_basis)
+    assert adjusted_state.confidence < baseline_confidence

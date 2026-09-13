@@ -7,8 +7,8 @@ potential root causes.  The scoring algorithm combines:
   2. **Topology position** — upstream dependencies are boosted over the target.
   3. **Temporal ordering** — entities whose anomalies precede the target's are
      boosted.
-  4. **Criticality** — entities with more dependents (graph in-degree) are
-     weighted as more critical.
+  4. **Criticality** — entities with more dependents (graph out-degree, i.e.
+     entities they causally affect downstream) are weighted as more critical.
   5. **Risk score** — base risk from the compression pipeline.
 
 The output is a ``RootCauseAnalysis`` dataclass with the identified root cause,
@@ -95,13 +95,16 @@ class PageRankRCA:
         if graph.number_of_nodes() == 0:
             return self._empty_result(target_entity)
 
-        # Step 1: Compute PageRank.
-        # Use a simple power-iteration implementation to avoid the scipy
-        # dependency that networkx >= 3.6 tries to import by default.
-        try:
-            pagerank = self._pagerank_power(graph, alpha=0.85, max_iter=100)
-        except Exception:  # noqa: BLE001
-            pagerank = {node: 1.0 / max(graph.number_of_nodes(), 1) for node in graph.nodes}
+        # Step 1: Compute PageRank centrality on the causal graph.
+        if graph.number_of_nodes() == 1:
+            pagerank = {next(iter(graph.nodes)): 1.0}
+        else:
+            try:
+                pagerank = nx.pagerank(graph, alpha=0.85, max_iter=100, weight="weight")
+            except (nx.PowerIterationFailedConvergence, nx.NetworkXError, nx.AmbiguousSolution):
+                # Fall back to a uniform distribution if PageRank fails to
+                # converge (e.g. degenerate graph topology).
+                pagerank = {node: 1.0 / max(graph.number_of_nodes(), 1) for node in graph.nodes}
 
         # Step 2: Score each entity as a potential root cause.
         scored = self._score_candidates(graph, target_entity, events, pagerank)
@@ -200,8 +203,10 @@ class PageRankRCA:
             elif entity_first_ts and target_first_ts and entity_first_ts > target_first_ts:
                 temporal_factor = cf.temporal_late_boost
 
-            # Factor 3: Criticality (number of dependents).
-            dependents = list(graph.predecessors(entity))
+            # Factor 3: Criticality (number of dependents). Edges point
+            # cause -> effect, so an entity's dependents are its successors
+            # (the entities it can causally affect), not its predecessors.
+            dependents = list(graph.successors(entity))
             criticality = 1.0 + (len(dependents) * cf.criticality_multiplier)
 
             final_score = base_score * topology_factor * temporal_factor * criticality
@@ -340,58 +345,6 @@ class PageRankRCA:
             return "Anomaly detected"
         top = max(entity_events, key=lambda e: e.risk_score)
         return f"{top.action} (risk: {top.risk_score:.2f})"
-
-    @staticmethod
-    def _pagerank_power(
-        graph: nx.DiGraph | nx.Graph,
-        alpha: float = 0.85,
-        max_iter: int = 100,
-        tol: float = 1e-6,
-    ) -> dict[str, float]:
-        """Compute PageRank via power iteration without external scipy dependency."""
-        nodes = list(graph.nodes())
-        n = len(nodes)
-        if n == 0:
-            return {}
-        if n == 1:
-            return {nodes[0]: 1.0}
-
-        scores = {node: 1.0 / n for node in nodes}
-        is_directed = graph.is_directed()
-
-        for _ in range(max_iter):
-            prev_scores = scores.copy()
-            scores = {node: 0.0 for node in nodes}
-            dangling_sum = 0.0
-
-            for node in nodes:
-                if is_directed:
-                    out_edges = list(graph.out_edges(node, data="weight", default=1.0))
-                else:
-                    out_edges = list(graph.edges(node, data="weight", default=1.0))
-
-                if not out_edges:
-                    dangling_sum += prev_scores[node]
-                else:
-                    total_weight = sum(
-                        w if isinstance(w, (int, float)) and w > 0 else 1.0
-                        for _, _, w in out_edges
-                    )
-                    if total_weight <= 0:
-                        total_weight = 1.0
-                    for _, target, weight in out_edges:
-                        w = weight if isinstance(weight, (int, float)) and weight > 0 else 1.0
-                        scores[target] += alpha * prev_scores[node] * (w / total_weight)
-
-            base_score = (1.0 - alpha) / n + (alpha * dangling_sum) / n
-            for node in nodes:
-                scores[node] += base_score
-
-            err = sum(abs(scores[node] - prev_scores[node]) for node in nodes)
-            if err < tol:
-                break
-
-        return scores
 
     @staticmethod
     def _empty_result(target_entity: str) -> RootCauseAnalysis:

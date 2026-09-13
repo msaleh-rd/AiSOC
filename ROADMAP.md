@@ -228,7 +228,7 @@ Implemented and reviewed by Beenu Arora <beenu@cyble.com>.
 - [x] MSSP console — per-child-tenant KPI aggregation, SLA posture, parent_tenant_id hierarchy
 - [x] Team analytics view — analyst MTTR, leaderboard, shift workload (`TeamAnalyticsView.tsx`)
 - [x] Case auto-summary + PDF export (`case_summary.py` + `case_summary_html.py`)
-- [x] Investigation timeline (replayable) (`InvestigationTimeline.tsx`)
+- [x] Investigation timeline (replayable) (`InvestigationLedger.tsx` + `useReplayController.ts`)
 - [x] Playbook gallery with 12 curated packs + GitHub PR integration for detection proposals
 - [ ] Mobile responder console (React Native) — triage and acknowledge from phone _(deferred to v8.0)_
 - [ ] Plugin publishing marketplace v3 (commercial plugins, revenue sharing) _(deferred to v8.0)_

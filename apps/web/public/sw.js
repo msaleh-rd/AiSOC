@@ -12,7 +12,7 @@
  * changes — clients will discard old caches on activate.
  */
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.1.0';
 const SHELL_CACHE = `aisoc-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `aisoc-assets-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `aisoc-runtime-${CACHE_VERSION}`;
@@ -86,8 +86,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Next.js static chunks + Google fonts → stale-while-revalidate.
-  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/')) {
+  // 2. Next.js static chunks → network-first (fall back to cache offline).
+  //    These MUST NOT be served stale: Turbopack chunk filenames are derived
+  //    from module ids, not content hashes, so a rebuild can reuse a filename
+  //    with different contents. Serving the stale copy alongside freshly
+  //    rendered HTML yields a mismatched module graph and crashes the
+  //    renderer on load. Icons are content-stable, so they keep SWR.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(networkFirstAsset(request, ASSET_CACHE));
+    return;
+  }
+
+  if (url.pathname.startsWith('/icons/')) {
     event.respondWith(staleWhileRevalidate(request, ASSET_CACHE));
     return;
   }
@@ -135,6 +145,19 @@ async function staleWhileRevalidate(request, cacheName) {
     })
     .catch(() => cached);
   return cached || fetchPromise;
+}
+
+async function networkFirstAsset(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) cache.put(request, fresh.clone());
+    return fresh;
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw err;
+  }
 }
 
 async function navigationStrategy(request) {
