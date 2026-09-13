@@ -43,7 +43,7 @@ services:
       POSTGRES_USER: aisoc
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aisoc_dev_secret}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${AISOC_POSTGRES_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./services/api/migrations:/docker-entrypoint-initdb.d:ro
