@@ -194,7 +194,7 @@ async def run_identity(
     bundle_lines = bundle.prompt_context_lines() if bundle is not None else []
     prompt_context = base_context + (("\n" + "\n".join(bundle_lines)) if bundle_lines else "")
 
-    llm = make_chat_model("investigation", temperature=0.0, max_tokens=768)
+    llm = make_chat_model("investigation", temperature=0.0, max_tokens=2048)
 
     t0 = time.monotonic()
     try:

@@ -242,7 +242,7 @@ async def run_auto_triage(state: InvestigationState) -> InvestigationState:
     pseudonymizer = default_pseudonymizer(tenant_id=str(state.tenant_id))
     alert_context = _build_alert_context(state, pseudonymizer)
 
-    llm = make_chat_model("triage", temperature=0.0, max_tokens=512)
+    llm = make_chat_model("triage", temperature=0.0, max_tokens=2048)
 
     t0 = time.monotonic()
     try:

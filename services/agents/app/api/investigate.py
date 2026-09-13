@@ -249,6 +249,13 @@ async def _run_and_store(run_id: str, case_id: str, req: InvestigateRequest) -> 
                         "rca_findings": state_data.get("rca_findings", {}),
                         "supervisor_history": state_data.get("supervisor_history", []),
                         "compressed_events": state_data.get("compressed_events", []),
+                        # Triage outcome — the only artefacts produced when the
+                        # graph short-circuits (e.g. auto-close as benign) and
+                        # what the web UI renders as the run's findings.
+                        "verdict": state_data.get("verdict"),
+                        "confidence": state_data.get("confidence", 0.0),
+                        "findings": state_data.get("findings", []),
+                        "mitre_mappings": state_data.get("mitre_mappings", []),
                         "completed_at": datetime.utcnow().isoformat(),
                         "error": None,
                     }

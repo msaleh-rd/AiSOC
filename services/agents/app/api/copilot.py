@@ -144,7 +144,7 @@ async def _get_openai_reply(
             model=resolve_model_alias("copilot"),
             messages=messages,
             url=chat_completions_url(),
-            max_tokens=512,
+            max_tokens=2048,
         )
         return body["choices"][0]["message"]["content"]
     except Exception as exc:

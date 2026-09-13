@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -186,8 +187,12 @@ async def _generate_hypotheses_llm(
                     "model": os.getenv("AISOC_SWARM_MODEL", "aisoc-investigation"),
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.7,
-                    "max_tokens": 1500,
-                    "response_format": {"type": "json_object"},
+                    # Reasoning models burn hidden tokens against max_tokens;
+                    # keep headroom so the JSON answer isn't truncated.
+                    "max_tokens": 4000,
+                    # No response_format — LM Studio-style backends reject
+                    # type=json_object; prompt demands JSON and parsing below
+                    # tolerates fenced output.
                 },
                 headers=headers,
             )
@@ -200,7 +205,16 @@ async def _generate_hypotheses_llm(
                 or 0
             )
             content = data["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
+            text = content.strip()
+            fence = re.search(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", text, re.DOTALL)
+            if fence:
+                text = fence.group(1)
+            else:
+                start = min((i for i in (text.find("{"), text.find("[")) if i != -1), default=-1)
+                end = max(text.rfind("}"), text.rfind("]"))
+                if start != -1 and end > start:
+                    text = text[start : end + 1]
+            parsed = json.loads(text)
 
             # Accept either {"hypotheses": [...]} or a bare list.
             items = parsed if isinstance(parsed, list) else parsed.get("hypotheses", [])

@@ -83,6 +83,29 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/**
+ * Alert description renderer. Wazuh/Suricata alerts often carry the raw event
+ * as a single JSON string — render those pretty-printed in a scrollable mono
+ * block so long unbroken tokens can't overflow into the right column.
+ */
+function AlertDescription({ description }: { description: string | null | undefined }) {
+  if (!description) return <p className="text-sm text-gray-500">—</p>;
+  const trimmed = description.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return (
+        <pre className="text-xs text-gray-300 font-mono leading-relaxed whitespace-pre-wrap break-all max-h-96 overflow-y-auto bg-gray-950/60 rounded-lg p-4">
+          {JSON.stringify(parsed, null, 2)}
+        </pre>
+      );
+    } catch {
+      // fall through — not valid JSON, render as prose
+    }
+  }
+  return <p className="text-sm text-gray-300 leading-relaxed break-words">{description}</p>;
+}
+
 function IOCBadge({ type, value, malicious }: { type: string; value: string; malicious?: boolean }) {
   return (
     <div className={clsx(
@@ -372,6 +395,23 @@ function AIInvestigation({ alertId }: { alertId: string }) {
       {investigation.findings && (
         <div className="bg-gray-950/60 rounded-lg p-4 text-xs text-gray-300 font-mono leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
           {investigation.findings}
+        </div>
+      )}
+
+      {/* Honest empty state — a completed run with no findings means the agent
+          produced nothing (e.g. budget exhausted before any summary). Never
+          leave the analyst staring at a blank "Completed". */}
+      {investigation.status === 'completed' &&
+        !investigation.findings &&
+        (!investigation.recommendations || investigation.recommendations.length === 0) && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-300">
+          <p className="font-medium">Run finished without findings</p>
+          <p className="mt-0.5 text-yellow-300/80">
+            The agent completed but produced no report — usually the
+            investigation time budget expired before analysis finished.
+            Try Re-investigate; if it recurs, raise
+            AISOC_INVESTIGATION_MAX_SECONDS.
+          </p>
         </div>
       )}
 
@@ -897,7 +937,7 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-3 gap-4">
           {/* Left column - 2/3 */}
-          <div className="col-span-2 space-y-4">
+          <div className="col-span-2 min-w-0 space-y-4">
             {/*
               Ambient Copilot — quick contextual AI buttons. Backed by the
               `services/agents` `/api/v1/contextual` endpoints. We pass a
@@ -924,7 +964,7 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
             />
 
             <Section title="Description">
-              <p className="text-sm text-gray-300 leading-relaxed">{alert.description}</p>
+              <AlertDescription description={alert.description} />
             </Section>
 
             {alert.confidenceLabel && (

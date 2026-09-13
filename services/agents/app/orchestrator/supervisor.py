@@ -59,6 +59,23 @@ VALID_ACTIONS = frozenset({
 })
 
 
+def _extract_json(content: str) -> dict[str, Any]:
+    """Parse a JSON object from LLM output, tolerating markdown fences and
+    leading/trailing prose (local models often wrap JSON in ```json blocks)."""
+    text = content.strip()
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fence:
+        text = fence.group(1)
+    else:
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            text = text[start : end + 1]
+    parsed = json.loads(text)
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM output is not a JSON object")
+    return parsed
+
+
 def is_supervised_mode_enabled() -> bool:
     """Return True if the supervisor loop is enabled."""
     raw = os.getenv(_SUPERVISED_FLAG)
@@ -229,15 +246,21 @@ class ReActSupervisor:
                     "model": self._model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.3,
-                    "max_tokens": 500,
-                    "response_format": {"type": "json_object"},
+                    # Generous cap: reasoning models (gpt-oss) burn hidden
+                    # reasoning tokens against max_tokens; 500 starved the
+                    # visible JSON (finish_reason=length, empty content).
+                    "max_tokens": 2000,
+                    # NOTE: no response_format — LM Studio (and other local
+                    # OpenAI-compatible servers) reject type=json_object; the
+                    # prompt already demands a JSON object and _extract_json
+                    # tolerates fenced/prefixed output.
                 },
                 headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
+            parsed = _extract_json(content)
 
             action = str(parsed.get("action", "finalize_response"))
             if action not in VALID_ACTIONS:

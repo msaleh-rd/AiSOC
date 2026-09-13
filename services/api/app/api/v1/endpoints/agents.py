@@ -379,6 +379,17 @@ def _run_to_investigation(run: dict[str, Any], alert_id: str) -> dict[str, Any]:
                 recommendations.append(f"{action} — {rationale}" if rationale else action)
 
     findings_parts: list[str] = []
+    verdict = run.get("verdict")
+    if verdict:
+        confidence = run.get("confidence")
+        conf_txt = f" (confidence {round(float(confidence) * 100)}%)" if confidence else ""
+        findings_parts.append(f"Verdict: {verdict}{conf_txt}")
+    for item in run.get("findings") or []:
+        if isinstance(item, str) and item.strip():
+            findings_parts.append(item.strip())
+    mitre = [m for m in (run.get("mitre_mappings") or []) if isinstance(m, str)]
+    if mitre:
+        findings_parts.append("MITRE ATT&CK: " + ", ".join(mitre))
     for key, label in (("recon", "Recon"), ("forensic", "Forensic"), ("responder", "Response")):
         summary = (run.get(key) or {}).get("summary")
         if summary:
