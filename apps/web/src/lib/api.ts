@@ -1699,6 +1699,22 @@ export const casesApi = {
     }>(`/api/v1/cases/${caseId}/investigations/${runId}`),
 
   /**
+   * Prior investigation runs for a case, newest first. Backed by the durable
+   * ledger, so runs survive an agents-service restart.
+   */
+  listInvestigations: (caseId: string) =>
+    request<{
+      runs: Array<{
+        run_id: string;
+        case_id: string;
+        status: string;
+        error: string | null;
+        started_at: string | null;
+        completed_at: string | null;
+      }>;
+    }>(`/api/v1/cases/${caseId}/investigations`),
+
+  /**
    * Attack-chain timeline visualization (T3.3 — v8.0).
    *
    * Backed by `/api/v1/cases/{id}/attack-chain` which runs a graph BFS over

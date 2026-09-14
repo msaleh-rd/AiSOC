@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import {
   casesApi,
   graphApi,
+  ledgerApi,
   realtimeApi,
   type AttackChainTimeline,
   type AttackChainWindow,
@@ -34,6 +35,7 @@ import {
   type CaseStatus,
   type CaseTask,
   type CaseTimelineEvent,
+  type LedgerEvent,
 } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -220,9 +222,13 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   // agent decision feed for the LockBit 3.0 ransomware showcase. Falls back
   // to the overview when the param is missing or unrecognized.
   const searchParams = useSearchParams();
+  // `?run=…` makes an investigation resumable across reloads and shareable.
+  const initialRunId = useMemo(() => searchParams?.get('run') ?? null, [searchParams]);
   const initialTab: WorkspaceTab = useMemo(() => {
     const t = searchParams?.get('tab') ?? null;
-    return isWorkspaceTab(t) ? t : 'overview';
+    if (isWorkspaceTab(t)) return t;
+    // Resuming a run without an explicit tab lands on the investigation.
+    return searchParams?.get('run') ? 'investigation' : 'overview';
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const { data, error, isLoading, mutate } = useSWR<Case>(
@@ -242,6 +248,8 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const [liveSteps, setLiveSteps] = useState<Array<{ kind: string; agent: string; summary: string; ts: string }>>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  // `connectWs` is declared below `attachToRun`; the ref breaks the cycle.
+  const connectWsRef = useRef<((runId: string) => void) | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -258,6 +266,120 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   }, []);
 
   useEffect(() => () => { stopPolling(); closeWs(); }, [stopPolling, closeWs]);
+
+  /** Mirror the active run into the URL so a reload can resume it. */
+  const syncRunInUrl = useCallback((runId: string | null) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (runId) url.searchParams.set('run', runId);
+    else url.searchParams.delete('run');
+    window.history.replaceState(null, '', url.toString());
+  }, []);
+
+  /**
+   * Fetch a finished run's report, falling back to the ledger artifact when
+   * the agents service's in-memory copy is gone (e.g. after a restart).
+   */
+  const loadReport = useCallback(async (runId: string) => {
+    try {
+      const resp = await fetch(`/api/v1/cases/${caseId}/investigations/${runId}/report.md`);
+      if (resp.ok) {
+        const md = await resp.text();
+        if (md.trim()) {
+          setReportMd(md);
+          return;
+        }
+      }
+    } catch { /* fall through to the durable copy */ }
+    try {
+      const artifacts = await ledgerApi.listArtifacts(runId);
+      const report = artifacts.find((a) => a.kind === 'report_md' || a.kind === 'report');
+      if (report) {
+        const full = await ledgerApi.getArtifact(runId, report.id);
+        if (full.content) setReportMd(full.content);
+      }
+    } catch { /* best-effort */ }
+  }, [caseId]);
+
+  const applyRunPayload = useCallback((inv: Record<string, unknown>) => {
+    setInvestigationData(inv);
+    setInvestigationStatus(String(inv.status ?? 'running'));
+    const audit = inv.audit_log;
+    if (Array.isArray(audit) && audit.length > 0) {
+      const polled = (audit as Array<Record<string, unknown>>).map((e) => ({
+        kind: String(e.kind ?? 'step'),
+        agent: String(e.agent ?? ''),
+        summary: String(e.summary ?? ''),
+        ts: String(e.ts ?? ''),
+      }));
+      setLiveSteps((prev) => (polled.length > prev.length ? polled : prev));
+    }
+  }, []);
+
+  /** Start the 5s reconciliation poll for a run. */
+  const beginPolling = useCallback((runId: string) => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const inv = await casesApi.getInvestigation(caseId, runId);
+        applyRunPayload(inv as Record<string, unknown>);
+        if (inv.status === 'completed' || inv.status === 'failed') {
+          stopPolling();
+          setInvestigating(false);
+          if (inv.status === 'completed') {
+            toast.success('Investigation complete — report ready');
+            void loadReport(runId);
+          } else {
+            toast.error(`Investigation failed: ${inv.error ?? 'unknown error'}`);
+          }
+        }
+      } catch {
+        // swallow transient errors; the ledger fallback covers a dead run
+      }
+    }, 5000);
+  }, [caseId, stopPolling, applyRunPayload, loadReport]);
+
+  /** Rebuild a run's view from the durable ledger when the live cache is gone. */
+  const attachFromLedger = useCallback(async (runId: string) => {
+    const [run, events] = await Promise.all([
+      ledgerApi.getRun(runId),
+      ledgerApi.replay(runId).catch(() => [] as LedgerEvent[]),
+    ]);
+    setInvestigationStatus(run.status);
+    setInvestigationData({ status: run.status, error: run.error ?? undefined });
+    setLiveSteps(
+      events.map((e) => ({ kind: e.kind, agent: e.agent, summary: e.summary, ts: e.ts })),
+    );
+    setInvestigating(run.status === 'running');
+    if (run.status === 'completed') void loadReport(runId);
+  }, [loadReport]);
+
+  /** Point the workspace at an existing run (deep link, reload, ledger pick). */
+  const attachToRun = useCallback(async (runId: string) => {
+    stopPolling();
+    closeWs();
+    setInvestigationRunId(runId);
+    setLiveSteps([]);
+    setReportMd('');
+    syncRunInUrl(runId);
+    try {
+      const inv = await casesApi.getInvestigation(caseId, runId);
+      applyRunPayload(inv as Record<string, unknown>);
+      if (inv.status === 'running') {
+        setInvestigating(true);
+        connectWsRef.current?.(runId);
+        beginPolling(runId);
+      } else if (inv.status === 'completed') {
+        void loadReport(runId);
+      }
+    } catch {
+      try {
+        await attachFromLedger(runId);
+      } catch {
+        setInvestigationStatus('idle');
+      }
+    }
+  }, [caseId, stopPolling, closeWs, syncRunInUrl, applyRunPayload, beginPolling, loadReport, attachFromLedger]);
 
   /** Connect to the realtime service WebSocket for this run_id */
   const connectWs = useCallback((runId: string) => {
@@ -331,6 +453,26 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     })();
   }, [caseId, closeWs]);
 
+  connectWsRef.current = connectWs;
+
+  // Resume on mount: adopt `?run=…` if deep-linked, else the most recent run
+  // for this case, so a reload mid-investigation doesn't lose the run.
+  const reconciledRef = useRef(false);
+  useEffect(() => {
+    if (reconciledRef.current || !caseRecord) return;
+    reconciledRef.current = true;
+    void (async () => {
+      if (initialRunId) {
+        await attachToRun(initialRunId);
+        return;
+      }
+      try {
+        const { runs } = await casesApi.listInvestigations(caseId);
+        if (runs.length > 0) await attachToRun(runs[0].run_id);
+      } catch { /* no prior runs to restore */ }
+    })();
+  }, [caseRecord, caseId, initialRunId, attachToRun]);
+
   const startInvestigation = useCallback(async () => {
     if (!caseRecord || investigating) return;
     setInvestigating(true);
@@ -341,46 +483,12 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
       const result = await casesApi.investigate(caseId, caseRecord.description ?? caseRecord.title);
       setInvestigationRunId(result.run_id);
       setInvestigationStatus('running');
+      syncRunInUrl(result.run_id);
       toast.success('Agent investigation started');
 
       // Connect via WebSocket for live updates (falls back to polling on error)
       connectWs(result.run_id);
-
-      // Polling as a reliable fallback / data sync
-      pollRef.current = setInterval(async () => {
-        try {
-          const inv = await casesApi.getInvestigation(caseId, result.run_id);
-          setInvestigationData(inv as Record<string, unknown>);
-          setInvestigationStatus(inv.status);
-          // The WS is best-effort (dev proxies often drop the upgrade), so
-          // surface the polled audit_log as live steps too — whichever
-          // source has more events wins, so WS and polling never fight.
-          if (Array.isArray(inv.audit_log) && inv.audit_log.length > 0) {
-            const polled = inv.audit_log.map((e) => ({
-              kind: String(e.kind ?? 'step'),
-              agent: String(e.agent ?? ''),
-              summary: String(e.summary ?? ''),
-              ts: String(e.ts ?? ''),
-            }));
-            setLiveSteps((prev) => (polled.length > prev.length ? polled : prev));
-          }
-          if (inv.status === 'completed' || inv.status === 'failed') {
-            stopPolling();
-            setInvestigating(false);
-            if (inv.status === 'completed') {
-              toast.success('Investigation complete — report ready');
-              try {
-                const resp = await fetch(`/api/v1/cases/${caseId}/investigations/${result.run_id}/report.md`);
-                if (resp.ok) setReportMd(await resp.text());
-              } catch { /* best-effort */ }
-            } else {
-              toast.error(`Investigation failed: ${inv.error ?? 'unknown error'}`);
-            }
-          }
-        } catch {
-          // swallow transient errors
-        }
-      }, 5000);
+      beginPolling(result.run_id);
     } catch (e: unknown) {
       // A failed launch must surface as a failure. Synthesising findings here
       // would be indistinguishable from a real run in the UI below.
@@ -759,7 +867,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
         <InvestigationLedger
           caseId={caseRecord.id || caseId}
           activeRunId={investigationRunId}
-          onSelectRun={(rid) => setInvestigationRunId(rid)}
+          onSelectRun={(rid) => void attachToRun(rid)}
         />
       )}
 

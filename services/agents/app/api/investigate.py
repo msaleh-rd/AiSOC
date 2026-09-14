@@ -205,6 +205,46 @@ async def _emit_event(run_id: str, tenant_id: str, event: dict[str, Any]) -> Non
 # ---------------------------------------------------------------------------
 
 
+async def _persist_report_artifact(run_uuid: UUID, tenant_ref: str, report_md: str) -> None:
+    """Store the report in the ledger so it outlives the in-memory run cache."""
+    if not report_md:
+        return
+    try:
+        from app.investigator import ledger as ledger_module
+
+        tenant_uuid = await ledger_module.resolve_tenant(str(tenant_ref))
+        if tenant_uuid is None:
+            return
+        await ledger_module.record_artifact(
+            run_id=run_uuid,
+            tenant_id=tenant_uuid,
+            kind="report_md",
+            content=report_md,
+        )
+    except Exception as exc:  # noqa: BLE001 — artifact persistence is best-effort
+        logger.warning("report_artifact_persist_failed", run_id=str(run_uuid), error=str(exc))
+
+
+async def _load_report_artifact(run_id: str) -> str | None:
+    """Read a run's stored Markdown report back out of the ledger."""
+    try:
+        from app.investigator import ledger as ledger_module
+
+        pool = await ledger_module.get_pool()
+        if pool is None:
+            return None
+        async with pool.acquire() as conn:
+            return await conn.fetchval(
+                "SELECT content FROM investigation_artifacts "
+                "WHERE run_id = $1 AND kind = 'report_md' "
+                "ORDER BY created_at DESC LIMIT 1",
+                UUID(run_id),
+            )
+    except Exception as exc:  # noqa: BLE001 — fallback lookup is best-effort
+        logger.debug("report_artifact_load_failed", run_id=run_id, error=str(exc))
+        return None
+
+
 async def _run_and_store(run_id: str, case_id: str, req: InvestigateRequest) -> None:
     audit_log: list[dict[str, Any]] = []
     # Reuse the API-issued run id as the ledger row id so consumers can
@@ -259,6 +299,9 @@ async def _run_and_store(run_id: str, case_id: str, req: InvestigateRequest) -> 
                         "completed_at": datetime.utcnow().isoformat(),
                         "error": None,
                     }
+                )
+                await _persist_report_artifact(
+                    run_uuid, req.tenant_id, state_data.get("report_md", "")
                 )
                 await _emit_event(
                     run_id,
@@ -335,7 +378,11 @@ async def get_report_md(run_id: str):
     """Download the Markdown incident report."""
     run = _runs.get(run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+        # The in-memory cache is gone (restart) — serve the ledger artifact.
+        stored = await _load_report_artifact(run_id)
+        if stored is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        return stored
     if run["status"] != "completed":
         raise HTTPException(status_code=409, detail=f"Investigation is {run['status']}")
     return run.get("report_md", "")
