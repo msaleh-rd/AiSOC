@@ -38,6 +38,8 @@ import {
   type LedgerEvent,
 } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { MergeCaseModal } from './MergeCaseModal';
+import { SplitAlertsModal } from './SplitAlertsModal';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { InvestigationLedger } from './InvestigationLedger';
@@ -237,11 +239,13 @@ const VERDICT_BADGE: Record<string, { label: string; className: string }> = {
 function LinkedAlertsPanel({
   caseId,
   caseRecord,
+  onCaseMutate,
 }: {
   caseId: string;
   caseRecord: Case;
+  onCaseMutate?: () => void;
 }) {
-  const { data: alerts, isLoading: alertsLoading } = useSWR(
+  const { data: alerts, isLoading: alertsLoading, mutate: mutateAlerts } = useSWR(
     ['case-alerts', caseId],
     () => casesApi.getAlerts(caseId),
     { revalidateOnFocus: false },
@@ -253,18 +257,27 @@ function LinkedAlertsPanel({
     { revalidateOnFocus: false },
   );
 
+  const [selectedAlerts, setSelectedAlerts] = useState<Set<string>>(new Set());
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+
   // Filter auto-correlation system comments for the timeline
   const correlationComments = (comments ?? [])
     .filter(
       (c) =>
         String(c.author ?? '').includes('auto-correlator') ||
-        String(c.body ?? '').includes('[Auto-Correlation]'),
+        String(c.body ?? '').includes('[Auto-Correlation]') ||
+        String(c.body ?? '').includes('[Severity Escalated]') ||
+        String(c.body ?? '').includes('[Case Merge]') ||
+        String(c.body ?? '').includes('[Case Split]'),
     )
     .sort((a, b) => {
       const ta = new Date(String(a.created_at ?? a.createdAt ?? 0)).getTime();
       const tb = new Date(String(b.created_at ?? b.createdAt ?? 0)).getTime();
       return ta - tb;
     });
+
+  const alertList = alerts ?? [];
+  const canSplit = selectedAlerts.size > 0 && selectedAlerts.size < alertList.length;
 
   return (
     <div className="space-y-4 p-1">
@@ -301,16 +314,35 @@ function LinkedAlertsPanel({
       {/* Linked Alerts Grid */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-200">
-            Linked Alerts ({alerts?.length ?? caseRecord.alertCount ?? 0})
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-200">
+              Linked Alerts ({alertList.length || caseRecord.alertCount || 0})
+            </h3>
+            {selectedAlerts.size > 0 && (
+              <span className="text-xs text-purple-400 font-medium">
+                ({selectedAlerts.size} selected)
+              </span>
+            )}
+          </div>
+
+          {canSplit && (
+            <button
+              onClick={() => setSplitModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              Split {selectedAlerts.size} Alert(s) to New Case
+            </button>
+          )}
         </div>
 
         {alertsLoading ? (
           <div className="flex items-center justify-center h-32">
             <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
           </div>
-        ) : !alerts || alerts.length === 0 ? (
+        ) : alertList.length === 0 ? (
           <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-8 text-center">
             <p className="text-sm text-slate-400">No alerts linked to this case yet.</p>
             <p className="mt-1 text-xs text-slate-500">
@@ -319,7 +351,7 @@ function LinkedAlertsPanel({
           </div>
         ) : (
           <div className="space-y-2">
-            {alerts.map((alert, idx) => {
+            {alertList.map((alert, idx) => {
               const alertId = String(alert.id ?? '');
               const title = String(alert.title ?? 'Untitled Alert');
               const severity = String(alert.severity ?? 'medium').toLowerCase();
@@ -338,14 +370,36 @@ function LinkedAlertsPanel({
               const source = String(alert.source ?? alert.connector_id ?? '');
               const sevBadge = ALERT_SEVERITY_BADGE[severity] ?? ALERT_SEVERITY_BADGE.medium;
               const verdictInfo = VERDICT_BADGE[verdict.toLowerCase().replace(/[\s-]+/g, '_')];
+              const isSelected = selectedAlerts.has(alertId);
 
               return (
-                <Link
+                <div
                   key={alertId || idx}
-                  href={`/alerts?focus=${encodeURIComponent(alertId)}`}
-                  className="block"
+                  className={clsx(
+                    'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
+                    isSelected
+                      ? 'border-purple-500/50 bg-purple-950/20'
+                      : 'border-slate-800/60 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-800/40',
+                  )}
                 >
-                  <div className="group rounded-xl border border-slate-800/60 bg-slate-900/40 px-4 py-3 transition-all hover:border-slate-700 hover:bg-slate-800/40">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {
+                      setSelectedAlerts((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(alertId)) next.delete(alertId);
+                        else next.add(alertId);
+                        return next;
+                      });
+                    }}
+                    className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-800 text-purple-600 focus:ring-purple-500/20 cursor-pointer shrink-0"
+                    title="Select alert to split"
+                  />
+                  <Link
+                    href={`/alerts?focus=${encodeURIComponent(alertId)}`}
+                    className="flex-1 min-w-0"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -412,13 +466,27 @@ function LinkedAlertsPanel({
                         <p className="mt-0.5 text-[9px] font-mono text-slate-600">{alertId.slice(-8)}</p>
                       </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Split Alerts Modal */}
+      <SplitAlertsModal
+        open={splitModalOpen}
+        caseId={caseId}
+        caseNumber={caseRecord.caseNumber}
+        selectedAlertIds={Array.from(selectedAlerts)}
+        onClose={() => setSplitModalOpen(false)}
+        onSplit={() => {
+          setSelectedAlerts(new Set());
+          void mutateAlerts();
+          onCaseMutate?.();
+        }}
+      />
 
       {/* Correlation Timeline */}
       {correlationComments.length > 0 && (
@@ -430,13 +498,33 @@ function LinkedAlertsPanel({
               {correlationComments.map((comment, idx) => {
                 const body = String(comment.body ?? '');
                 const createdAt = comment.created_at ?? comment.createdAt;
+                const isEscalation = body.includes('[Severity Escalated]');
+                const isMerge = body.includes('[Case Merge]');
+                const isSplit = body.includes('[Case Split]');
                 return (
                   <li key={idx} className="relative pl-8">
-                    <span className="absolute left-1 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10">
-                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    <span className={clsx(
+                      'absolute left-1 top-2 flex h-4 w-4 items-center justify-center rounded-full border',
+                      isEscalation
+                        ? 'border-red-500/50 bg-red-500/20'
+                        : isMerge
+                        ? 'border-cyan-500/50 bg-cyan-500/20'
+                        : isSplit
+                        ? 'border-purple-500/50 bg-purple-500/20'
+                        : 'border-cyan-500/30 bg-cyan-500/10',
+                    )}>
+                      <span className={clsx(
+                        'h-1.5 w-1.5 rounded-full',
+                        isEscalation ? 'bg-red-400' : isMerge ? 'bg-cyan-400' : isSplit ? 'bg-purple-400' : 'bg-cyan-400',
+                      )} />
                     </span>
-                    <div className="rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2">
-                      <p className="text-xs text-slate-300">{body}</p>
+                    <div className={clsx(
+                      'rounded-lg border px-3 py-2',
+                      isEscalation
+                        ? 'border-red-500/30 bg-red-950/20'
+                        : 'border-slate-800/60 bg-slate-900/40',
+                    )}>
+                      <p className={clsx('text-xs', isEscalation ? 'text-red-200 font-medium' : 'text-slate-300')}>{body}</p>
                       {createdAt ? (
                         <p className="mt-1 text-[10px] text-slate-500" suppressHydrationWarning>
                           {format(new Date(String(createdAt)), 'MMM dd, HH:mm:ss')}
@@ -486,6 +574,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const [investigationData, setInvestigationData] = useState<Record<string, unknown> | null>(null);
   const [reportMd, setReportMd] = useState<string>('');
   const [liveSteps, setLiveSteps] = useState<Array<{ kind: string; agent: string; summary: string; ts: string }>>([]);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   // `connectWs` is declared below `attachToRun`; the ref breaks the cycle.
@@ -993,6 +1082,17 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               )}
               {summaryDownloading ? 'Generating…' : 'Summary'}
             </button>
+            <button
+              onClick={() => setMergeModalOpen(true)}
+              disabled={!caseRecord}
+              className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 transition-colors"
+              title="Merge another case into this case"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Merge Case
+            </button>
           </div>
         </div>
 
@@ -1136,6 +1236,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
         <LinkedAlertsPanel
           caseId={caseRecord.id || caseId}
           caseRecord={caseRecord}
+          onCaseMutate={() => void mutate()}
         />
       )}
 
@@ -1329,6 +1430,14 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
       </div>
       </div>
       )}
+      {/* Merge Case Modal */}
+      <MergeCaseModal
+        open={mergeModalOpen}
+        targetCaseId={caseRecord.id}
+        targetCaseNumber={caseRecord.caseNumber}
+        onClose={() => setMergeModalOpen(false)}
+        onMerged={() => void mutate()}
+      />
     </div>
   );
 }

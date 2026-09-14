@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -25,6 +26,42 @@ _SEVERITY_ORDER: dict[str, int] = {
 }
 
 DEFAULT_CORRELATION_WINDOW = timedelta(hours=2)
+
+
+async def notify_case_realtime(
+    tenant_id: str | uuid.UUID,
+    case_id: str | uuid.UUID,
+    case_number: str | None,
+    event_type: str,
+    severity: str | None = None,
+    old_severity: str | None = None,
+    title: str | None = None,
+    summary: str | None = None,
+) -> None:
+    """Best-effort async fan-out of case lifecycle events to the realtime service."""
+    realtime_url = os.environ.get("REALTIME_URL", "http://localhost:8086")
+    internal_token = os.environ.get("INTERNAL_TOKEN", "")
+    headers = {"Content-Type": "application/json"}
+    if internal_token:
+        headers["X-Internal-Token"] = internal_token
+    payload = {
+        "tenant_id": str(tenant_id),
+        "case_id": str(case_id),
+        "case_number": case_number,
+        "event_type": event_type,
+        "severity": severity,
+        "old_severity": old_severity,
+        "title": title,
+        "summary": summary,
+    }
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(f"{realtime_url}/internal/case-event", headers=headers, json=payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("case_grouping.realtime_notify_failed: %s", exc)
+
 
 
 def max_severity(a: str | None, b: str | None) -> str:
@@ -231,12 +268,42 @@ async def auto_group_alert(
             comment,
         )
 
+        # Check for severity escalation
+        is_escalated = _SEVERITY_ORDER.get(new_severity, 0) > _SEVERITY_ORDER.get(existing_severity, 0)
+        if is_escalated:
+            escalation_comment = (
+                f"[Severity Escalated] Case severity elevated from {existing_severity.upper()} to {new_severity.upper()} "
+                f"by incoming alert '{title}'."
+            )
+            await conn.execute(
+                """
+                INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+                VALUES (uuid_generate_v4(), $1, $2, 'system:auto-correlator', $3, TRUE, now())
+                """,
+                case_id,
+                tenant_id,
+                escalation_comment,
+            )
+
+        # Realtime fan-out
+        await notify_case_realtime(
+            tenant_id=tenant_id,
+            case_id=case_id,
+            case_number=case_number,
+            event_type="escalation" if is_escalated else "grouped",
+            severity=new_severity,
+            old_severity=existing_severity if is_escalated else None,
+            title=title,
+            summary=f"Case severity elevated to {new_severity.upper()} by alert '{title}'." if is_escalated else None,
+        )
+
         logger.info(
             "auto_group_alert.grouped",
             alert_id=str(alert_id),
             case_id=str(case_id),
             case_number=case_number,
             alerts_count=len(updated_alerts),
+            escalated=is_escalated,
         )
 
         return {
@@ -318,6 +385,17 @@ async def auto_group_alert(
         new_case_id,
         tenant_id,
         initial_comment,
+    )
+
+    # Realtime fan-out
+    await notify_case_realtime(
+        tenant_id=tenant_id,
+        case_id=new_case_id,
+        case_number=new_case_number,
+        event_type="created",
+        severity=severity,
+        title=case_title,
+        summary=f"New case auto-created from alert '{title}' on {primary_entity or 'unassigned entity'}.",
     )
 
     logger.info(

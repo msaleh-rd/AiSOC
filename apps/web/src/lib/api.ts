@@ -1904,6 +1904,68 @@ export const casesApi = {
     // Hold the blob URL long enough for the new tab to read it, then release.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   },
+
+  /**
+   * Fetch aggregate correlation and case statistics for the tenant.
+   */
+  getStats: () =>
+    request<{
+      total: number;
+      auto_correlated: number;
+      manual: number;
+      avg_alerts_per_case: number;
+      by_severity: Record<string, number>;
+      by_status: Record<string, number>;
+    }>('/api/v1/cases/stats'),
+
+  /**
+   * Trigger re-correlation of orphan alerts across a wider lookback window.
+   */
+  reCorrelate: (params?: { windowHours?: number; minSeverity?: string }) => {
+    const queryParams: Record<string, string> = {};
+    if (params?.windowHours !== undefined) queryParams.window_hours = String(params.windowHours);
+    if (params?.minSeverity !== undefined) queryParams.min_severity = params.minSeverity;
+    return request<{
+      orphan_count: number;
+      correlated_count: number;
+      cases_created: number;
+      cases_grouped: number;
+    }>('/api/v1/cases/re-correlate', {
+      method: 'POST',
+      params: queryParams,
+    });
+  },
+
+  /**
+   * Merge a source case into a target case.
+   */
+  mergeCase: async (targetCaseId: string, sourceCaseId: string) => {
+    const raw = await request<unknown>(
+      `/api/v1/cases/${encodeURIComponent(targetCaseId)}/merge`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ source_case_id: sourceCaseId }),
+      },
+    );
+    return normalizeCase(raw);
+  },
+
+  /**
+   * Split selected alerts out of a case into a new case container.
+   */
+  splitCase: async (caseId: string, alertIds: string[], title?: string) => {
+    const raw = await request<unknown>(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/split`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          alert_ids: alertIds,
+          ...(title ? { title } : {}),
+        }),
+      },
+    );
+    return normalizeCase(raw);
+  },
 };
 
 // ─── Investigation Ledger (persistent agent decision log) ───────────────────

@@ -530,6 +530,134 @@ async def create_case(
     return response
 
 
+@router.get("/stats", summary="Case correlation statistics")
+async def case_stats(db: DBSession, user: AuthUser) -> dict:
+    """Return aggregate statistics on cases for the tenant.
+
+    Includes auto-correlated vs manual counts, severity breakdown,
+    status breakdown, and average alerts per case.
+    """
+    row = (
+        await db.execute(
+            text("""
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE tags->>'auto_created' = 'true') AS auto_correlated,
+                    COUNT(*) FILTER (WHERE tags->>'auto_created' IS DISTINCT FROM 'true') AS manual,
+                    COALESCE(AVG(CARDINALITY(alert_ids)), 0) AS avg_alerts_per_case,
+                    COUNT(*) FILTER (WHERE severity = 'critical') AS critical,
+                    COUNT(*) FILTER (WHERE severity = 'high') AS high,
+                    COUNT(*) FILTER (WHERE severity = 'medium') AS medium,
+                    COUNT(*) FILTER (WHERE severity = 'low') AS low,
+                    COUNT(*) FILTER (WHERE severity = 'info') AS info,
+                    COUNT(*) FILTER (WHERE status IN ('new', 'triaged', 'investigating')) AS active,
+                    COUNT(*) FILTER (WHERE status IN ('resolved', 'closed')) AS resolved
+                FROM aisoc_cases
+                WHERE tenant_id = :tenant_id
+            """).bindparams(tenant_id=user.tenant_id)
+        )
+    ).fetchone()
+
+    return {
+        "total": row.total if row else 0,
+        "auto_correlated": row.auto_correlated if row else 0,
+        "manual": row.manual if row else 0,
+        "avg_alerts_per_case": round(float(row.avg_alerts_per_case or 0), 1) if row else 0,
+        "by_severity": {
+            "critical": row.critical if row else 0,
+            "high": row.high if row else 0,
+            "medium": row.medium if row else 0,
+            "low": row.low if row else 0,
+            "info": row.info if row else 0,
+        },
+        "by_status": {
+            "active": row.active if row else 0,
+            "resolved": row.resolved if row else 0,
+        },
+    }
+
+
+@router.post("/re-correlate", summary="Re-correlate orphan alerts")
+async def re_correlate_orphan_alerts(
+    db: DBSession,
+    user: AuthUser,
+    window_hours: float = Query(default=24, ge=1, le=168, description="Lookback window in hours"),
+    min_severity: str = Query(default="low", description="Minimum severity for new case creation"),
+) -> dict:
+    """Re-run the correlation engine over orphan alerts (case_id IS NULL).
+
+    Picks up alerts that arrived after the original 2h window closed and
+    correlates them into existing active cases or creates new ones using
+    a wider lookback window (default 24h).
+    """
+    from datetime import timedelta
+    from app.services.case_correlator import CaseCorrelator, CorrelationAction
+
+    hours = float(getattr(window_hours, "default", window_hours))
+    min_sev = str(getattr(min_severity, "default", min_severity) or "low")
+
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+    orphan_rows = (
+        await db.execute(
+            text("""
+                SELECT id, tenant_id, title, description, severity, status,
+                       mitre_tactics, mitre_techniques, affected_ips, affected_hosts,
+                       affected_users, case_id, tags, enrichment_data, event_time
+                FROM alerts
+                WHERE tenant_id = :tenant_id
+                  AND case_id IS NULL
+                  AND created_at >= :cutoff
+                ORDER BY event_time ASC
+                LIMIT 500
+            """).bindparams(
+                tenant_id=user.tenant_id,
+                cutoff=cutoff,
+            )
+        )
+    ).mappings().all()
+
+    if not orphan_rows:
+        return {
+            "orphan_count": 0,
+            "correlated_count": 0,
+            "cases_created": 0,
+            "cases_grouped": 0,
+        }
+
+    correlator = CaseCorrelator(window=timedelta(hours=hours))
+    created_count = 0
+    grouped_count = 0
+
+    for row in orphan_rows:
+        alert_dict = dict(row)
+        res = await correlator.correlate_alert(
+            db,
+            alert_dict,
+            min_severity_for_new_case=min_sev,
+        )
+        if res.action == CorrelationAction.CREATED:
+            created_count += 1
+        elif res.action == CorrelationAction.GROUPED:
+            grouped_count += 1
+
+    logger.info(
+        "cases.re_correlate.complete",
+        extra={
+            "tenant_id": str(user.tenant_id).replace("\r", "").replace("\n", " ")[:36],
+            "orphan_count": len(orphan_rows),
+            "created": created_count,
+            "grouped": grouped_count,
+        },
+    )
+
+    return {
+        "orphan_count": len(orphan_rows),
+        "correlated_count": created_count + grouped_count,
+        "cases_created": created_count,
+        "cases_grouped": grouped_count,
+    }
+
+
 @router.post("/auto-correlate", response_model=AutoCorrelateResponse, summary="Auto-correlate alerts into cases")
 async def auto_correlate_alerts(
     body: AutoCorrelateRequest,
@@ -1660,3 +1788,278 @@ async def list_related_cases(
             )
 
     return {"related": related}
+
+
+class MergeCaseRequest(BaseModel):
+    """Request to merge another case into this case."""
+    source_case_id: str = Field(..., description="Case ID or case_number of the case to merge INTO this one")
+
+
+@router.post("/{case_id}/merge", response_model=CaseResponse, summary="Merge another case into this case")
+async def merge_case(
+    case_id: str,
+    body: MergeCaseRequest,
+    db: DBSession,
+    user: AuthUser,
+) -> CaseResponse:
+    """Merge the source case into the target case.
+
+    Moves all alerts from the source case to the target, unions MITRE techniques,
+    escalates severity if needed, and closes the source case with an audit comment.
+    """
+    import json as _json
+
+    target_id = await _resolve_case_id(case_id, db, user.tenant_id)
+    source_id = await _resolve_case_id(body.source_case_id, db, user.tenant_id)
+
+    if target_id == source_id:
+        raise HTTPException(status_code=400, detail="Cannot merge a case into itself.")
+
+    # Fetch both cases
+    target = (
+        await db.execute(
+            text("SELECT * FROM aisoc_cases WHERE id = :id AND tenant_id = :tid").bindparams(
+                id=target_id, tid=user.tenant_id
+            )
+        )
+    ).fetchone()
+    source = (
+        await db.execute(
+            text("SELECT * FROM aisoc_cases WHERE id = :id AND tenant_id = :tid").bindparams(
+                id=source_id, tid=user.tenant_id
+            )
+        )
+    ).fetchone()
+
+    if not target or not source:
+        raise HTTPException(status_code=404, detail="One or both cases not found.")
+
+    # Merge alert_ids
+    target_alerts = list(target.alert_ids or [])
+    source_alerts = list(source.alert_ids or [])
+    merged_alerts = list(set(target_alerts + source_alerts))
+
+    # Union MITRE techniques
+    target_mitre = list(target.mitre_techniques or [])
+    source_mitre = list(source.mitre_techniques or [])
+    merged_mitre = list(target_mitre)
+    for t in source_mitre:
+        if t not in merged_mitre:
+            merged_mitre.append(t)
+
+    # Severity escalation
+    from app.services.case_correlator import max_severity
+    merged_severity = max_severity(target.severity, source.severity)
+
+    # Update target case
+    await db.execute(
+        text("""
+            UPDATE aisoc_cases
+            SET alert_ids = CAST(:alerts AS UUID[]),
+                mitre_techniques = CAST(:mitre AS JSONB),
+                severity = :severity,
+                updated_at = now()
+            WHERE id = :id AND tenant_id = :tid
+        """).bindparams(
+            alerts=[str(a) for a in merged_alerts],
+            mitre=_json.dumps(merged_mitre),
+            severity=merged_severity,
+            id=target_id,
+            tid=user.tenant_id,
+        )
+    )
+
+    # Move alerts to target case
+    if source_alerts:
+        await db.execute(
+            text("""
+                UPDATE alerts
+                SET case_id = :target_id, updated_at = now()
+                WHERE id = ANY(CAST(:ids AS UUID[])) AND tenant_id = :tid
+            """).bindparams(
+                target_id=target_id,
+                ids=[str(a) for a in source_alerts],
+                tid=user.tenant_id,
+            )
+        )
+
+    # Close source case
+    await db.execute(
+        text("""
+            UPDATE aisoc_cases
+            SET status = 'closed', alert_ids = '{}',
+                closed_at = now(), updated_at = now()
+            WHERE id = :id AND tenant_id = :tid
+        """).bindparams(id=source_id, tid=user.tenant_id)
+    )
+
+    # Add audit comments
+    source_number = source.case_number or str(source_id)[:8]
+    target_number = target.case_number or str(target_id)[:8]
+
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+            VALUES (gen_random_uuid(), :case_id, :tid, 'system:case-merge', :body, TRUE, now())
+        """).bindparams(
+            case_id=target_id,
+            tid=user.tenant_id,
+            body=f"[Case Merge] Merged case {source_number} ({len(source_alerts)} alerts) into this case. "
+                 f"Total alerts: {len(merged_alerts)}. Severity: {merged_severity.upper()}.",
+        )
+    )
+
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+            VALUES (gen_random_uuid(), :case_id, :tid, 'system:case-merge', :body, TRUE, now())
+        """).bindparams(
+            case_id=source_id,
+            tid=user.tenant_id,
+            body=f"[Case Merge] This case was merged into {target_number} and closed.",
+        )
+    )
+
+    await db.commit()
+
+    # Return updated target case
+    updated = (
+        await db.execute(
+            text("SELECT * FROM aisoc_cases WHERE id = :id AND tenant_id = :tid").bindparams(
+                id=target_id, tid=user.tenant_id
+            )
+        )
+    ).fetchone()
+    return _row_to_case(updated)
+
+
+class SplitCaseRequest(BaseModel):
+    """Request to split alerts out of a case into a new case."""
+    alert_ids: list[uuid.UUID] = Field(..., min_length=1, description="Alert IDs to extract into a new case")
+    title: str | None = Field(None, description="Title for the new case (auto-generated if omitted)")
+
+
+@router.post("/{case_id}/split", response_model=CaseResponse, summary="Split alerts into a new case")
+async def split_case(
+    case_id: str,
+    body: SplitCaseRequest,
+    db: DBSession,
+    user: AuthUser,
+) -> CaseResponse:
+    """Extract selected alerts from this case into a new case.
+
+    Creates a new case containing the specified alerts, removes them from
+    the source case, and adds audit comments to both.
+    """
+    import json as _json
+
+    source_id = await _resolve_case_id(case_id, db, user.tenant_id)
+    source = (
+        await db.execute(
+            text("SELECT * FROM aisoc_cases WHERE id = :id AND tenant_id = :tid").bindparams(
+                id=source_id, tid=user.tenant_id
+            )
+        )
+    ).fetchone()
+    if not source:
+        raise HTTPException(status_code=404, detail="Case not found.")
+
+    source_alerts = set(source.alert_ids or [])
+    split_alerts = set(body.alert_ids)
+    remaining_alerts = source_alerts - split_alerts
+
+    if not split_alerts.intersection(source_alerts):
+        raise HTTPException(status_code=400, detail="None of the specified alerts belong to this case.")
+    if not remaining_alerts:
+        raise HTTPException(status_code=400, detail="Cannot split all alerts from a case. Use merge instead.")
+
+    # Create new case
+    new_case_id = uuid.uuid4()
+    new_case_number = f"CASE-{new_case_id.hex[:8].upper()}"
+    new_title = body.title or f"Split from {source.case_number or str(source_id)[:8]}: {source.title}"
+
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_cases (
+                id, tenant_id, case_number, title, description, severity, status,
+                mitre_techniques, alert_ids, tags, opened_at, created_at, updated_at, created_by
+            ) VALUES (
+                :id, :tid, :case_number, :title, :description, :severity, 'new',
+                CAST(:mitre AS JSONB), CAST(:alert_ids AS UUID[]), CAST(:tags AS JSONB),
+                now(), now(), now(), 'system:case-split'
+            )
+        """).bindparams(
+            id=new_case_id,
+            tid=user.tenant_id,
+            case_number=new_case_number,
+            title=new_title,
+            description=f"Alerts split from case {source.case_number or str(source_id)[:8]}.",
+            severity=source.severity,
+            mitre=_json.dumps(list(source.mitre_techniques or [])),
+            alert_ids=[str(a) for a in split_alerts],
+            tags=_json.dumps({"split_from": str(source_id), "auto_created": False}),
+        )
+    )
+
+    # Update source case: remove split alerts
+    await db.execute(
+        text("""
+            UPDATE aisoc_cases
+            SET alert_ids = CAST(:remaining AS UUID[]),
+                updated_at = now()
+            WHERE id = :id AND tenant_id = :tid
+        """).bindparams(
+            remaining=[str(a) for a in remaining_alerts],
+            id=source_id,
+            tid=user.tenant_id,
+        )
+    )
+
+    # Move alerts to new case
+    await db.execute(
+        text("""
+            UPDATE alerts
+            SET case_id = :new_case_id, updated_at = now()
+            WHERE id = ANY(CAST(:ids AS UUID[])) AND tenant_id = :tid
+        """).bindparams(
+            new_case_id=new_case_id,
+            ids=[str(a) for a in split_alerts],
+            tid=user.tenant_id,
+        )
+    )
+
+    # Audit comments
+    source_number = source.case_number or str(source_id)[:8]
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+            VALUES (gen_random_uuid(), :case_id, :tid, 'system:case-split', :body, TRUE, now())
+        """).bindparams(
+            case_id=source_id,
+            tid=user.tenant_id,
+            body=f"[Case Split] {len(split_alerts)} alert(s) extracted to new case {new_case_number}. "
+                 f"Remaining: {len(remaining_alerts)} alert(s).",
+        )
+    )
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+            VALUES (gen_random_uuid(), :case_id, :tid, 'system:case-split', :body, TRUE, now())
+        """).bindparams(
+            case_id=new_case_id,
+            tid=user.tenant_id,
+            body=f"[Case Split] Case created by splitting {len(split_alerts)} alert(s) from {source_number}.",
+        )
+    )
+
+    await db.commit()
+
+    # Return new case
+    new_row = (
+        await db.execute(
+            text("SELECT * FROM aisoc_cases WHERE id = :id AND tenant_id = :tid").bindparams(
+                id=new_case_id, tid=user.tenant_id
+            )
+        )
+    ).fetchone()
+    return _row_to_case(new_row)

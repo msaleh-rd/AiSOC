@@ -283,9 +283,11 @@ async def test_two_alerts_same_host_group_into_single_case():
     assert session.alerts[alert_1_id]["case_id"] == case_id
     assert session.alerts[alert_2_id]["case_id"] == case_id
 
-    # Assert audit comment written
-    assert len(session.comments) == 2
+    # Assert audit comments written (initial create + linked alert + severity escalation)
+    assert len(session.comments) == 3
     assert "Linked alert" in session.comments[1]["body"]
+    assert "Severity Escalated" in session.comments[2]["body"]
+    assert "MEDIUM to HIGH" in session.comments[2]["body"]
 
 
 @pytest.mark.asyncio
@@ -532,5 +534,299 @@ async def test_auto_correlate_alerts_endpoint():
     assert len(res.results) == 1
     assert res.results[0]["action"] == "created"
     assert res.results[0]["case_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_case_stats_endpoint():
+    """Verify GET /cases/stats returns aggregate correlation metrics."""
+    from unittest.mock import AsyncMock
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import case_stats
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+
+    stats_row = MagicMock(
+        total=10,
+        auto_correlated=7,
+        manual=3,
+        avg_alerts_per_case=3.5,
+        critical=2,
+        high=3,
+        medium=4,
+        low=1,
+        info=0,
+        active=6,
+        resolved=4,
+    )
+    db = MagicMock()
+    mock_res = MagicMock()
+    mock_res.fetchone.return_value = stats_row
+    db.execute = AsyncMock(return_value=mock_res)
+
+    res = await case_stats(db=db, user=user)
+    assert res["total"] == 10
+    assert res["auto_correlated"] == 7
+    assert res["manual"] == 3
+    assert res["avg_alerts_per_case"] == 3.5
+    assert res["by_severity"]["critical"] == 2
+    assert res["by_status"]["active"] == 6
+
+
+@pytest.mark.asyncio
+async def test_re_correlate_orphan_alerts_endpoint():
+    """Verify POST /cases/re-correlate sweeps orphan alerts."""
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import re_correlate_orphan_alerts
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+
+    aid = uuid.uuid4()
+    alert_row = {
+        "id": aid,
+        "tenant_id": tenant_id,
+        "title": "Orphan Port Scan",
+        "description": "Port scan desc",
+        "severity": "medium",
+        "status": "new",
+        "mitre_tactics": ["reconnaissance"],
+        "mitre_techniques": ["T1046"],
+        "affected_ips": ["192.42.1.174"],
+        "affected_hosts": ["inetfw"],
+        "affected_users": [],
+        "case_id": None,
+        "tags": {},
+        "enrichment_data": {},
+        "event_time": datetime.now(UTC),
+    }
+
+    session = MockAsyncSession()
+    session.alerts[aid] = alert_row
+
+    orig_execute = session.execute
+
+    async def mock_exec(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        if "FROM alerts" in sql and "case_id IS NULL" in sql:
+            mappings_mock = MagicMock()
+            mappings_mock.all.return_value = [alert_row]
+            mock_res = MagicMock()
+            mock_res.mappings.return_value = mappings_mock
+            return mock_res
+        return await orig_execute(stmt)
+
+    session.execute = mock_exec
+
+    res = await re_correlate_orphan_alerts(db=session, user=user, window_hours=24)
+    assert res["orphan_count"] == 1
+    assert res["correlated_count"] == 1
+    assert res["cases_created"] == 1
+
+
+@pytest.mark.asyncio
+async def test_merge_case_endpoint():
+    """Verify POST /cases/{target_id}/merge merges source case into target."""
+    from unittest.mock import AsyncMock
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import MergeCaseRequest, merge_case
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+
+    target_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    a1_id, a2_id = uuid.uuid4(), uuid.uuid4()
+
+    target_row = MagicMock(
+        id=target_id,
+        case_number="CASE-TARGET",
+        title="Target Case",
+        description="Target desc",
+        severity="medium",
+        status="new",
+        assignee=None,
+        mitre_techniques=["T1046"],
+        alert_ids=[a1_id],
+        observable_graph={},
+        evidence_chain=[],
+        compliance_frameworks=[],
+        opened_at=datetime.now(UTC),
+        triaged_at=None,
+        resolved_at=None,
+        closed_at=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        created_by="analyst",
+        tags={"auto_created": True},
+        sla_due_at=None,
+    )
+
+    source_row = MagicMock(
+        id=source_id,
+        case_number="CASE-SOURCE",
+        title="Source Case",
+        description="Source desc",
+        severity="critical",
+        status="new",
+        assignee=None,
+        mitre_techniques=["T1110"],
+        alert_ids=[a2_id],
+        observable_graph={},
+        evidence_chain=[],
+        compliance_frameworks=[],
+        opened_at=datetime.now(UTC),
+        triaged_at=None,
+        resolved_at=None,
+        closed_at=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        created_by="analyst",
+        tags={"auto_created": True},
+        sla_due_at=None,
+    )
+
+    updated_target = MagicMock(
+        id=target_id,
+        case_number="CASE-TARGET",
+        title="Target Case",
+        description="Target desc",
+        severity="critical",
+        status="new",
+        assignee=None,
+        mitre_techniques=["T1046", "T1110"],
+        alert_ids=[a1_id, a2_id],
+        observable_graph={},
+        evidence_chain=[],
+        compliance_frameworks=[],
+        opened_at=datetime.now(UTC),
+        triaged_at=None,
+        resolved_at=None,
+        closed_at=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        created_by="analyst",
+        tags={"auto_created": True},
+        sla_due_at=None,
+    )
+
+    db = MagicMock()
+    executed_statements = []
+
+    async def mock_exec(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        executed_statements.append(sql)
+        mock_res = MagicMock()
+        if "SELECT * FROM aisoc_cases WHERE id = :id" in sql or "id = :id" in sql:
+            params = getattr(stmt, "_bindparams", {})
+            param_dict = {k: getattr(v, "value", v) for k, v in params.items()}
+            req_id = param_dict.get("id")
+            if req_id == target_id:
+                if any("UPDATE aisoc_cases" in s for s in executed_statements):
+                    mock_res.fetchone.return_value = updated_target
+                else:
+                    mock_res.fetchone.return_value = target_row
+            elif req_id == source_id:
+                mock_res.fetchone.return_value = source_row
+        return mock_res
+
+    db.execute = mock_exec
+    db.commit = AsyncMock()
+
+    body = MergeCaseRequest(source_case_id=str(source_id))
+    merged = await merge_case(case_id=str(target_id), body=body, db=db, user=user)
+
+    assert merged.id == target_id
+    assert merged.severity == "critical"
+    assert len(merged.alert_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_split_case_endpoint():
+    """Verify POST /cases/{source_id}/split extracts alerts into a new Case."""
+    from unittest.mock import AsyncMock
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import SplitCaseRequest, split_case
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+
+    source_id = uuid.uuid4()
+    a1_id, a2_id = uuid.uuid4(), uuid.uuid4()
+
+    source_row = MagicMock(
+        id=source_id,
+        case_number="CASE-ORIG",
+        title="Original Big Incident",
+        description="Original desc",
+        severity="high",
+        status="new",
+        assignee=None,
+        mitre_techniques=["T1046", "T1110"],
+        alert_ids=[a1_id, a2_id],
+        observable_graph={},
+        evidence_chain=[],
+        compliance_frameworks=[],
+        opened_at=datetime.now(UTC),
+        triaged_at=None,
+        resolved_at=None,
+        closed_at=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        created_by="analyst",
+        tags={"auto_created": True},
+        sla_due_at=None,
+    )
+
+    new_case_id = uuid.uuid4()
+    split_result_row = MagicMock(
+        id=new_case_id,
+        case_number="CASE-SPLIT1",
+        title="Split Case",
+        description="Split desc",
+        severity="high",
+        status="new",
+        assignee=None,
+        mitre_techniques=["T1046", "T1110"],
+        alert_ids=[a2_id],
+        observable_graph={},
+        evidence_chain=[],
+        compliance_frameworks=[],
+        opened_at=datetime.now(UTC),
+        triaged_at=None,
+        resolved_at=None,
+        closed_at=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        created_by="system:case-split",
+        tags={"split_from": str(source_id)},
+        sla_due_at=None,
+    )
+
+    db = MagicMock()
+
+    async def mock_exec(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        mock_res = MagicMock()
+        if "WHERE id = :id" in sql:
+            params = getattr(stmt, "_bindparams", {})
+            param_dict = {k: getattr(v, "value", v) for k, v in params.items()}
+            req_id = param_dict.get("id")
+            if req_id == source_id:
+                mock_res.fetchone.return_value = source_row
+            else:
+                mock_res.fetchone.return_value = split_result_row
+        return mock_res
+
+    db.execute = mock_exec
+    db.commit = AsyncMock()
+
+    body = SplitCaseRequest(alert_ids=[a2_id], title="Split Case")
+    res = await split_case(case_id=str(source_id), body=body, db=db, user=user)
+
+    assert res.title == "Split Case"
+    assert res.created_by == "system:case-split"
+    assert a2_id in res.alert_ids
+
 
 

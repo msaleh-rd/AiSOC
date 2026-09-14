@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { casesApi, type Case, type CasesResponse } from '@/lib/api';
+import { casesApi, realtimeApi, type Case, type CasesResponse } from '@/lib/api';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { EmptyState, EmptyStateIcons } from '@/components/ui/EmptyState';
@@ -162,6 +162,64 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   );
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [reCorrelating, setReCorrelating] = useState(false);
+
+  // Subscribe to realtime case updates (live severity escalation notifications)
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let closed = false;
+
+    void (async () => {
+      let token: string;
+      try {
+        ({ token } = await realtimeApi.ticket());
+      } catch {
+        return;
+      }
+      if (closed) return;
+      const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${wsProto}://${window.location.host}/ws/cases?token=${encodeURIComponent(token)}`;
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data as string) as Record<string, unknown>;
+            if (msg.type === 'case.updated') {
+              if (msg.event_type === 'escalation') {
+                const caseNum = String(
+                  msg.case_number || (msg.case_id ? String(msg.case_id).slice(0, 8) : ''),
+                );
+                const newSev = String(msg.severity || '').toUpperCase();
+                const oldSev = String(msg.old_severity || '').toUpperCase();
+                toast(
+                  `⚠️ Case ${caseNum} escalated from ${oldSev} to ${newSev}`,
+                  {
+                    icon: '🚨',
+                    duration: 6000,
+                    style: {
+                      background: '#1e1b4b',
+                      color: '#e0e7ff',
+                      border: '1px solid #4338ca',
+                    },
+                  },
+                );
+              }
+              void mutate();
+            }
+          } catch {
+            // ignore malformed payloads
+          }
+        };
+      } catch {
+        // ws not available; polling covers updates
+      }
+    })();
+
+    return () => {
+      closed = true;
+      if (ws) ws.close();
+    };
+  }, [mutate]);
 
   const cases = (casesData?.cases || []).filter((c) => {
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -189,6 +247,39 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           <p className="text-sm text-gray-500 mt-0.5">Manage security investigations and incidents</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              setReCorrelating(true);
+              try {
+                const res = await casesApi.reCorrelate({ windowHours: 24 });
+                if (res.orphan_count === 0) {
+                  toast.success('No orphan alerts found to correlate in the last 24h');
+                } else {
+                  toast.success(
+                    `Re-correlated ${res.orphan_count} orphan alert(s): ${res.cases_created} new case(s), ${res.cases_grouped} grouped`,
+                  );
+                }
+                void mutate();
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Re-correlation failed');
+              } finally {
+                setReCorrelating(false);
+              }
+            }}
+            disabled={reCorrelating}
+            className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-medium px-3.5 py-2 rounded-lg border border-gray-700/60 transition-colors"
+            title="Scan for orphan alerts from the last 24h and correlate them into Cases"
+          >
+            {reCorrelating ? (
+              <div className="w-4 h-4 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {reCorrelating ? 'Re-Correlating…' : 'Re-Correlate Alerts'}
+          </button>
           <button
             type="button"
             onClick={() => setCreateOpen(true)}

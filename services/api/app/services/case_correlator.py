@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -26,6 +27,42 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+
+async def notify_case_realtime(
+    tenant_id: str | uuid.UUID,
+    case_id: str | uuid.UUID,
+    case_number: str | None,
+    event_type: str,
+    severity: str | None = None,
+    old_severity: str | None = None,
+    title: str | None = None,
+    summary: str | None = None,
+) -> None:
+    """Best-effort async fan-out of case lifecycle events to the realtime service."""
+    realtime_url = os.environ.get("REALTIME_URL", "http://localhost:8086")
+    internal_token = os.environ.get("INTERNAL_TOKEN", "")
+    headers = {"Content-Type": "application/json"}
+    if internal_token:
+        headers["X-Internal-Token"] = internal_token
+    payload = {
+        "tenant_id": str(tenant_id),
+        "case_id": str(case_id),
+        "case_number": case_number,
+        "event_type": event_type,
+        "severity": severity,
+        "old_severity": old_severity,
+        "title": title,
+        "summary": summary,
+    }
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(f"{realtime_url}/internal/case-event", headers=headers, json=payload)
+    except Exception as exc:  # noqa: BLE001 - best effort, never fail database transaction
+        logger.debug("case_correlator.realtime_notify_failed: %s", exc)
+
 
 # Severity rank ladder (higher = more severe)
 _SEVERITY_ORDER: dict[str, int] = {
@@ -329,7 +366,37 @@ class CaseCorrelator:
                 body=comment_body,
             )
             await db.execute(insert_comment_sql)
+
+            # Check for severity escalation
+            is_escalated = _SEVERITY_ORDER.get(new_severity, 0) > _SEVERITY_ORDER.get(existing_severity, 0)
+            if is_escalated:
+                escalation_comment = (
+                    f"[Severity Escalated] Case severity elevated from {existing_severity.upper()} to {new_severity.upper()} "
+                    f"by incoming alert '{title}'."
+                )
+                insert_escalation_sql = text("""
+                    INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+                    VALUES (gen_random_uuid(), :case_id, :tenant_id, 'system:auto-correlator', :body, TRUE, now())
+                """).bindparams(
+                    case_id=case_id,
+                    tenant_id=tenant_id,
+                    body=escalation_comment,
+                )
+                await db.execute(insert_escalation_sql)
+
             await db.commit()
+
+            # Realtime fan-out
+            await notify_case_realtime(
+                tenant_id=tenant_id,
+                case_id=case_id,
+                case_number=case_number,
+                event_type="escalation" if is_escalated else "grouped",
+                severity=new_severity,
+                old_severity=existing_severity if is_escalated else None,
+                title=title,
+                summary=f"Case severity elevated to {new_severity.upper()} by alert '{title}'." if is_escalated else None,
+            )
 
             logger.info(
                 "case_correlator.grouped_alert",
@@ -337,6 +404,7 @@ class CaseCorrelator:
                 case_id=str(case_id),
                 case_number=case_number,
                 total_alerts=len(updated_alerts),
+                escalated=is_escalated,
             )
 
             return CorrelationResult(
@@ -428,6 +496,17 @@ class CaseCorrelator:
         )
         await db.execute(insert_comment_sql)
         await db.commit()
+
+        # Realtime fan-out
+        await notify_case_realtime(
+            tenant_id=tenant_id,
+            case_id=new_case_id,
+            case_number=new_case_number,
+            event_type="created",
+            severity=severity,
+            title=case_title,
+            summary=f"New case auto-created from alert '{title}' on {primary_entity or 'unassigned entity'}.",
+        )
 
         logger.info(
             "case_correlator.created_case",

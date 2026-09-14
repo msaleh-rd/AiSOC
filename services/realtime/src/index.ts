@@ -675,6 +675,89 @@ app.post('/internal/agent-event', internalEventRateLimit, (req, res) => {
   res.status(202).json({ broadcast: true, tenantId });
 });
 
+// --- Internal case event broadcast (escalation, grouping, merge, split) ---
+// POST /internal/case-event
+// Body: { tenant_id?: string, case_id: string, case_number?: string, event_type: string, severity?: string, old_severity?: string, title?: string, summary?: string }
+app.post('/internal/case-event', internalEventRateLimit, (req, res) => {
+  if (!requireInternal(req, res)) return;
+
+  const { tenant_id, case_id, case_number, event_type, severity, old_severity, title, summary } = req.body as {
+    tenant_id?: string;
+    case_id: string;
+    case_number?: string;
+    event_type: 'escalation' | 'grouped' | 'created' | 'merged' | 'split' | string;
+    severity?: string;
+    old_severity?: string;
+    title?: string;
+    summary?: string;
+  };
+
+  if (!case_id || !event_type) {
+    res.status(400).json({ error: 'case_id and event_type are required' });
+    return;
+  }
+
+  const tenantId = tenant_id || 'default';
+  broadcastToTenant(tenantId, {
+    type: 'case.updated',
+    case_id,
+    case_number: case_number ?? null,
+    event_type,
+    severity: severity ?? null,
+    old_severity: old_severity ?? null,
+    title: title ?? null,
+    summary: summary ?? null,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Also publish to Redis for SSE subscribers
+  const redisPub = new Redis(REDIS_URL);
+  const payload = JSON.stringify({
+    type: 'case.updated',
+    case_id,
+    case_number: case_number ?? null,
+    event_type,
+    severity: severity ?? null,
+    old_severity: old_severity ?? null,
+    title: title ?? null,
+    timestamp: new Date().toISOString(),
+  });
+  redisPub
+    .publish(`aisoc:events:${tenantId}`, payload)
+    .then(() => redisPub.disconnect())
+    .catch((err: unknown) => log.warn({ err }, 'Redis publish failed'));
+
+  // Fan out push notification if severity escalated to critical or high
+  if (
+    pushManager.enabled &&
+    event_type === 'escalation' &&
+    (severity === 'critical' || severity === 'high')
+  ) {
+    const dispNum = case_number || case_id.slice(0, 8);
+    pushManager
+      .sendToTarget(
+        { tenant_id: tenantId, topic: 'p0_alert' },
+        {
+          title: `Case ${dispNum} escalated to ${severity?.toUpperCase()}`,
+          body:
+            summary ||
+            `Case severity escalated from ${(old_severity || 'unknown').toUpperCase()} to ${severity.toUpperCase()}.`,
+          url: `/cases/${case_id}`,
+          tag: `case-escalation-${case_id}`,
+          topic: 'p0_alert',
+          severity: severity as 'critical' | 'high',
+          case_id,
+        },
+      )
+      .catch((err: unknown) =>
+        log.warn({ err, tenantId }, 'push fan-out for case escalation failed'),
+      );
+  }
+
+  res.status(202).json({ broadcast: true, tenantId });
+});
+
+
 // --- Health endpoint ---
 // Expose both `/health` (canonical) and `/healthz` (k8s + frontend default) so
 // callers don't have to guess.
