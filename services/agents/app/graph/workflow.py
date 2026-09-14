@@ -193,10 +193,69 @@ async def supervisor_node(state: dict) -> dict:
 
 
 async def gather_evidence_node(state: dict) -> dict:
-    """Gather forensic evidence from entities."""
+    """Gather forensic evidence from entities and the platform alert store."""
     s = _from_dict(state)
     s = await run_enrichment(s)
     s.add_finding("Evidence gathering completed via enrichment agent")
+
+    # Pull related alerts from the platform datastore so compression / RCA /
+    # swarm operate on real sibling telemetry instead of a single event.
+    try:
+        from app.evidence import collect_related_alerts  # noqa: PLC0415
+
+        raw = s.raw_alert or {}
+        hostnames = {str(h) for h in (raw.get("affected_hosts") or []) if h}
+        if raw.get("hostname"):
+            hostnames.add(str(raw["hostname"]))
+        device = raw.get("device")
+        if isinstance(device, dict) and device.get("name"):
+            hostnames.add(str(device["name"]))
+        ips = {str(i) for i in (raw.get("affected_ips") or []) if i}
+        for key in ("src_ip", "dst_ip"):
+            if raw.get(key):
+                ips.add(str(raw[key]))
+        users = {str(u) for u in (raw.get("affected_users") or []) if u}
+        for entity in s.entities:
+            if isinstance(entity, dict) and entity.get("value"):
+                etype = entity.get("entity_type")
+                if etype == "host":
+                    hostnames.add(str(entity["value"]))
+                elif etype == "ip":
+                    ips.add(str(entity["value"]))
+                elif etype == "user":
+                    users.add(str(entity["value"]))
+
+        related = await collect_related_alerts(
+            tenant_id=str(s.tenant_id),
+            hostnames=sorted(hostnames),
+            ips=sorted(ips),
+            users=sorted(users),
+            exclude_alert_id=str(s.incident_id),
+        )
+        if related:
+            seen_ids = {
+                e.get("alert_id")
+                for e in s.entities
+                if isinstance(e, dict) and e.get("alert_id")
+            }
+            added = 0
+            for event in related:
+                if event.get("alert_id") not in seen_ids:
+                    seen_ids.add(event.get("alert_id"))
+                    s.entities.append(event)
+                    added += 1
+            s.add_finding(
+                f"Platform evidence: {added} related alerts collected for "
+                f"{len(hostnames)} host(s), {len(ips)} IP(s), {len(users)} user(s)"
+            )
+        else:
+            s.add_finding(
+                "Platform evidence: no related alerts found for the involved entities"
+            )
+    except Exception as exc:  # noqa: BLE001
+        s.add_finding(f"Platform evidence collection unavailable: {exc}")
+        logger.warning("supervised.platform_evidence_failed", error=str(exc))
+
     return s.to_dict()
 
 

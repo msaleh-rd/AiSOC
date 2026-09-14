@@ -430,22 +430,58 @@ async def investigate_alert(
 
     alert = (
         await db.execute(
-            select(Alert.title, Alert.description).where(
+            select(Alert).where(
                 Alert.id == alert_uuid,
                 Alert.tenant_id == current_user.tenant_id,
             )
         )
-    ).first()
+    ).scalar_one_or_none()
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found.")
 
-    title, description = alert
-    alert_summary = f"{title}\n\n{description}" if description else str(title)
+    alert_summary = (
+        f"{alert.title}\n\n{alert.description}" if alert.description else str(alert.title)
+    )
+    # Feed the agents the machine-readable context, not just prose. The
+    # deterministic triage/IOC/RCA stages key off raw_alert fields
+    # (src_ip, risk_score, mitre_techniques, hostname, raw_event…) — with
+    # an empty raw_alert they extract nothing and the whole pipeline
+    # degrades to guesswork.
+    raw_event = alert.raw_event if isinstance(alert.raw_event, dict) else {}
+    raw_alert: dict[str, Any] = {
+        **raw_event,
+        "title": alert.title,
+        "severity": alert.severity,
+        "category": alert.category,
+        "risk_score": (alert.ai_score if alert.ai_score is not None else None)
+        or (alert.confidence / 100 if alert.confidence is not None else 0.0),
+        "mitre_tactics": alert.mitre_tactics or [],
+        "mitre_techniques": alert.mitre_techniques or [],
+        "affected_ips": alert.affected_ips or [],
+        "affected_hosts": alert.affected_hosts or [],
+        "affected_users": alert.affected_users or [],
+    }
+    # Promote well-known IOC/entity fields to the flat keys triage extracts.
+    if alert.affected_ips:
+        raw_alert.setdefault("src_ip", alert.affected_ips[0])
+        if len(alert.affected_ips) > 1:
+            raw_alert.setdefault("dst_ip", alert.affected_ips[1])
+    if alert.affected_hosts:
+        raw_alert.setdefault("hostname", alert.affected_hosts[0])
+    # OCSF events carry the host identity at device.name / actor paths, not
+    # in affected_hosts (which connectors frequently leave empty).
+    device = raw_event.get("device")
+    if isinstance(device, dict) and device.get("name"):
+        raw_alert.setdefault("hostname", str(device["name"]))
 
     resp = await _agents_proxy(
         "POST",
         f"/api/v1/cases/{alert_uuid}/investigate",
-        json={"alert_summary": alert_summary, "tenant_id": str(current_user.tenant_id)},
+        json={
+            "alert_summary": alert_summary,
+            "raw_alert": raw_alert,
+            "tenant_id": str(current_user.tenant_id),
+        },
     )
     if resp.status_code >= 400:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)

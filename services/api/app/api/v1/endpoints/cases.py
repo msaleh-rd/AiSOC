@@ -1114,13 +1114,87 @@ async def case_investigate(
     user: AuthUser,
 ) -> dict[str, Any]:
     cid = await _resolve_case_id(case_id, db, user.tenant_id)
-    exists = (
+    case_row = (
         await db.execute(
-            text("SELECT 1 FROM aisoc_cases WHERE id = :id AND tenant_id = :tenant_id").bindparams(id=cid, tenant_id=user.tenant_id)
+            text(
+                "SELECT title, description, alert_ids FROM aisoc_cases "
+                "WHERE id = :id AND tenant_id = :tenant_id"
+            ).bindparams(id=cid, tenant_id=user.tenant_id)
         )
-    ).fetchone()
-    if not exists:
+    ).mappings().first()
+    if not case_row:
         raise HTTPException(status_code=404, detail="Case not found.")
+
+    # Build a machine-readable context from the case's linked alerts so the
+    # agents' deterministic triage/IOC/evidence stages have real fields to
+    # work with — a bare prose summary starves the whole pipeline (same fix
+    # as the alert-path investigate endpoint).
+    summary_parts: list[str] = [str(case_row["title"] or "")]
+    if case_row["description"]:
+        summary_parts.append(str(case_row["description"]))
+    if body.alert_summary:
+        summary_parts.append(body.alert_summary)
+
+    raw_alert: dict[str, Any] = {}
+    alert_ids = [str(a) for a in (case_row["alert_ids"] or [])][:25]
+    if alert_ids:
+        alert_rows = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT id, title, description, severity, category, "
+                        "ai_score, confidence, mitre_tactics, mitre_techniques, "
+                        "affected_ips, affected_hosts, affected_users, raw_event "
+                        "FROM alerts WHERE id = ANY(CAST(:ids AS UUID[])) "
+                        "AND tenant_id = :tenant_id ORDER BY created_at ASC"
+                    ).bindparams(ids=alert_ids, tenant_id=user.tenant_id)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        ips: list[str] = []
+        hosts: list[str] = []
+        users: list[str] = []
+        tactics: list[str] = []
+        techniques: list[str] = []
+        for a in alert_rows:
+            summary_parts.append(f"Linked alert [{a['severity']}]: {a['title']}")
+            for src, dst in (
+                (a["affected_ips"], ips),
+                (a["affected_hosts"], hosts),
+                (a["affected_users"], users),
+                (a["mitre_tactics"], tactics),
+                (a["mitre_techniques"], techniques),
+            ):
+                for v in src or []:
+                    if v and v not in dst:
+                        dst.append(v)
+        if alert_rows:
+            primary = alert_rows[0]
+            raw_event = primary["raw_event"] if isinstance(primary["raw_event"], dict) else {}
+            raw_alert = {
+                **raw_event,
+                "title": primary["title"],
+                "severity": primary["severity"],
+                "category": primary["category"],
+                "risk_score": (
+                    primary["ai_score"]
+                    if primary["ai_score"] is not None
+                    else (primary["confidence"] / 100 if primary["confidence"] is not None else 0.0)
+                ),
+                "mitre_tactics": tactics,
+                "mitre_techniques": techniques,
+                "affected_ips": ips,
+                "affected_hosts": hosts,
+                "affected_users": users,
+            }
+            if ips:
+                raw_alert.setdefault("src_ip", ips[0])
+                if len(ips) > 1:
+                    raw_alert.setdefault("dst_ip", ips[1])
+            if hosts:
+                raw_alert.setdefault("hostname", hosts[0])
 
     # Forward the authenticated tenant so the agents service attributes the run
     # to the real tenant instead of falling back to the "default" placeholder,
@@ -1129,7 +1203,11 @@ async def case_investigate(
     resp = await _agents_proxy(
         "POST",
         f"/api/v1/cases/{cid}/investigate",
-        json={"alert_summary": body.alert_summary or "", "tenant_id": str(user.tenant_id)},
+        json={
+            "alert_summary": "\n\n".join(p for p in summary_parts if p),
+            "raw_alert": raw_alert,
+            "tenant_id": str(user.tenant_id),
+        },
     )
     if resp.status_code >= 400:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)

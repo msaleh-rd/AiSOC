@@ -150,6 +150,13 @@ def _build_alert_context(state: InvestigationState, pseudonymizer: Any) -> str:
     service makes never sends raw customer PII to a (potentially
     third-party) model. Callers rehydrate any LLM-authored text derived from
     this context (e.g. the rationale) before it reaches an analyst.
+
+    Prompt-size discipline (local-model optimization): Wazuh/Suricata alerts
+    embed massive nested objects (``raw_event``, ``data``, ``sca``,
+    ``compliance``, ``full_log`` dumps) that can blow the prompt to 5,000+
+    tokens.  We strip deeply-nested dicts/lists and cap string values so the
+    prompt stays under ~1,500 tokens — fast enough for a 20B local model at
+    10-12 t/s to finish well within the 180s timeout.
     """
     raw = pseudonymizer.redact_value(state.raw_alert or {})
     parts = [
@@ -176,12 +183,32 @@ def _build_alert_context(state: InvestigationState, pseudonymizer: Any) -> str:
     if techniques:
         parts.append(f"MITRE Techniques: {', '.join(sanitize_text(str(t)) for t in techniques)}")
 
-    extra_keys = {k for k in raw if k not in {"severity", "risk_score", "mitre_techniques", *ioc_fields}}
+    # ── Prompt-size guard ────────────────────────────────────────────────
+    # Strip keys whose values are large nested structures (raw_event blobs,
+    # compliance arrays, full-log dumps) — they add thousands of tokens but
+    # rarely change the triage verdict.  Keep only shallow scalar/short-list
+    # keys that the LLM can actually reason over in one pass.
+    _ALWAYS_STRIP = {
+        "severity", "risk_score", "mitre_techniques", *ioc_fields,
+        # Bulky nested blobs from Wazuh / Suricata / OCSF:
+        "raw_event", "data", "full_log", "sca", "compliance",
+        "predecoder", "decoder", "previous_log", "previous_output",
+        "manager", "location", "input", "output", "_source",
+    }
+    extra_keys = sorted(
+        k for k in raw
+        if k not in _ALWAYS_STRIP
+        # Also skip any remaining deeply-nested values at runtime
+        and not isinstance(raw[k], dict)
+        and not (isinstance(raw[k], list) and raw[k] and isinstance(raw[k][0], dict))
+    )
     if extra_keys:
-        extras = {k: raw[k] for k in sorted(extra_keys)[:10]}
-        parts.append("Additional fields (summary, not raw JSON):\n" + format_extra_fields_for_llm(extras))
+        extras = {k: raw[k] for k in extra_keys[:8]}
+        parts.append("Additional fields (summary, not raw JSON):\n" + format_extra_fields_for_llm(extras, max_keys=8))
 
     return wrap_untrusted("\n".join(parts), label="alert_telemetry")
+
+
 
 
 def _parse_llm_response(text: str) -> dict[str, Any]:
