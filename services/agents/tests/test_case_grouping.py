@@ -149,3 +149,114 @@ async def test_auto_group_alert_creates_and_groups():
     assert "T1110" in c["mitre_techniques"]
     assert conn.alerts[a1_id]["case_id"] == case_id
     assert conn.alerts[a2_id]["case_id"] == case_id
+
+
+@pytest.mark.asyncio
+async def test_end_to_end_case_grouping_and_investigation_report():
+    """End-to-End Test: 3 correlated alerts auto-group into 1 Case, and Forensics Engine investigates the Case."""
+    from app.forensics.engine import ForensicsEngine
+
+    conn = MockAsyncpgConnection()
+    tenant_id = uuid.uuid4()
+
+    # 1. Incoming Alert 1: External Port Scan
+    a1_id = uuid.uuid4()
+    a1 = {
+        "id": str(a1_id),
+        "title": "Firewall External Port Scan",
+        "severity": "low",
+        "affected_hosts": ["inetfw"],
+        "src_ip": "192.42.1.174",
+        "mitre_techniques": ["T1046"],
+        "timestamp": "2026-05-14T08:00:00Z",
+    }
+    conn.alerts[a1_id] = a1
+
+    # 2. Incoming Alert 2: SSH Brute Force
+    a2_id = uuid.uuid4()
+    a2 = {
+        "id": str(a2_id),
+        "title": "SSH Failed Logins (Brute Force)",
+        "severity": "medium",
+        "affected_hosts": ["inetfw"],
+        "src_ip": "192.42.1.174",
+        "mitre_techniques": ["T1110", "T1078"],
+        "timestamp": "2026-05-14T08:05:00Z",
+    }
+    conn.alerts[a2_id] = a2
+
+    # 3. Incoming Alert 3: Suricata ELF Malware Download
+    a3_id = uuid.uuid4()
+    a3 = {
+        "id": str(a3_id),
+        "title": "Suricata Suspicious ELF Executable Download",
+        "severity": "critical",
+        "affected_hosts": ["inetfw"],
+        "src_ip": "192.42.1.174",
+        "mitre_techniques": ["T1105", "T1059.004"],
+        "timestamp": "2026-05-14T08:12:00Z",
+    }
+    conn.alerts[a3_id] = a3
+
+    # Run auto-grouping sequentially as they arrive
+    r1 = await auto_group_alert(conn, alert_id=a1_id, tenant_id=tenant_id, raw_alert=a1)
+    r2 = await auto_group_alert(conn, alert_id=a2_id, tenant_id=tenant_id, raw_alert=a2)
+    r3 = await auto_group_alert(conn, alert_id=a3_id, tenant_id=tenant_id, raw_alert=a3)
+
+    # All 3 alerts MUST belong to the exact same Case container
+    case_id = uuid.UUID(r1["case_id"])
+    assert r2["case_id"] == str(case_id)
+    assert r3["case_id"] == str(case_id)
+    assert r1["action"] == "created"
+    assert r2["action"] == "grouped"
+    assert r3["action"] == "grouped"
+
+    final_case = conn.cases[case_id]
+    assert len(final_case["alert_ids"]) == 3
+    assert final_case["severity"] == "critical"
+    assert "T1046" in final_case["mitre_techniques"]
+    assert "T1110" in final_case["mitre_techniques"]
+    assert "T1105" in final_case["mitre_techniques"]
+
+    # Now simulate launching an AI Case Investigation on the Case container:
+    # Project case alerts into the investigation payload (mirroring /cases/{id}/investigate)
+    case_alert_summary = (
+        f"Case {final_case['case_number']}: {final_case['title']}\n"
+        f"Linked alert [low]: {a1['title']}\n"
+        f"Linked alert [medium]: {a2['title']}\n"
+        f"Linked alert [critical]: {a3['title']}"
+    )
+    combined_raw_alert = {
+        "title": final_case["title"],
+        "severity": final_case["severity"],
+        "hostname": "inetfw",
+        "src_ip": "192.42.1.174",
+        "affected_hosts": ["inetfw"],
+        "affected_ips": ["192.42.1.174"],
+        "mitre_techniques": final_case["mitre_techniques"],
+    }
+    simulated_telemetry = [
+        {"ts": a1["timestamp"], "host": "inetfw", "ip": "192.42.1.174", "action": "port_scan", "stage": "reconnaissance"},
+        {"ts": a2["timestamp"], "host": "inetfw", "ip": "192.42.1.174", "action": "failed_ssh", "stage": "initial-access"},
+        {"ts": a3["timestamp"], "host": "inetfw", "ip": "192.42.1.174", "action": "download_elf", "stage": "execution"},
+    ]
+
+    # Run Forensics Engine on the Case container
+    engine = ForensicsEngine()
+    package = engine.analyze(
+        events=simulated_telemetry,
+        incident_id=str(case_id),
+        incident_host="inetfw",
+        raw_alert=combined_raw_alert,
+    )
+
+    assert package.kill_chain_phases is not None
+    assert package.attack_chain is not None
+    assert len(package.timeline) >= 3
+
+    # Render final Deterministic Investigation Report
+    report = package.markdown_report or engine.report_generator.generate(package)
+    assert "# Investigation Report" in report
+    assert "inetfw" in report
+    assert "Initial Access" in report
+

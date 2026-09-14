@@ -406,3 +406,131 @@ async def test_idempotent_alert_submission():
     assert r2.is_new_case is False
     assert r2.case_id == r1.case_id
     assert len(session.cases[r1.case_id]["alert_ids"]) == 1
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Endpoint Tests for Cases API
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_case_alerts_endpoint():
+    """Verify GET /cases/{case_id}/alerts returns the full alert records."""
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import get_case_alerts
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+    cid = uuid.uuid4()
+    aid = uuid.uuid4()
+
+    db = AsyncMock()
+    case_row = MagicMock()
+    case_row.id = cid
+    case_row.alert_ids = [aid]
+
+    alert_row = {
+        "id": aid,
+        "tenant_id": tenant_id,
+        "title": "Port Scan",
+        "description": "Port scan desc",
+        "severity": "medium",
+        "status": "new",
+        "priority": 50,
+        "category": "network",
+        "mitre_tactics": ["reconnaissance"],
+        "mitre_techniques": ["T1046"],
+        "connector_type": "suricata",
+        "ai_score": 0.8,
+        "ai_summary": "Suspicious scan",
+        "ai_recommendations": [],
+        "confidence": 85,
+        "confidence_label": "high",
+        "confidence_rationale": [],
+        "disposition": None,
+        "affected_ips": ["192.42.1.174"],
+        "affected_hosts": ["inetfw"],
+        "affected_users": [],
+        "case_id": cid,
+        "tags": [],
+        "event_time": datetime.now(UTC),
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+
+    async def mock_execute(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        mock_res = MagicMock()
+        if "SELECT alert_ids FROM aisoc_cases" in sql:
+            mock_res.fetchone.return_value = case_row
+        elif "SELECT id, tenant_id, title" in sql:
+            mappings_mock = MagicMock()
+            mappings_mock.all.return_value = [alert_row]
+            mock_res.mappings.return_value = mappings_mock
+        return mock_res
+
+    db.execute = mock_execute
+
+    res = await get_case_alerts(case_id=str(cid), db=db, user=user)
+    assert res["total"] == 1
+    assert len(res["alerts"]) == 1
+    assert res["alerts"][0]["title"] == "Port Scan"
+    assert res["alerts"][0]["case_id"] == cid
+
+
+@pytest.mark.asyncio
+async def test_auto_correlate_alerts_endpoint():
+    """Verify POST /cases/auto-correlate sweeps alerts and correlates them into Cases."""
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import AutoCorrelateRequest, auto_correlate_alerts
+
+    tenant_id = uuid.uuid4()
+    user = CurrentUser(user_id=uuid.uuid4(), tenant_id=tenant_id, role="analyst", email="analyst@example.com")
+
+    aid = uuid.uuid4()
+    alert_row = {
+        "id": aid,
+        "tenant_id": tenant_id,
+        "title": "Port Scan",
+        "description": "Port scan desc",
+        "severity": "medium",
+        "status": "new",
+        "mitre_tactics": ["reconnaissance"],
+        "mitre_techniques": ["T1046"],
+        "affected_ips": ["192.42.1.174"],
+        "affected_hosts": ["inetfw"],
+        "affected_users": [],
+        "case_id": None,
+        "tags": {},
+        "enrichment_data": {},
+        "event_time": datetime.now(UTC),
+    }
+
+    session = MockAsyncSession()
+    session.alerts[aid] = alert_row
+
+    orig_execute = session.execute
+
+    async def mock_exec(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        if "FROM alerts" in sql and "aisoc_cases" not in sql:
+            mappings_mock = MagicMock()
+            mappings_mock.all.return_value = [alert_row]
+            mock_res = MagicMock()
+            mock_res.mappings.return_value = mappings_mock
+            return mock_res
+        return await orig_execute(stmt)
+
+    session.execute = mock_exec
+
+    req = AutoCorrelateRequest(alert_ids=[aid])
+    res = await auto_correlate_alerts(body=req, db=session, user=user)
+
+    assert res.correlated_count == 1
+    assert res.cases_created == 1
+    assert res.cases_grouped == 0
+    assert len(res.results) == 1
+    assert res.results[0]["action"] == "created"
+    assert res.results[0]["case_id"] is not None
+
+
