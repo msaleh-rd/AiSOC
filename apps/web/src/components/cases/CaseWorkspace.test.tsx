@@ -153,19 +153,17 @@ describe('CaseWorkspace', () => {
     );
   });
 
-  it('shows the demo banner when the backend errors out', () => {
+  it('surfaces a real error instead of demo data when the backend errors out', () => {
     swrState.caseData = undefined;
     swrState.caseError = new Error('fetch failed');
 
     render(<CaseWorkspace caseId="INC-001" />);
 
-    // Falls back to buildDemoCase, so the demo title renders…
+    expect(screen.getByText(/couldn't load case/i)).toBeInTheDocument();
+    // No fabricated case may be substituted for a failed fetch.
     expect(
-      screen.getByRole('heading', { level: 1, name: /lateral movement from finance subnet/i }),
-    ).toBeInTheDocument();
-
-    // …and the demo-mode banner is visible so the analyst knows it's not live data.
-    expect(screen.getByText(/demo data — writes disabled/i)).toBeInTheDocument();
+      screen.queryByRole('heading', { level: 1, name: /lateral movement from finance subnet/i }),
+    ).not.toBeInTheDocument();
   });
 
   describe('attack-chain panel', () => {

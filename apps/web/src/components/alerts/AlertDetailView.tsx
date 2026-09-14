@@ -305,7 +305,14 @@ function AIInvestigation({ alertId }: { alertId: string }) {
       pollRef.current = null;
     }
   };
-  useEffect(() => stopPolling, []);
+  // Also tears down when the rail switches to a different alert, so a stale
+  // poll can't keep writing another alert's run into this panel.
+  useEffect(() => {
+    setInvestigation(null);
+    setError(null);
+    setIsRunning(false);
+    return stopPolling;
+  }, [alertId]);
 
   const startInvestigation = async () => {
     setIsRunning(true);
@@ -392,7 +399,7 @@ function AIInvestigation({ alertId }: { alertId: string }) {
           <span className={clsx(
             'w-2 h-2 rounded-full',
             investigation.status === 'completed' ? 'bg-green-500' :
-            investigation.status === 'running' ? 'bg-blue-500 animate-pulse' :
+            investigation.status === 'running' || investigation.status === 'pending' ? 'bg-blue-500 animate-pulse' :
             'bg-red-500'
           )} />
           <span className="text-xs text-gray-400 capitalize">{investigation.status}</span>
@@ -453,9 +460,7 @@ function AIInvestigation({ alertId }: { alertId: string }) {
                 <span className="text-xs text-gray-500">→</span>
                 <span className="text-xs text-gray-300 font-mono">{action.target}</span>
               </div>
-              <button className="text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 px-2 py-1 rounded transition-colors">
-                Execute
-              </button>
+              <span className="text-xs text-gray-500">{action.status}</span>
             </div>
           ))}
         </div>

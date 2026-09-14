@@ -1144,20 +1144,59 @@ async def list_case_investigations(
 ) -> dict[str, Any]:
     """List all investigation runs for a case.
 
-    The agents service is the source of truth.  When it's unreachable we return
-    an empty list rather than 503 so the case detail page still renders.
+    Reads the durable Postgres ledger rather than the agents service's
+    in-process run cache, so runs remain listable across agent restarts.
+    ``investigation_runs.case_id`` is free text and may hold either the case
+    UUID or its case number, so match on both.
     """
     cid = await _resolve_case_id(case_id, db, user.tenant_id)
-    try:
-        resp = await _agents_proxy("GET", f"/api/v1/cases/{cid}/investigations")
-        if resp.status_code == 404:
-            return {"runs": []}
-        if resp.status_code >= 400:
-            return {"runs": []}
-        return resp.json()
-    except HTTPException:
-        # Agents service unavailable — render a soft-empty list instead of 503.
-        return {"runs": []}
+    row = (
+        await db.execute(
+            text("SELECT case_number FROM aisoc_cases WHERE id = :id AND tenant_id = :tenant_id").bindparams(
+                id=cid, tenant_id=user.tenant_id
+            )
+        )
+    ).mappings().first()
+    aliases = [str(cid)]
+    if row and row["case_number"]:
+        aliases.append(str(row["case_number"]))
+
+    result = await db.execute(
+        text(
+            """
+            SELECT id::text        AS run_id,
+                   case_id,
+                   status,
+                   model_used,
+                   error,
+                   total_tokens,
+                   total_cost_usd,
+                   iterations,
+                   started_at,
+                   completed_at
+            FROM investigation_runs
+            WHERE tenant_id = :tenant_id AND case_id = ANY(:aliases)
+            ORDER BY started_at DESC
+            LIMIT 50
+            """
+        ).bindparams(tenant_id=user.tenant_id, aliases=aliases)
+    )
+    runs = [
+        {
+            "run_id": r["run_id"],
+            "case_id": r["case_id"],
+            "status": r["status"],
+            "model_used": r["model_used"],
+            "error": r["error"],
+            "total_tokens": int(r["total_tokens"] or 0),
+            "total_cost_usd": float(r["total_cost_usd"] or 0),
+            "iterations": int(r["iterations"] or 0),
+            "started_at": r["started_at"].isoformat() if r["started_at"] else None,
+            "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
+        }
+        for r in result.mappings().all()
+    ]
+    return {"runs": runs}
 
 
 @router.get("/{case_id}/investigations/{run_id}", summary="Get investigation run")
