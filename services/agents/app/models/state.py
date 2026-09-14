@@ -109,5 +109,11 @@ class InvestigationState(BaseModel):
     def add_finding(self, finding: str) -> None:
         self.findings.append(finding)
 
+    def record_action(self, action: str) -> None:
+        counts = dict(self.action_counts or {})
+        counts[action] = counts.get(action, 0) + 1
+        self.action_counts = counts
+        self.iteration_count += 1
+
     def to_dict(self) -> dict:
         return self.model_dump(mode="json")

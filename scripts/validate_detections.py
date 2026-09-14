@@ -44,6 +44,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 try:
     import yaml
 except ImportError:
@@ -223,7 +228,7 @@ def validate_rule(
     errors: list[str] = []
 
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             rule = yaml.safe_load(f)
     except yaml.YAMLError as exc:
         return [f"YAML parse error: {exc}"], None

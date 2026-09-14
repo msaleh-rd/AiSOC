@@ -43,7 +43,7 @@ pytestmark = pytest.mark.integration
 
 
 # Test config — env-overridable so CI can point at the dockerised stack.
-INGEST_BASE_URL = os.environ.get("AISOC_INGEST_URL", "http://localhost:8080")
+INGEST_BASE_URL = os.environ.get("AISOC_INGEST_URL", "http://localhost:8081")
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", os.environ.get("KAFKA_BROKERS", "localhost:9092"))
 NEO4J_URI = os.environ.get("AISOC_NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("AISOC_NEO4J_USER", "neo4j")

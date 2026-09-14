@@ -27,7 +27,17 @@ from app.connectors.base import Capability
 
 # Import the conformance generator by path so the drift assertion uses the same
 # code the CLI does.
-_SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
+def _find_scripts_dir() -> Path:
+    cur = Path(__file__).resolve()
+    for p in (cur, *cur.parents):
+        if (p / "scripts" / "connector_conformance.py").is_file():
+            return p / "scripts"
+    if Path("/app/scripts").is_dir():
+        return Path("/app/scripts")
+    parents = cur.parents
+    return (parents[3] if len(parents) > 3 else parents[-1]) / "scripts"
+
+_SCRIPTS = _find_scripts_dir()
 sys.path.insert(0, str(_SCRIPTS))
 import connector_conformance as cc  # noqa: E402
 

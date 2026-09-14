@@ -215,6 +215,7 @@ class ReActSupervisor:
             "RULES:\n"
             "- You MUST select finalize_response when RCA confidence >= 0.75\n"
             "- You MUST select compress_events before perform_rca\n"
+            "- If events are already compressed (Compressed: yes) and RCA confidence < 0.70, select perform_rca or run_swarm\n"
             "- You MUST select finalize_response if all action budgets are exhausted\n"
             "- Each action can run at most 3 times\n\n"
             "CURRENT STATE:\n"
@@ -395,14 +396,26 @@ class ReActSupervisor:
         known: set[str] = set()
         for entity in state.entities or []:
             if isinstance(entity, dict) and entity.get("id"):
-                known.add(str(entity["id"]))
+                ent_id = str(entity["id"])
+                known.add(ent_id)
+                if entity.get("type"):
+                    known.add(f"{entity['type']}:{ent_id}")
+            elif isinstance(entity, str):
+                known.add(entity)
         for key in ("hostname", "username", "src_ip", "dst_ip", "entity_id", "entity"):
             value = (state.raw_alert or {}).get(key)
             if value:
                 known.add(str(value))
 
-        sanitized = [e for e in decision.target_entities if str(e) in known]
-        dropped = [e for e in decision.target_entities if str(e) not in known]
+        def is_known(ent_str: str) -> bool:
+            if ent_str in known:
+                return True
+            if ":" in ent_str:
+                return ent_str.split(":", 1)[1] in known
+            return False
+
+        sanitized = [e for e in decision.target_entities if is_known(str(e))]
+        dropped = [e for e in decision.target_entities if not is_known(str(e))]
         if dropped:
             logger.warning("supervisor.dropped_unknown_target_entities", dropped=dropped[:10])
         decision.target_entities = sanitized

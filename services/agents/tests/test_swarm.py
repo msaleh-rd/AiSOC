@@ -58,7 +58,7 @@ def test_complexity_gate_fires_on_tactic_diversity_alone():
 
 def test_swarm_fans_out_and_scores_hypotheses():
     results = run_swarm_sync(RANSOMWARE)
-    assert len(results) == min(5, len(HYPOTHESES))
+    assert len(results) == min(7, len(HYPOTHESES))
     by_key = {r.key: r for r in results}
     # Ransomware + lateral-movement should score well; the FP-backup hypothesis low.
     assert by_key["ransomware_staging"].support_score > 0.3
@@ -130,3 +130,60 @@ async def test_llm_swarm_reports_real_token_usage_not_a_fake_constant(monkeypatc
     # The real total from the mocked usage field, not len(results) * 500.
     assert total_tokens == 400
     assert all(r.tokens_spent > 0 for r in results)
+
+
+def test_collect_techniques_extracts_bare_ids_from_decorated_strings_and_entities():
+    from app.swarm.swarm import _collect_techniques, _signal_text
+
+    signal = {
+        "techniques": ["T1040: Network Sniffing", "T1021.002: SMB Shares", "invalid_tech"],
+        "mitre_techniques": ["T1486: Data Encrypted for Impact"],
+        "entities": [
+            {
+                "type": "alert",
+                "title": "Related Alert",
+                "action": "promiscuous mode set",
+                "mitre_techniques": ["T1046: Network Service Scanning"],
+                "mitre_technique_id": "T1595",
+            }
+        ],
+    }
+    found = _collect_techniques(signal)
+    assert found == {"T1040", "T1021.002", "T1486", "T1046", "T1595"}
+
+    text = _signal_text(signal)
+    assert "related alert" in text
+    assert "promiscuous mode set" in text
+
+
+def test_network_recon_wins_on_promiscuous_sniffing_t1040():
+    signal = {
+        "alert_summary": "Promiscuous mode enabled on eth0 with active packet capture",
+        "raw": "tcpdump started, promiscuous sniffing detected",
+        "techniques": ["T1040: Network Sniffing"],
+        "entities": [
+            {"type": "process", "title": "tcpdump", "action": "packet capture"}
+        ],
+    }
+    results = run_swarm_sync(signal)
+    outcome = hold_debate(results)
+    assert outcome.winner is not None
+    assert outcome.winner.key == "network_recon"
+    assert not outcome.winner.benign
+    assert any("T1040" in e for e in outcome.winner.evidence)
+    assert any("promiscuous" in e or "sniffing" in e for e in outcome.winner.evidence)
+
+
+def test_no_evidence_guard_returns_none_and_insufficient_evidence():
+    signal = {
+        "alert_summary": "Printer ran out of paper in office 302",
+        "raw": "tray 2 empty, normal routine message",
+        "techniques": [],
+        "entities": [],
+    }
+    results = run_swarm_sync(signal)
+    outcome = hold_debate(results)
+    assert outcome.winner is None
+    assert outcome.ledger_payload.get("insufficient_evidence") is True
+    assert outcome.ledger_payload.get("winner") is None
+    assert outcome.ledger_payload.get("winner_confidence") == 0.0

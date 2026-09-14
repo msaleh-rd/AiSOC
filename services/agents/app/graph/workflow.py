@@ -305,9 +305,17 @@ async def run_swarm_node(state: dict) -> dict:
         results = await run_swarm_llm(signal)
         outcome = hold_debate(results)
         if outcome.winner:
+            evidence_bits = list(outcome.winner.evidence)[:6]
+            evidence_note = (
+                f" — evidence: {', '.join(evidence_bits)}" if evidence_bits else ""
+            )
             s.add_finding(
                 f"Swarm winner: {outcome.winner.label} "
-                f"(confidence: {outcome.winner.confidence:.2f})"
+                f"(confidence: {outcome.winner.confidence:.2f}){evidence_note}"
+            )
+        else:
+            s.add_finding(
+                "Swarm: no hypothesis gained evidentiary support — no verdict asserted"
             )
     except Exception as exc:  # noqa: BLE001
         s.add_finding(f"Swarm failed: {exc}")
@@ -348,6 +356,19 @@ async def perform_rca_node(state: dict) -> dict:
             f"(confidence: {result.confidence:.2f}, "
             f"blast radius: {result.estimated_blast_radius})"
         )
+
+        # Best-effort LLM synthesis of the causal candidates into an
+        # analyst-readable narrative. The PageRank result above remains
+        # authoritative — a synthesis failure never fails the investigation.
+        try:
+            from app.rca.synthesis import synthesize_rca_narrative  # noqa: PLC0415
+
+            narrative = await synthesize_rca_narrative(s.rca_findings, s.alert_summary)
+            if narrative:
+                s.rca_findings["narrative"] = narrative
+                s.add_finding(f"RCA narrative: {narrative}")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("supervised.rca_synthesis_failed", error=str(exc))
     except Exception as exc:  # noqa: BLE001
         s.add_finding(f"RCA failed: {exc}")
         logger.warning("supervised.rca_failed", error=str(exc))

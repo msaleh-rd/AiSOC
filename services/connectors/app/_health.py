@@ -85,6 +85,23 @@ def install_health_routes(app: FastAPI, *, service_name: str) -> tuple[Callable[
         return {"status": "alive", "service": service_name}
 
     @app.get(
+        "/health",
+        tags=["system"],
+    )
+    async def _health() -> Response:
+        if state["ready"]:
+            return Response(
+                content='{"status":"healthy","service":"' + service_name + '"}',
+                media_type="application/json",
+                status_code=200,
+            )
+        return Response(
+            content='{"status":"starting","service":"' + service_name + '"}',
+            media_type="application/json",
+            status_code=503,
+        )
+
+    @app.get(
         "/readyz",
         tags=["system"],
         include_in_schema=False,
