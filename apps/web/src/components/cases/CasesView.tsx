@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import useSWR from 'swr';
@@ -51,13 +51,14 @@ function CaseCard({ c }: { c: Case }) {
   const sts = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.open;
   const displayId = c.caseNumber ?? `${c.id ?? ''}`.slice(-6);
   const detailHref = `/cases/${encodeURIComponent(c.caseNumber ?? c.id)}`;
+  const alertCount = c.alertCount ?? c.alertIds?.length ?? 0;
 
   return (
     <Link href={detailHref} className="block">
       <div className="bg-gray-900/60 border border-gray-800/60 rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all group">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={clsx('text-xs font-medium px-2 py-0.5 rounded border', sev.className)}>
                 {sev.label}
               </span>
@@ -65,12 +66,35 @@ function CaseCard({ c }: { c: Case }) {
                 <span className={clsx('w-1.5 h-1.5 rounded-full', sts.dot)} />
                 {sts.label}
               </span>
+              {c.autoCorrelated && (
+                <span
+                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 uppercase tracking-wide"
+                  title={c.correlationReason ?? 'Auto-correlated by the correlation engine'}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  Auto-Correlated
+                </span>
+              )}
+              {alertCount > 1 && (
+                <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  {alertCount} alerts grouped
+                </span>
+              )}
             </div>
             <h3 className="text-sm font-medium text-gray-200 group-hover:text-white truncate">{c.title}</h3>
             <div className="flex items-center gap-3 mt-2">
               <span className="text-xs text-gray-500">#{displayId}</span>
               <span className="text-xs text-gray-500">·</span>
-              <span className="text-xs text-gray-500">{c.alertCount ?? 0} alerts</span>
+              <span className="text-xs text-gray-500">{alertCount} alerts</span>
+              {c.correlationReason && (
+                <>
+                  <span className="text-xs text-gray-500">·</span>
+                  <span className="text-xs text-cyan-400/70" title={c.correlationReason}>{c.correlationReason}</span>
+                </>
+              )}
               {c.assignee && (
                 <>
                   <span className="text-xs text-gray-500">·</span>
@@ -129,6 +153,8 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const [search, setSearch] = useState('');
   const [newCaseOpen, setNewCaseOpen] = useState(false);
 
+  const [autoCorrelatedFilter, setAutoCorrelatedFilter] = useState(false);
+
   const { data: casesData, isLoading, mutate } = useSWR(
     ['cases', statusFilter, severityFilter],
     () => casesApi.list({ status: statusFilter !== 'all' ? statusFilter : undefined }),
@@ -140,10 +166,12 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const cases = (casesData?.cases || []).filter((c) => {
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (severityFilter !== 'all' && c.severity !== severityFilter) return false;
+    if (autoCorrelatedFilter && !c.autoCorrelated) return false;
     return true;
   });
 
   const allCases = casesData?.cases ?? [];
+  const autoCorrelatedCount = allCases.filter(c => c.autoCorrelated).length;
   const statCounts = {
     all: allCases.length,
     open: allCases.filter(c => c.status === 'open').length,
@@ -241,6 +269,31 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+
+        <button
+          onClick={() => setAutoCorrelatedFilter(!autoCorrelatedFilter)}
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
+            autoCorrelatedFilter
+              ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+              : 'bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-600'
+          )}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Auto-Correlated
+          {autoCorrelatedCount > 0 && (
+            <span className={clsx(
+              'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+              autoCorrelatedFilter
+                ? 'bg-cyan-500/25 text-cyan-200'
+                : 'bg-gray-800 text-gray-500'
+            )}>
+              {autoCorrelatedCount}
+            </span>
+          )}
+        </button>
 
         <span className="text-xs text-gray-500">{cases.length} cases</span>
       </div>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * Case workspace.
@@ -46,6 +46,7 @@ import { ContextualActions } from '@/components/copilot/ContextualActions';
 type WorkspaceTab =
   | 'overview'
   | 'investigation'
+  | 'linked-alerts'
   | 'attack-path'
   | 'attack-chain'
   | 'ledger'
@@ -54,6 +55,7 @@ type WorkspaceTab =
 const VALID_TABS: readonly WorkspaceTab[] = [
   'overview',
   'investigation',
+  'linked-alerts',
   'attack-path',
   'attack-chain',
   'ledger',
@@ -211,6 +213,244 @@ function TaskRow({ task, onChangeStatus }: TaskRowProps) {
         </div>
       </div>
     </li>
+  );
+}
+
+// ─── Linked Alerts Panel ──────────────────────────────────────────────────────
+
+const ALERT_SEVERITY_BADGE: Record<string, string> = {
+  critical: 'bg-red-500/15 text-red-300 ring-1 ring-red-500/30',
+  high: 'bg-orange-500/15 text-orange-300 ring-1 ring-orange-500/30',
+  medium: 'bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-500/30',
+  low: 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30',
+  info: 'bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30',
+};
+
+const VERDICT_BADGE: Record<string, { label: string; className: string }> = {
+  true_positive: { label: 'True Positive', className: 'bg-red-500/15 text-red-300 ring-1 ring-red-500/30' },
+  false_positive: { label: 'False Positive', className: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30' },
+  suspicious: { label: 'Suspicious', className: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30' },
+  benign: { label: 'Benign', className: 'bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30' },
+  needs_review: { label: 'Needs Review', className: 'bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/30' },
+};
+
+function LinkedAlertsPanel({
+  caseId,
+  caseRecord,
+}: {
+  caseId: string;
+  caseRecord: Case;
+}) {
+  const { data: alerts, isLoading: alertsLoading } = useSWR(
+    ['case-alerts', caseId],
+    () => casesApi.getAlerts(caseId),
+    { revalidateOnFocus: false },
+  );
+
+  const { data: comments } = useSWR(
+    ['case-comments', caseId],
+    () => casesApi.getComments(caseId),
+    { revalidateOnFocus: false },
+  );
+
+  // Filter auto-correlation system comments for the timeline
+  const correlationComments = (comments ?? [])
+    .filter(
+      (c) =>
+        String(c.author ?? '').includes('auto-correlator') ||
+        String(c.body ?? '').includes('[Auto-Correlation]'),
+    )
+    .sort((a, b) => {
+      const ta = new Date(String(a.created_at ?? a.createdAt ?? 0)).getTime();
+      const tb = new Date(String(b.created_at ?? b.createdAt ?? 0)).getTime();
+      return ta - tb;
+    });
+
+  return (
+    <div className="space-y-4 p-1">
+      {/* Auto-Correlation Info Banner */}
+      {caseRecord.autoCorrelated && (
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/15">
+              <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-cyan-200">Auto-Correlated Case</h4>
+              <p className="mt-1 text-xs text-cyan-300/70">
+                This case was automatically created by the correlation engine.{' '}
+                {caseRecord.correlationReason && (
+                  <span className="font-medium text-cyan-300">{caseRecord.correlationReason}.</span>
+                )}
+              </p>
+              {caseRecord.primaryEntity && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wide text-cyan-400/60">Primary Entity</span>
+                  <span className="rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-xs font-mono text-cyan-300">
+                    {caseRecord.primaryEntity}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Linked Alerts Grid */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-200">
+            Linked Alerts ({alerts?.length ?? caseRecord.alertCount ?? 0})
+          </h3>
+        </div>
+
+        {alertsLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+          </div>
+        ) : !alerts || alerts.length === 0 ? (
+          <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-8 text-center">
+            <p className="text-sm text-slate-400">No alerts linked to this case yet.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Alerts are automatically grouped when matching entities or attack chains are detected.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {alerts.map((alert, idx) => {
+              const alertId = String(alert.id ?? '');
+              const title = String(alert.title ?? 'Untitled Alert');
+              const severity = String(alert.severity ?? 'medium').toLowerCase();
+              const verdict = String(alert.verdict ?? alert.disposition ?? alert.status ?? '');
+              const eventTime = alert.event_time ?? alert.eventTime ?? alert.created_at ?? alert.createdAt;
+              const hosts = Array.isArray(alert.affected_hosts) ? alert.affected_hosts.map(String) : [];
+              const ips = Array.isArray(alert.affected_ips) ? alert.affected_ips.map(String) : [];
+              const users = Array.isArray(alert.affected_users) ? alert.affected_users.map(String) : [];
+              const mitre = Array.isArray(alert.mitre_techniques)
+                ? alert.mitre_techniques.map((t: unknown) =>
+                    typeof t === 'object' && t !== null
+                      ? String((t as Record<string, unknown>).technique_id ?? (t as Record<string, unknown>).id ?? '')
+                      : String(t ?? '')
+                  ).filter(Boolean)
+                : [];
+              const source = String(alert.source ?? alert.connector_id ?? '');
+              const sevBadge = ALERT_SEVERITY_BADGE[severity] ?? ALERT_SEVERITY_BADGE.medium;
+              const verdictInfo = VERDICT_BADGE[verdict.toLowerCase().replace(/[\s-]+/g, '_')];
+
+              return (
+                <Link
+                  key={alertId || idx}
+                  href={`/alerts?focus=${encodeURIComponent(alertId)}`}
+                  className="block"
+                >
+                  <div className="group rounded-xl border border-slate-800/60 bg-slate-900/40 px-4 py-3 transition-all hover:border-slate-700 hover:bg-slate-800/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className={clsx('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide', sevBadge)}>
+                            {severity}
+                          </span>
+                          {verdictInfo && (
+                            <span className={clsx('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold', verdictInfo.className)}>
+                              {verdictInfo.label}
+                            </span>
+                          )}
+                          {source && (
+                            <span className="text-[10px] text-slate-500 font-mono bg-slate-800/60 px-1.5 py-0.5 rounded">
+                              {source}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-slate-200 group-hover:text-white truncate">
+                          {title}
+                        </p>
+
+                        {/* Entity indicators */}
+                        {(hosts.length > 0 || ips.length > 0 || users.length > 0) && (
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            {hosts.slice(0, 2).map((h) => (
+                              <span key={h} className="inline-flex items-center gap-1 rounded border border-slate-700/50 bg-slate-800/30 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                <span className="text-blue-400">◆</span> {h}
+                              </span>
+                            ))}
+                            {ips.slice(0, 2).map((ip) => (
+                              <span key={ip} className="inline-flex items-center gap-1 rounded border border-slate-700/50 bg-slate-800/30 px-1.5 py-0.5 text-[10px] text-slate-400 font-mono">
+                                <span className="text-green-400">●</span> {ip}
+                              </span>
+                            ))}
+                            {users.slice(0, 2).map((u) => (
+                              <span key={u} className="inline-flex items-center gap-1 rounded border border-slate-700/50 bg-slate-800/30 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                <span className="text-amber-400">◉</span> {u}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* MITRE techniques */}
+                        {mitre.length > 0 && (
+                          <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                            {mitre.slice(0, 3).map((t: string) => (
+                              <span key={t} className="rounded-full border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-medium text-orange-300">
+                                {t}
+                              </span>
+                            ))}
+                            {mitre.length > 3 && (
+                              <span className="text-[9px] text-slate-500">+{mitre.length - 3} more</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        {eventTime ? (
+                          <p className="text-[10px] text-slate-500" suppressHydrationWarning>
+                            {format(new Date(String(eventTime)), 'MMM dd, HH:mm:ss')}
+                          </p>
+                        ) : null}
+                        <p className="mt-0.5 text-[9px] font-mono text-slate-600">{alertId.slice(-8)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Correlation Timeline */}
+      {correlationComments.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-200">Correlation Timeline</h3>
+          <div className="relative">
+            <div className="absolute left-3 top-0 bottom-0 w-px bg-cyan-500/20" />
+            <ul className="space-y-3">
+              {correlationComments.map((comment, idx) => {
+                const body = String(comment.body ?? '');
+                const createdAt = comment.created_at ?? comment.createdAt;
+                return (
+                  <li key={idx} className="relative pl-8">
+                    <span className="absolute left-1 top-2 flex h-4 w-4 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10">
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    </span>
+                    <div className="rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2">
+                      <p className="text-xs text-slate-300">{body}</p>
+                      {createdAt ? (
+                        <p className="mt-1 text-[10px] text-slate-500" suppressHydrationWarning>
+                          {format(new Date(String(createdAt)), 'MMM dd, HH:mm:ss')}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -819,6 +1059,17 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                   graph
                 </span>
               </span>
+            ) : tab === 'linked-alerts' ? (
+              <span className="inline-flex items-center gap-1">
+                Linked alerts
+                {caseRecord && (caseRecord.alertCount ?? caseRecord.alertIds?.length ?? 0) > 0 && (
+                  <span
+                    className="rounded bg-purple-500/15 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-purple-300 ring-1 ring-purple-500/30"
+                  >
+                    {caseRecord.alertCount ?? caseRecord.alertIds?.length ?? 0}
+                  </span>
+                )}
+              </span>
             ) : tab === 'attack-chain' ? (
               <span className="inline-flex items-center gap-1">
                 Attack chain
@@ -880,9 +1131,39 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
         />
       )}
 
+      {/* Linked alerts tab — shows all correlated alerts with details */}
+      {activeTab === 'linked-alerts' && (
+        <LinkedAlertsPanel
+          caseId={caseRecord.id || caseId}
+          caseRecord={caseRecord}
+        />
+      )}
+
       {/* Overview: Three-pane layout */}
       {activeTab === 'overview' && (
       <div className="space-y-4">
+        {/* Auto-Correlation compact banner */}
+        {caseRecord.autoCorrelated && (
+          <div className="flex items-center gap-3 rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-4 py-2.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15">
+              <svg className="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </span>
+            <span className="text-xs text-cyan-300/80">
+              <span className="font-semibold text-cyan-200">Auto-Correlated</span>
+              {caseRecord.correlationReason && (
+                <> &mdash; {caseRecord.correlationReason}</>
+              )}
+            </span>
+            <button
+              onClick={() => setActiveTab('linked-alerts')}
+              className="ml-auto text-[10px] font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              View alerts &rarr;
+            </button>
+          </div>
+        )}
         {/*
           Ambient Copilot — case-scoped contextual AI. We pass a compact
           snapshot of the case (no embedded alert blobs or full timeline) so the

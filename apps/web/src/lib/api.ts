@@ -1332,6 +1332,14 @@ export interface Case {
   dueAt?: string;
   timeline?: CaseTimelineEvent[];
   tasks?: CaseTask[];
+  /** True when the case was auto-created by the correlation engine. */
+  autoCorrelated?: boolean;
+  /** Human-readable reason for the correlation (e.g. "shared host: web-srv-01"). */
+  correlationReason?: string;
+  /** Primary entity the case is anchored to (e.g. "host:web-srv-01"). */
+  primaryEntity?: string;
+  /** Raw JSONB tags object from the backend (preserved for correlation metadata). */
+  rawTags?: Record<string, unknown>;
 }
 
 // The backend uses a 6-state lifecycle (`new | triaged | investigating |
@@ -1485,16 +1493,36 @@ function normalizeCase(raw: unknown): Case {
   const r = (raw ?? {}) as Record<string, unknown>;
   const tagsRaw = r.tags;
   let tags: string[] | undefined;
+  let rawTags: Record<string, unknown> | undefined;
+  let autoCorrelated = false;
+  let primaryEntity: string | undefined;
+  let correlationReason: string | undefined;
+
   if (Array.isArray(tagsRaw)) {
     tags = tagsRaw.map((t) => String(t));
-  } else if (
-    tagsRaw &&
-    typeof tagsRaw === 'object' &&
-    Array.isArray((tagsRaw as Record<string, unknown>).labels)
-  ) {
-    tags = ((tagsRaw as Record<string, unknown>).labels as unknown[]).map((t) =>
-      String(t),
-    );
+  } else if (tagsRaw && typeof tagsRaw === 'object') {
+    const tagsObj = tagsRaw as Record<string, unknown>;
+    rawTags = tagsObj;
+    // Extract labels for backward-compat display
+    if (Array.isArray(tagsObj.labels)) {
+      tags = (tagsObj.labels as unknown[]).map((t) => String(t));
+    }
+    // Extract auto-correlation metadata from JSONB tags
+    if (tagsObj.auto_created === true || tagsObj.autoCreated === true) {
+      autoCorrelated = true;
+    }
+    if (typeof tagsObj.primary_entity === 'string' && tagsObj.primary_entity) {
+      primaryEntity = tagsObj.primary_entity;
+      // Build human-readable correlation reason from the primary entity
+      const [kind, ...rest] = primaryEntity.split(':');
+      const entity = rest.join(':');
+      correlationReason = entity ? `Shared ${kind}: ${entity}` : `Correlated by ${kind}`;
+    }
+    if (typeof tagsObj.chain_id === 'string' && tagsObj.chain_id) {
+      correlationReason = correlationReason
+        ? `${correlationReason} + attack chain`
+        : 'Correlated attack chain';
+    }
   }
 
   const alertIds = Array.isArray(r.alert_ids)
@@ -1560,6 +1588,10 @@ function normalizeCase(raw: unknown): Case {
       ? (r.timeline as CaseTimelineEvent[])
       : undefined,
     tasks: Array.isArray(r.tasks) ? (r.tasks as CaseTask[]) : undefined,
+    autoCorrelated,
+    correlationReason,
+    primaryEntity,
+    rawTags,
   };
 }
 
@@ -1676,6 +1708,35 @@ export const casesApi = {
       method: 'PATCH',
       body: JSON.stringify(task),
     }),
+
+  /** Fetch all alerts linked to this case via the correlation engine. */
+  getAlerts: async (caseId: string) => {
+    try {
+      const raw = await request<unknown>(`/api/v1/cases/${caseId}/alerts`);
+      // Backend may return {alerts: [...]} envelope or a bare array.
+      if (Array.isArray(raw)) return raw as Array<Record<string, unknown>>;
+      if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).alerts)) {
+        return (raw as Record<string, unknown>).alerts as Array<Record<string, unknown>>;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Fetch system comments (includes auto-correlation audit entries). */
+  getComments: async (caseId: string) => {
+    try {
+      const raw = await request<unknown>(`/api/v1/cases/${caseId}/comments`);
+      if (Array.isArray(raw)) return raw as Array<Record<string, unknown>>;
+      if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).comments)) {
+        return (raw as Record<string, unknown>).comments as Array<Record<string, unknown>>;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
 
   investigate: (caseId: string, alertSummary?: string) =>
     request<{ run_id: string; case_id: string; status: string; message: string }>(
