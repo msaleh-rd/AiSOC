@@ -644,6 +644,18 @@ def _deterministic_summary(
         )
 
     desc = (alert.description or "").strip()
+    if desc.startswith("{"):
+        try:
+            parsed = json.loads(desc)
+            if isinstance(parsed, dict):
+                extracted = parsed.get("description") or parsed.get("message") or ""
+                desc = str(extracted).strip()
+            else:
+                desc = ""
+        except Exception:
+            if "}" in desc and '"' in desc:
+                desc = ""
+
     if desc:
         snippet = desc if len(desc) <= 240 else desc[:237] + "…"
         parts.append(snippet)

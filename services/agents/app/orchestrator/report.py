@@ -217,6 +217,15 @@ def render_router_report_md(
                 lines.append(f"| {label} | {value} |")
             lines.append("")
 
+    # 5c. Deterministic Forensics & Attack Chain (Track A)
+    fp = getattr(state, "forensic_package", None) or {}
+    attack_chain = fp.get("attack_chain") or (state.rca_findings or {}).get("attack_chain")
+    if attack_chain:
+        lines.append("## Attack Chain")
+        lines.append("")
+        lines.append(" → ".join(f"`{_md_escape(s)}`" for s in attack_chain))
+        lines.append("")
+
     # 6. Proposed actions --------------------------------------------------
     actions_lines = _proposed_actions_table(state.proposed_actions)
     if actions_lines:

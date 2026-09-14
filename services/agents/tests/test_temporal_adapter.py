@@ -177,3 +177,83 @@ async def test_stream_kwargs_yields_error_when_workflow_raises(monkeypatch: pyte
     error_events = [e for e in events if e["type"] == "error"]
     assert len(error_events) == 1
     assert "workflow failed" in error_events[0]["error"]
+
+
+@pytest.mark.asyncio
+async def test_temporal_adapter_with_forensic_package_and_attack_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify Temporal adapter renders attack chain from forensic package in final state."""
+    handle = _FakeHandle(
+        progress_sequence=[{"phase": "gather_evidence"}, {"phase": "finalize_response"}],
+        final_result={
+            "incident_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "status": "completed",
+            "verdict": "true_positive",
+            "confidence": 0.95,
+            "findings": ["Initial brute force followed by tool download"],
+            "rca_findings": {
+                "root_cause_entity": "host:inetfw",
+                "attack_chain": ["inetfw:brute_force", "linuxshare:donotcry"],
+            },
+            "forensic_package": {
+                "incident_host": "inetfw",
+                "attack_chain": ["inetfw:brute_force", "linuxshare:donotcry"],
+                "kill_chain_phases": {"initial_access": {"status": "confirmed", "vector": "brute_force"}},
+            },
+        },
+    )
+
+    async def _fake_start(**kwargs):  # noqa: ANN003
+        return handle
+
+    monkeypatch.setattr(client_mod, "start_investigation", _fake_start)
+
+    events = await _collect(
+        adapter_mod.TemporalOrchestratorAdapter().stream_kwargs(
+            case_id=_CASE_1,
+            alert_summary="Ransomware campaign",
+            raw_alert={},
+            tenant_id=_TENANT_A,
+        )
+    )
+
+    done_events = [e for e in events if e["type"] == "done"]
+    assert len(done_events) == 1
+    state = done_events[0]["state"]
+    assert "## Attack Chain" in state["report_md"]
+    assert "inetfw:brute_force" in state["report_md"]
+    assert "linuxshare:donotcry" in state["report_md"]
+    assert "<html" in state["report_html"]
+
+
+@pytest.mark.asyncio
+async def test_temporal_activities_forensic_execution():
+    """Verify Temporal activities execute ForensicsEngine and propagate attack chain."""
+    from app.temporal.activities import finalize_response_activity, gather_evidence_activity
+
+    init_state = {
+        "run_id": str(uuid4()),
+        "incident_id": str(uuid4()),
+        "tenant_id": str(uuid4()),
+        "status": "running",
+        "alert_summary": "Infiltration attempt",
+        "raw_alert": {
+            "hostname": "inetfw",
+            "description": "Failed password for admin from 192.42.1.174",
+            "score": 85.0,
+        },
+        "findings": [],
+        "entities": [],
+    }
+
+    # 1. gather_evidence_activity runs deterministic forensics
+    ev_state = await gather_evidence_activity(init_state)
+    assert "forensic_package" in ev_state
+    assert len(ev_state["forensic_package"]["attack_chain"]) > 0
+    assert any("Forensic attack chain:" in f for f in ev_state["findings"])
+
+    # 2. finalize_response_activity propagates attack_chain to rca_findings
+    fin_state = await finalize_response_activity(ev_state)
+    assert fin_state["status"] == "completed"
+    assert fin_state["rca_findings"]["attack_chain"] == ev_state["forensic_package"]["attack_chain"]
+

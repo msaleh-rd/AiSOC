@@ -141,7 +141,7 @@ async def run_swarm(
     signal: dict,
     *,
     hypotheses: list[Hypothesis] | None = None,
-    max_agents: int = 7,
+    max_agents: int = 8,
     per_agent_budget: int = DEFAULT_PER_AGENT_TOKEN_BUDGET,
 ) -> list[HypothesisResult]:
     """Fan out up to ``max_agents`` hypothesis agents in parallel."""

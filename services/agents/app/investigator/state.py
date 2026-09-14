@@ -73,10 +73,13 @@ class ReconFindings(BaseModel):
 
 
 class ForensicFindings(BaseModel):
-    """Output of ForensicAgent."""
+    """Output of ForensicAgent and deterministic ForensicsEngine."""
 
     timeline: list[dict[str, Any]] = Field(default_factory=list)  # [{ts, event, src}]
     artefacts: list[str] = Field(default_factory=list)
+    attack_chain: list[str] = Field(default_factory=list)
+    kill_chain_phases: dict[str, Any] = Field(default_factory=dict)
+    forensic_package: dict[str, Any] = Field(default_factory=dict)
     root_cause_hypothesis: str = ""
     blast_radius: str = ""
     confidence: float = 0.0  # 0–1

@@ -99,6 +99,8 @@ class InvestigationState(BaseModel):
     compressed_events: list[dict[str, Any]] = Field(default_factory=list)
     # Output from the PageRank RCA engine.
     rca_findings: dict[str, Any] = Field(default_factory=dict)
+    # Output from the deterministic ForensicsEngine (Track A).
+    forensic_package: dict[str, Any] = Field(default_factory=dict)
     # Per-action iteration counter (e.g. {"gather_evidence": 2, "perform_rca": 1}).
     action_counts: dict[str, int] = Field(default_factory=dict)
     # Supervisor decision audit trail (appended by each supervisor step).

@@ -58,7 +58,7 @@ def test_complexity_gate_fires_on_tactic_diversity_alone():
 
 def test_swarm_fans_out_and_scores_hypotheses():
     results = run_swarm_sync(RANSOMWARE)
-    assert len(results) == min(7, len(HYPOTHESES))
+    assert len(results) == min(8, len(HYPOTHESES))
     by_key = {r.key: r for r in results}
     # Ransomware + lateral-movement should score well; the FP-backup hypothesis low.
     assert by_key["ransomware_staging"].support_score > 0.3

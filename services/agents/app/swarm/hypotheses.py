@@ -74,4 +74,12 @@ HYPOTHESES: list[Hypothesis] = [
         contradicts_keywords=frozenset({"unknown process", "unauthorized", "mimikatz", "ransom note"}),
         benign=True,
     ),
+    Hypothesis(
+        key="ingress_tool_transfer",
+        label="Ingress tool transfer / binary download",
+        supports_keywords=frozenset({"download", "curl", "wget", "payload", "dropper", "elf", "executable", "ingress", "binary", "donotcry", "staged tool"}),
+        contradicts_keywords=frozenset({"package update", "apt-get", "trusted repo"}),
+        techniques=frozenset({"T1105", "T1204", "T1059"}),
+    ),
 ]
+

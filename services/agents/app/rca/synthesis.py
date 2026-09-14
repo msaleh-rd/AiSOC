@@ -40,6 +40,10 @@ def _build_prompt(rca: dict, alert_summary: str) -> str:
     top_entities = sorted(pagerank.items(), key=lambda kv: kv[1], reverse=True)[:5]
     pagerank_lines = [f"- {entity}: {score:.4f}" for entity, score in top_entities]
 
+    attack_chain = rca.get("attack_chain") or []
+    chain_str = " → ".join(attack_chain) if attack_chain else ""
+    chain_line = f"- Reconstructed attack chain: {chain_str}\n" if chain_str else ""
+
     return (
         "You are a senior SOC analyst reviewing an automated root cause "
         "analysis. Using ONLY the structured findings below, write a concise "
@@ -52,6 +56,7 @@ def _build_prompt(rca: dict, alert_summary: str) -> str:
         "Root cause analysis (PageRank over the causal event graph):\n"
         f"- Computed root cause entity: {rca.get('root_cause_entity', 'unknown')}\n"
         f"- Target (alerting) entity: {rca.get('target_entity', 'unknown')}\n"
+        f"{chain_line}"
         f"- Confidence: {rca.get('confidence', 0)} ({rca.get('confidence_level', 'unknown')})\n"
         f"- Inferred attack type: {rca.get('attack_type', 'unknown')}\n"
         f"- Supporting evidence items: {rca.get('supporting_evidence_count', 0)}\n"

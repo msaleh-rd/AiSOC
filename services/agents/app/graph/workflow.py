@@ -62,6 +62,24 @@ async def enrichment_node(state: dict) -> dict:
 
 async def investigation_node(state: dict) -> dict:
     s = _from_dict(state)
+    # Deterministic Forensics Engine (Track A) — runs unconditionally
+    try:
+        from app.forensics import ForensicsEngine  # noqa: PLC0415
+
+        engine = ForensicsEngine()
+        pkg = engine.analyze(
+            events=s.compressed_events or [],
+            incident_id=str(s.incident_id),
+            entities=s.entities,
+            raw_alert=s.raw_alert,
+        )
+        s.forensic_package = pkg.to_dict()
+        if pkg.attack_chain:
+            chain_str = " → ".join(pkg.attack_chain)
+            s.add_finding(f"Forensic attack chain: {chain_str}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("workflow.forensics_failed", error=str(exc))
+
     s = await run_investigation(s)
     return s.to_dict()
 
@@ -256,6 +274,24 @@ async def gather_evidence_node(state: dict) -> dict:
         s.add_finding(f"Platform evidence collection unavailable: {exc}")
         logger.warning("supervised.platform_evidence_failed", error=str(exc))
 
+    # Run deterministic ForensicsEngine (Track A) over gathered evidence
+    try:
+        from app.forensics import ForensicsEngine  # noqa: PLC0415
+
+        engine = ForensicsEngine()
+        pkg = engine.analyze(
+            events=s.compressed_events or [],
+            incident_id=str(s.incident_id),
+            entities=s.entities,
+            raw_alert=s.raw_alert,
+        )
+        s.forensic_package = pkg.to_dict()
+        if pkg.attack_chain:
+            chain_str = " → ".join(pkg.attack_chain)
+            s.add_finding(f"Forensic attack chain: {chain_str}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("supervised.gather_evidence_forensics_failed", error=str(exc))
+
     return s.to_dict()
 
 
@@ -379,6 +415,10 @@ async def finalize_response_node(state: dict) -> dict:
     """Generate final response plan and close the investigation."""
     s = _from_dict(state)
     s.status = AgentStatus.COMPLETED
+    if s.forensic_package and s.forensic_package.get("attack_chain"):
+        if not s.rca_findings:
+            s.rca_findings = {}
+        s.rca_findings["attack_chain"] = s.forensic_package["attack_chain"]
     s.add_finding("Investigation finalized by supervisor")
     return s.to_dict()
 
