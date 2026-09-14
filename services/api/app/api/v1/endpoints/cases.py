@@ -55,6 +55,7 @@ from app.services.case_fanout import (
     fanout_status_change,
 )
 from app.services.case_postmortem import build_case_postmortem
+from app.services.case_correlator import notify_case_realtime
 from app.services.case_postmortem_html import render_case_postmortem_html
 from app.services.case_summary import build_case_summary
 from app.services.case_summary_html import render_case_summary_html
@@ -2063,3 +2064,262 @@ async def split_case(
         )
     ).fetchone()
     return _row_to_case(new_row)
+
+
+# ── WS-D / Phase 3 Multi-Alert Case Investigation Synthesis ─────────────────
+
+
+class CaseSynthesisResponse(BaseModel):
+    case_id: str
+    case_number: str | None = None
+    total_alerts: int
+    sources: list[str]
+    severity_breakdown: dict[str, int]
+    compromised_entities: dict[str, list[str]]
+    kill_chain_progression: list[dict[str, Any]]
+    mitre_techniques: list[str]
+    root_cause_summary: str
+    recommended_containment: list[dict[str, str]]
+    synthesized_at: str
+
+
+@router.post(
+    "/{case_id}/synthesize",
+    response_model=CaseSynthesisResponse,
+    summary="Synthesize multi-alert case investigation across correlated alerts",
+)
+async def synthesize_case_investigation(
+    case_id: str,
+    db: DBSession,
+    user: AuthUser,
+) -> dict[str, Any]:
+    """Perform cross-alert forensic synthesis for all alerts linked to this case.
+
+    Aggregates events, IOCs, affected assets, and MITRE kill-chain progression
+    across all correlated alerts into a unified case incident report, logs an
+    auditable system timeline comment, updates the case observable graph, and
+    broadcasts real-time events.
+    """
+    import json as _json
+
+    cid = await _resolve_case_id(case_id, db, user.tenant_id)
+    case_row = (
+        await db.execute(
+            text(
+                "SELECT id, case_number, title, description, severity, status, alert_ids, tags "
+                "FROM aisoc_cases WHERE id = :id AND tenant_id = :tid"
+            ).bindparams(id=cid, tid=user.tenant_id)
+        )
+    ).mappings().first()
+    if not case_row:
+        raise HTTPException(status_code=404, detail="Case not found.")
+
+    alert_ids = list(case_row["alert_ids"] or [])
+    if not alert_ids:
+        raise HTTPException(status_code=400, detail="Case has no linked alerts to synthesize.")
+
+    alert_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT id, title, description, severity, category, source, connector_id, "
+                    "ai_score, confidence, mitre_tactics, mitre_techniques, "
+                    "affected_ips, affected_hosts, affected_users, raw_event, created_at, event_time "
+                    "FROM alerts WHERE id = ANY(CAST(:ids AS UUID[])) "
+                    "AND tenant_id = :tid ORDER BY COALESCE(event_time, created_at) ASC"
+                ).bindparams(ids=[str(a) for a in alert_ids], tid=user.tenant_id)
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    if not alert_rows:
+        raise HTTPException(status_code=400, detail="No alert records found for the linked IDs.")
+
+    # 1. Aggregate entities & attributes across alerts
+    sources_set: set[str] = set()
+    hosts_set: set[str] = set()
+    ips_set: set[str] = set()
+    users_set: set[str] = set()
+    techniques_set: set[str] = set()
+    tactics_set: set[str] = set()
+    sev_counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+
+    for a in alert_rows:
+        sev = str(a["severity"] or "medium").lower()
+        sev_counts[sev] = sev_counts.get(sev, 0) + 1
+
+        src = a.get("source") or a.get("connector_id") or "generic"
+        if src:
+            sources_set.add(str(src))
+
+        for h in a.get("affected_hosts") or []:
+            if h:
+                hosts_set.add(str(h))
+        for ip in a.get("affected_ips") or []:
+            if ip:
+                ips_set.add(str(ip))
+        for u in a.get("affected_users") or []:
+            if u:
+                users_set.add(str(u))
+        for t in a.get("mitre_techniques") or []:
+            if isinstance(t, dict):
+                tid = t.get("technique_id") or t.get("id")
+                if tid:
+                    techniques_set.add(str(tid))
+            elif t:
+                techniques_set.add(str(t))
+        for tac in a.get("mitre_tactics") or []:
+            if tac:
+                tactics_set.add(str(tac))
+
+    # 2. Build Kill-Chain Progression
+    kill_chain_steps: list[dict[str, Any]] = []
+    for idx, a in enumerate(alert_rows, 1):
+        ts = a.get("event_time") or a.get("created_at")
+        ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts or "")
+        raw_techs = a.get("mitre_techniques") or []
+        tech_strs = [
+            (t.get("technique_id") or t.get("id")) if isinstance(t, dict) else str(t)
+            for t in raw_techs
+        ]
+        kill_chain_steps.append({
+            "step": idx,
+            "alert_id": str(a["id"]),
+            "title": a["title"],
+            "severity": a["severity"],
+            "source": str(a.get("source") or a.get("connector_id") or "alert"),
+            "timestamp": ts_str,
+            "techniques": [t for t in tech_strs if t],
+            "hosts": [str(h) for h in (a.get("affected_hosts") or [])],
+            "ips": [str(ip) for ip in (a.get("affected_ips") or [])],
+            "users": [str(u) for u in (a.get("affected_users") or [])],
+        })
+
+    # 3. Formulate Root Cause Summary
+    initial_alert = alert_rows[0]
+    initial_title = initial_alert["title"]
+    initial_host = (initial_alert.get("affected_hosts") or [None])[0]
+    hosts_list = sorted(list(hosts_set))
+    ips_list = sorted(list(ips_set))
+    users_list = sorted(list(users_set))
+    techniques_list = sorted(list(techniques_set))
+    sources_list = sorted(list(sources_set))
+
+    root_cause_lines: list[str] = [
+        f"Multi-alert incident synthesized across {len(alert_rows)} correlated detection(s) from {len(sources_list)} source(s) ({', '.join(sources_list)})."
+    ]
+    if initial_host:
+        root_cause_lines.append(f"Initial intrusion activity anchor: host '{initial_host}' via alert '{initial_title}'.")
+    else:
+        root_cause_lines.append(f"Initial activity initiated via alert '{initial_title}'.")
+
+    if len(hosts_list) > 1:
+        root_cause_lines.append(f"Lateral movement or multi-host impact observed across {len(hosts_list)} systems ({', '.join(hosts_list[:4])}).")
+    if users_list:
+        root_cause_lines.append(f"Associated account(s) under review: {', '.join(users_list[:4])}.")
+
+    root_cause_summary = " ".join(root_cause_lines)
+
+    # 4. Generate Recommended Containment Actions
+    recommended: list[dict[str, str]] = []
+    for h in hosts_list[:3]:
+        recommended.append({
+            "action": "isolate_host",
+            "target": h,
+            "priority": "high",
+            "description": f"Isolate endpoint '{h}' from network to prevent lateral traversal and further staging.",
+        })
+    for ip in ips_list[:3]:
+        recommended.append({
+            "action": "block_network_indicator",
+            "target": ip,
+            "priority": "medium",
+            "description": f"Enforce perimeter firewall / proxy drop rule for IP address '{ip}'.",
+        })
+    for u in users_list[:3]:
+        recommended.append({
+            "action": "revoke_identity_session",
+            "target": u,
+            "priority": "high",
+            "description": f"Revoke active Okta / IdP session tokens and enforce credential rotation for '{u}'.",
+        })
+    if not recommended:
+        recommended.append({
+            "action": "monitor_correlated_entities",
+            "target": "case",
+            "priority": "medium",
+            "description": "Continue heightened monitoring for correlated alerts and telemetry anomalies.",
+        })
+
+    # 5. Insert system audit comment
+    case_num = case_row["case_number"] or str(cid)[:8]
+    audit_body = (
+        f"[Multi-Alert Synthesis] Completed cross-alert forensic synthesis across {len(alert_rows)} alerts. "
+        f"Root cause hypothesis: {root_cause_summary} "
+        f"Identified {len(hosts_list)} host(s), {len(ips_list)} IP(s), {len(users_list)} user(s), and {len(techniques_list)} MITRE technique(s)."
+    )
+    await db.execute(
+        text("""
+            INSERT INTO aisoc_case_comments (id, case_id, tenant_id, author, body, is_system, created_at)
+            VALUES (gen_random_uuid(), :case_id, :tid, 'system:case-synthesizer', :body, TRUE, now())
+        """).bindparams(case_id=cid, tid=user.tenant_id, body=audit_body)
+    )
+
+    # Update case observable_graph with synthesized nodes
+    obs_nodes = []
+    for h in hosts_list:
+        obs_nodes.append({"id": f"host:{h}", "kind": "host", "label": h})
+    for ip in ips_list:
+        obs_nodes.append({"id": f"ip:{ip}", "kind": "ip", "label": ip})
+    for u in users_list:
+        obs_nodes.append({"id": f"user:{u}", "kind": "user", "label": u})
+
+    await db.execute(
+        text("""
+            UPDATE aisoc_cases
+            SET observable_graph = jsonb_set(
+                COALESCE(observable_graph, '{}'::jsonb),
+                '{synthesized_nodes}',
+                CAST(:nodes AS JSONB)
+            ),
+            updated_at = now()
+            WHERE id = :id AND tenant_id = :tid
+        """).bindparams(
+            nodes=_json.dumps(obs_nodes),
+            id=cid,
+            tid=user.tenant_id,
+        )
+    )
+
+    await db.commit()
+
+    # Emit realtime notification
+    await notify_case_realtime(
+        tenant_id=user.tenant_id,
+        case_id=cid,
+        case_number=case_num,
+        event_type="case_synthesized",
+        severity=case_row.get("severity"),
+        title=case_row.get("title"),
+        summary=root_cause_summary,
+    )
+
+    return {
+        "case_id": str(cid),
+        "case_number": case_row["case_number"],
+        "total_alerts": len(alert_rows),
+        "sources": sources_list,
+        "severity_breakdown": sev_counts,
+        "compromised_entities": {
+            "hosts": hosts_list,
+            "ips": ips_list,
+            "users": users_list,
+        },
+        "kill_chain_progression": kill_chain_steps,
+        "mitre_techniques": techniques_list,
+        "root_cause_summary": root_cause_summary,
+        "recommended_containment": recommended,
+        "synthesized_at": datetime.now(UTC).isoformat(),
+    }

@@ -145,9 +145,9 @@ describe('CaseWorkspace', () => {
     expect(screen.getByText('critical')).toBeInTheDocument();
 
     // MITRE techniques should render as outbound links to attack.mitre.org.
-    const t1021 = screen.getByRole('link', { name: /T1021\.002/ });
+    const t1021 = screen.getAllByRole('link', { name: /T1021\.002/ })[0];
     expect(t1021).toHaveAttribute('href', 'https://attack.mitre.org/techniques/T1021/002/');
-    expect(screen.getByRole('link', { name: /T1078/ })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: /T1078/ })[0]).toHaveAttribute(
       'href',
       'https://attack.mitre.org/techniques/T1078/',
     );

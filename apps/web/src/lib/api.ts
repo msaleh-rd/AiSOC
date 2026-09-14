@@ -1342,6 +1342,40 @@ export interface Case {
   rawTags?: Record<string, unknown>;
 }
 
+export interface CaseSynthesisResult {
+  case_id: string;
+  case_number?: string | null;
+  total_alerts: number;
+  sources: string[];
+  severity_breakdown: Record<string, number>;
+  compromised_entities: {
+    hosts: string[];
+    ips: string[];
+    users: string[];
+  };
+  kill_chain_progression: Array<{
+    step: number;
+    alert_id: string;
+    title: string;
+    severity: string;
+    source: string;
+    timestamp: string;
+    techniques: string[];
+    hosts: string[];
+    ips: string[];
+    users: string[];
+  }>;
+  mitre_techniques: string[];
+  root_cause_summary: string;
+  recommended_containment: Array<{
+    action: string;
+    target: string;
+    priority: string;
+    description: string;
+  }>;
+  synthesized_at: string;
+}
+
 // The backend uses a 6-state lifecycle (`new | triaged | investigating |
 // contained | resolved | closed`) while the web console renders a simpler
 // 5-state model. Without translation, `STATUS_CONFIG[c.status]` returns
@@ -1965,6 +1999,18 @@ export const casesApi = {
       },
     );
     return normalizeCase(raw);
+  },
+
+  /**
+   * Run cross-alert forensic synthesis on all alerts linked to this case.
+   */
+  synthesize: async (caseId: string): Promise<CaseSynthesisResult> => {
+    return request<CaseSynthesisResult>(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/synthesize`,
+      {
+        method: 'POST',
+      },
+    );
   },
 };
 

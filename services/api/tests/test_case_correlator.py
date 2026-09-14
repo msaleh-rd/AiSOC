@@ -829,4 +829,108 @@ async def test_split_case_endpoint():
     assert a2_id in res.alert_ids
 
 
+@pytest.mark.asyncio
+async def test_synthesize_case_investigation_endpoint():
+    """Verify POST /cases/{case_id}/synthesize aggregates multi-alert incident progression."""
+    from unittest.mock import AsyncMock, MagicMock
+    from app.api.v1.deps import CurrentUser
+    from app.api.v1.endpoints.cases import synthesize_case_investigation
+
+    tenant_id = uuid.uuid4()
+    case_id = uuid.uuid4()
+    a1_id = uuid.uuid4()
+    a2_id = uuid.uuid4()
+
+    user = CurrentUser(
+        user_id=uuid.uuid4(),
+        email="analyst@corp.io",
+        role="analyst",
+        tenant_id=tenant_id,
+    )
+
+    case_row = {
+        "id": case_id,
+        "case_number": "CASE-SYN-01",
+        "title": "Suspected Ransomware Outbreak",
+        "description": "Multi-stage attack across domain controller and database",
+        "severity": "critical",
+        "status": "investigating",
+        "alert_ids": [a1_id, a2_id],
+        "tags": {"auto_created": True},
+    }
+
+    now = datetime.now(UTC)
+    alert_1 = {
+        "id": a1_id,
+        "title": "Initial Phishing Ingress",
+        "description": "Malicious payload executed",
+        "severity": "high",
+        "category": "endpoint",
+        "source": "crowdstrike",
+        "connector_id": "crowdstrike",
+        "ai_score": 0.85,
+        "confidence": 85,
+        "mitre_tactics": ["TA0001", "TA0002"],
+        "mitre_techniques": ["T1566", "T1204"],
+        "affected_ips": ["10.0.1.50"],
+        "affected_hosts": ["workstation-01"],
+        "affected_users": ["alice"],
+        "raw_event": {},
+        "created_at": now - timedelta(minutes=45),
+        "event_time": now - timedelta(minutes=45),
+    }
+
+    alert_2 = {
+        "id": a2_id,
+        "title": "Lateral SMB Traversals",
+        "description": "Suspicious PsExec execution",
+        "severity": "critical",
+        "category": "network",
+        "source": "suricata",
+        "connector_id": "suricata",
+        "ai_score": 0.95,
+        "confidence": 95,
+        "mitre_tactics": ["TA0008"],
+        "mitre_techniques": ["T1021.002"],
+        "affected_ips": ["10.0.1.50", "10.0.2.100"],
+        "affected_hosts": ["workstation-01", "dc-srv-01"],
+        "affected_users": ["alice", "admin_svc"],
+        "raw_event": {},
+        "created_at": now - timedelta(minutes=15),
+        "event_time": now - timedelta(minutes=15),
+    }
+
+    db = MagicMock()
+
+    async def mock_exec(stmt):
+        sql = str(getattr(stmt, "text", stmt)).strip()
+        mock_res = MagicMock()
+        if "FROM aisoc_cases WHERE id = :id" in sql:
+            mock_res.mappings().first.return_value = case_row
+        elif "FROM alerts WHERE id = ANY" in sql:
+            mock_res.mappings().all.return_value = [alert_1, alert_2]
+        return mock_res
+
+    db.execute = mock_exec
+    db.commit = AsyncMock()
+
+    res = await synthesize_case_investigation(case_id=str(case_id), db=db, user=user)
+
+    assert res["case_id"] == str(case_id)
+    assert res["case_number"] == "CASE-SYN-01"
+    assert res["total_alerts"] == 2
+    assert "crowdstrike" in res["sources"]
+    assert "suricata" in res["sources"]
+    assert "workstation-01" in res["compromised_entities"]["hosts"]
+    assert "dc-srv-01" in res["compromised_entities"]["hosts"]
+    assert "alice" in res["compromised_entities"]["users"]
+    assert "T1566" in res["mitre_techniques"]
+    assert "T1021.002" in res["mitre_techniques"]
+    assert len(res["kill_chain_progression"]) == 2
+    assert "Initial intrusion activity anchor: host 'workstation-01'" in res["root_cause_summary"]
+    assert len(res["recommended_containment"]) >= 3
+    assert db.commit.called
+
+
+
 

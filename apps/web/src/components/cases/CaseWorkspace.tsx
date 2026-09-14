@@ -33,6 +33,7 @@ import {
   type CaseAttackPath,
   type CaseSeverity,
   type CaseStatus,
+  type CaseSynthesisResult,
   type CaseTask,
   type CaseTimelineEvent,
   type LedgerEvent,
@@ -40,6 +41,7 @@ import {
 import { Skeleton } from '@/components/ui/Skeleton';
 import { MergeCaseModal } from './MergeCaseModal';
 import { SplitAlertsModal } from './SplitAlertsModal';
+import { CaseMitreHeatmap } from './CaseMitreHeatmap';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { InvestigationLedger } from './InvestigationLedger';
@@ -251,7 +253,7 @@ function LinkedAlertsPanel({
     { revalidateOnFocus: false },
   );
 
-  const { data: comments } = useSWR(
+  const { data: comments, mutate: mutateComments } = useSWR(
     ['case-comments', caseId],
     () => casesApi.getComments(caseId),
     { revalidateOnFocus: false },
@@ -259,16 +261,36 @@ function LinkedAlertsPanel({
 
   const [selectedAlerts, setSelectedAlerts] = useState<Set<string>>(new Set());
   const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [synthesizing, setSynthesizing] = useState(false);
+  const [synthesisResult, setSynthesisResult] = useState<CaseSynthesisResult | null>(null);
+
+  const handleSynthesize = async () => {
+    setSynthesizing(true);
+    try {
+      const res = await casesApi.synthesize(caseId);
+      setSynthesisResult(res);
+      toast.success(`Synthesized incident progression across ${res.total_alerts} alerts!`);
+      void mutateComments();
+      onCaseMutate?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to synthesize incident';
+      toast.error(msg);
+    } finally {
+      setSynthesizing(false);
+    }
+  };
 
   // Filter auto-correlation system comments for the timeline
   const correlationComments = (comments ?? [])
     .filter(
       (c) =>
         String(c.author ?? '').includes('auto-correlator') ||
+        String(c.author ?? '').includes('case-synthesizer') ||
         String(c.body ?? '').includes('[Auto-Correlation]') ||
         String(c.body ?? '').includes('[Severity Escalated]') ||
         String(c.body ?? '').includes('[Case Merge]') ||
-        String(c.body ?? '').includes('[Case Split]'),
+        String(c.body ?? '').includes('[Case Split]') ||
+        String(c.body ?? '').includes('[Multi-Alert Synthesis]'),
     )
     .sort((a, b) => {
       const ta = new Date(String(a.created_at ?? a.createdAt ?? 0)).getTime();
@@ -325,17 +347,152 @@ function LinkedAlertsPanel({
             )}
           </div>
 
-          {canSplit && (
+          <div className="flex items-center gap-2">
+            {canSplit && (
+              <button
+                onClick={() => setSplitModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Split {selectedAlerts.size} Alert(s) to New Case
+              </button>
+            )}
+
             <button
-              onClick={() => setSplitModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 transition-all"
+              onClick={handleSynthesize}
+              disabled={synthesizing || alertList.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50 transition-all"
+              title="Synthesize cross-alert attack progression, root cause, and containment"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              Split {selectedAlerts.size} Alert(s) to New Case
+              {synthesizing ? (
+                <>
+                  <span className="h-3.5 w-3.5 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                  Synthesizing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                  Synthesize Incident
+                </>
+              )}
             </button>
-          )}
+          </div>
+        </div>
+
+        {/* Multi-Alert Synthesis Card */}
+        {synthesisResult && (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-emerald-200">
+                      Cross-Alert Incident Synthesis
+                    </h4>
+                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono font-medium text-emerald-300">
+                      {synthesisResult.total_alerts} alerts analyzed
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-emerald-400/70">
+                    Automated correlation across {synthesisResult.sources.join(', ')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSynthesisResult(null)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+              >
+                ✕ Dismiss
+              </button>
+            </div>
+
+            {/* Root cause narrative */}
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/30 p-3.5">
+              <h5 className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">
+                Root Cause & Incident Progression
+              </h5>
+              <p className="text-xs text-slate-200 leading-relaxed">
+                {synthesisResult.root_cause_summary}
+              </p>
+            </div>
+
+            {/* Compromised entities */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {synthesisResult.compromised_entities.hosts.length > 0 && (
+                <div className="flex items-center gap-1.5 rounded-md border border-slate-700/80 bg-slate-800/60 px-2.5 py-1">
+                  <span className="text-blue-400">◆</span>
+                  <span className="text-slate-400 text-[11px]">Hosts:</span>
+                  <span className="text-slate-200 font-medium font-mono">
+                    {synthesisResult.compromised_entities.hosts.join(', ')}
+                  </span>
+                </div>
+              )}
+              {synthesisResult.compromised_entities.ips.length > 0 && (
+                <div className="flex items-center gap-1.5 rounded-md border border-slate-700/80 bg-slate-800/60 px-2.5 py-1">
+                  <span className="text-green-400">●</span>
+                  <span className="text-slate-400 text-[11px]">IPs:</span>
+                  <span className="text-slate-200 font-medium font-mono">
+                    {synthesisResult.compromised_entities.ips.join(', ')}
+                  </span>
+                </div>
+              )}
+              {synthesisResult.compromised_entities.users.length > 0 && (
+                <div className="flex items-center gap-1.5 rounded-md border border-slate-700/80 bg-slate-800/60 px-2.5 py-1">
+                  <span className="text-amber-400">◉</span>
+                  <span className="text-slate-400 text-[11px]">Accounts:</span>
+                  <span className="text-slate-200 font-medium font-mono">
+                    {synthesisResult.compromised_entities.users.join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Recommended Containment Actions */}
+            {synthesisResult.recommended_containment.length > 0 && (
+              <div>
+                <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                  Recommended Containment Actions
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {synthesisResult.recommended_containment.map((act, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold uppercase font-mono text-emerald-400">
+                          {act.action.replace(/_/g, ' ')}
+                        </span>
+                        <span className={clsx(
+                          'text-[9px] uppercase font-bold px-1.5 py-0.2 rounded ring-1',
+                          act.priority === 'high' ? 'bg-red-500/15 text-red-300 ring-red-500/30' : 'bg-yellow-500/15 text-yellow-300 ring-yellow-500/30',
+                        )}>
+                          {act.priority}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        {act.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MITRE ATT&CK Kill-Chain Progression & Heatmap */}
+        <div className="mb-4">
+          <CaseMitreHeatmap caseMitre={caseRecord.mitre} alerts={alertList} />
         </div>
 
         {alertsLoading ? (
@@ -501,6 +658,7 @@ function LinkedAlertsPanel({
                 const isEscalation = body.includes('[Severity Escalated]');
                 const isMerge = body.includes('[Case Merge]');
                 const isSplit = body.includes('[Case Split]');
+                const isSynthesis = body.includes('[Multi-Alert Synthesis]');
                 return (
                   <li key={idx} className="relative pl-8">
                     <span className={clsx(
@@ -511,20 +669,24 @@ function LinkedAlertsPanel({
                         ? 'border-cyan-500/50 bg-cyan-500/20'
                         : isSplit
                         ? 'border-purple-500/50 bg-purple-500/20'
+                        : isSynthesis
+                        ? 'border-emerald-500/50 bg-emerald-500/20'
                         : 'border-cyan-500/30 bg-cyan-500/10',
                     )}>
                       <span className={clsx(
                         'h-1.5 w-1.5 rounded-full',
-                        isEscalation ? 'bg-red-400' : isMerge ? 'bg-cyan-400' : isSplit ? 'bg-purple-400' : 'bg-cyan-400',
+                        isEscalation ? 'bg-red-400' : isMerge ? 'bg-cyan-400' : isSplit ? 'bg-purple-400' : isSynthesis ? 'bg-emerald-400' : 'bg-cyan-400',
                       )} />
                     </span>
                     <div className={clsx(
                       'rounded-lg border px-3 py-2',
                       isEscalation
                         ? 'border-red-500/30 bg-red-950/20'
+                        : isSynthesis
+                        ? 'border-emerald-500/30 bg-emerald-950/20'
                         : 'border-slate-800/60 bg-slate-900/40',
                     )}>
-                      <p className={clsx('text-xs', isEscalation ? 'text-red-200 font-medium' : 'text-slate-300')}>{body}</p>
+                      <p className={clsx('text-xs', isEscalation ? 'text-red-200 font-medium' : isSynthesis ? 'text-emerald-200 font-medium' : 'text-slate-300')}>{body}</p>
                       {createdAt ? (
                         <p className="mt-1 text-[10px] text-slate-500" suppressHydrationWarning>
                           {format(new Date(String(createdAt)), 'MMM dd, HH:mm:ss')}
@@ -563,6 +725,12 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     ['case', caseId],
     () => casesApi.get(caseId),
     { revalidateOnFocus: false, shouldRetryOnError: false },
+  );
+
+  const { data: caseAlerts } = useSWR(
+    ['case-alerts', caseId],
+    () => casesApi.getAlerts(caseId),
+    { revalidateOnFocus: false },
   );
 
   const caseRecord: Case | undefined = data;
@@ -1291,6 +1459,9 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           }}
           eyebrow="Ask AiSOC about this case"
         />
+
+        {/* MITRE ATT&CK Kill-Chain Progression & Heatmap */}
+        <CaseMitreHeatmap caseMitre={caseRecord.mitre} alerts={caseAlerts ?? []} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Left: Linked alerts + IOCs */}
