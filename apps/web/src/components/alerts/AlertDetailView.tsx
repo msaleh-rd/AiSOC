@@ -317,16 +317,30 @@ function AIInvestigation({ alertId }: { alertId: string }) {
       // Launch returns immediately with status=running — poll until the
       // orchestrator finishes so findings/recommendations materialize.
       if (result.status === 'running' || result.status === 'pending') {
+        // Give up after this many consecutive poll failures rather than
+        // spinning on "Running" forever when the run is unreachable.
+        let consecutiveFailures = 0;
         pollRef.current = setInterval(async () => {
           try {
             const inv = await agentsApi.getInvestigation(result.id);
+            consecutiveFailures = 0;
             setInvestigation(inv);
             if (inv.status === 'completed' || inv.status === 'failed') {
               stopPolling();
               setIsRunning(false);
             }
-          } catch {
-            // transient poll errors — keep trying until a terminal status
+          } catch (err) {
+            consecutiveFailures += 1;
+            if (consecutiveFailures >= 6) {
+              stopPolling();
+              setIsRunning(false);
+              setInvestigation(null);
+              setError(
+                err instanceof Error
+                  ? `Lost contact with the investigation run: ${err.message}`
+                  : 'Lost contact with the investigation run.',
+              );
+            }
           }
         }, 5000);
       } else {
