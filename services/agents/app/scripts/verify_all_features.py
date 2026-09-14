@@ -20,7 +20,12 @@ from datetime import datetime, timedelta
 import json
 import os
 import sys
+from pathlib import Path
 from uuid import uuid4
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 # Ensure local test/verification can initialize chat models without live credentials
 os.environ.setdefault("OPENAI_API_KEY", "mock-eval-key")
