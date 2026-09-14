@@ -140,6 +140,19 @@ class AddAlertsRequest(BaseModel):
     alert_ids: list[uuid.UUID]
 
 
+class AutoCorrelateRequest(BaseModel):
+    alert_ids: list[uuid.UUID] | None = None
+    window_hours: int = Field(default=2, ge=1, le=72)
+    min_severity: str = Field(default="low")
+
+
+class AutoCorrelateResponse(BaseModel):
+    correlated_count: int
+    cases_created: int
+    cases_grouped: int
+    results: list[dict[str, Any]]
+
+
 class ObservableNode(BaseModel):
     id: str
     kind: Literal["ip", "user", "host", "domain", "hash", "file", "process", "alert"]
@@ -517,6 +530,84 @@ async def create_case(
     return response
 
 
+@router.post("/auto-correlate", response_model=AutoCorrelateResponse, summary="Auto-correlate alerts into cases")
+async def auto_correlate_alerts(
+    body: AutoCorrelateRequest,
+    db: DBSession,
+    user: AuthUser,
+) -> AutoCorrelateResponse:
+    """Run automated correlation on unassigned or specified alerts.
+
+    Groups alerts matching shared entities (hosts, IPs, users) or attack chains
+    into active Cases within the rolling time window.
+    """
+    from datetime import timedelta
+    from app.services.case_correlator import CaseCorrelator, CorrelationAction
+
+    # 1. Fetch alerts to correlate
+    if body.alert_ids:
+        alert_rows = (
+            await db.execute(
+                text("""
+                    SELECT id, tenant_id, title, description, severity, status,
+                           mitre_tactics, mitre_techniques, affected_ips, affected_hosts,
+                           affected_users, case_id, tags, enrichment_data, event_time
+                    FROM alerts
+                    WHERE id = ANY(CAST(:ids AS UUID[])) AND tenant_id = :tenant_id
+                    ORDER BY event_time ASC
+                """).bindparams(
+                    ids=[str(a) for a in body.alert_ids],
+                    tenant_id=user.tenant_id,
+                )
+            )
+        ).mappings().all()
+    else:
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
+        alert_rows = (
+            await db.execute(
+                text("""
+                    SELECT id, tenant_id, title, description, severity, status,
+                           mitre_tactics, mitre_techniques, affected_ips, affected_hosts,
+                           affected_users, case_id, tags, enrichment_data, event_time
+                    FROM alerts
+                    WHERE tenant_id = :tenant_id
+                      AND case_id IS NULL
+                      AND created_at >= :cutoff
+                    ORDER BY event_time ASC
+                    LIMIT 200
+                """).bindparams(
+                    tenant_id=user.tenant_id,
+                    cutoff=cutoff,
+                )
+            )
+        ).mappings().all()
+
+    correlator = CaseCorrelator(window=timedelta(hours=body.window_hours))
+    created_count = 0
+    grouped_count = 0
+    results: list[dict[str, Any]] = []
+
+    for row in alert_rows:
+        alert_dict = dict(row)
+        res = await correlator.correlate_alert(
+            db,
+            alert_dict,
+            min_severity_for_new_case=body.min_severity,
+        )
+        if res.action == CorrelationAction.CREATED:
+            created_count += 1
+        elif res.action == CorrelationAction.GROUPED:
+            grouped_count += 1
+        results.append(res.to_dict())
+
+    return AutoCorrelateResponse(
+        correlated_count=len(results),
+        cases_created=created_count,
+        cases_grouped=grouped_count,
+        results=results,
+    )
+
+
 @router.get("/{case_id}", response_model=CaseResponse, summary="Get case")
 async def get_case(case_id: str, db: DBSession, user: AuthUser) -> CaseResponse:
     cid = await _resolve_case_id(case_id, db, user.tenant_id)
@@ -661,6 +752,15 @@ async def add_alerts(case_id: str, body: AddAlertsRequest, db: DBSession, user: 
         row = (await db.execute(q)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Case not found.")
+        # Synchronize bi-directional link in alerts table
+        if ids_str:
+            await db.execute(
+                text("""
+                    UPDATE alerts
+                    SET case_id = :case_id, updated_at = now()
+                    WHERE id = ANY(CAST(:new_ids AS UUID[])) AND tenant_id = :tenant_id
+                """).bindparams(case_id=cid, new_ids=ids_str, tenant_id=user.tenant_id)
+            )
         await db.commit()
         return _row_to_case(row)
     except HTTPException:
@@ -669,6 +769,50 @@ async def add_alerts(case_id: str, body: AddAlertsRequest, db: DBSession, user: 
         await db.rollback()
         logger.exception("Database error in cases endpoint")
         raise HTTPException(status_code=503, detail="Database error") from exc
+
+
+@router.get("/{case_id}/alerts", summary="List alerts linked to a case")
+async def get_case_alerts(
+    case_id: str,
+    db: DBSession,
+    user: AuthUser,
+    limit: int = Query(50, ge=1, le=500),
+) -> dict[str, Any]:
+    """Return full alert details for all alerts linked to this case."""
+    cid = await _resolve_case_id(case_id, db, user.tenant_id)
+    case_row = (
+        await db.execute(
+            text("SELECT alert_ids FROM aisoc_cases WHERE id = :id AND tenant_id = :tenant_id").bindparams(
+                id=cid, tenant_id=user.tenant_id
+            )
+        )
+    ).fetchone()
+    if not case_row:
+        raise HTTPException(status_code=404, detail="Case not found.")
+
+    alert_ids = list(case_row.alert_ids or [])
+    if not alert_ids:
+        return {"alerts": [], "total": 0}
+
+    alerts_query = text("""
+        SELECT id, tenant_id, title, description, severity, status, priority,
+               category, mitre_tactics, mitre_techniques, connector_type,
+               ai_score, ai_summary, ai_recommendations, confidence,
+               confidence_label, confidence_rationale, disposition,
+               affected_ips, affected_hosts, affected_users, case_id, tags,
+               event_time, created_at, updated_at
+        FROM alerts
+        WHERE id = ANY(CAST(:ids AS UUID[])) AND tenant_id = :tenant_id
+        ORDER BY event_time DESC
+        LIMIT :limit
+    """).bindparams(
+        ids=[str(a) for a in alert_ids],
+        tenant_id=user.tenant_id,
+        limit=limit,
+    )
+    rows = (await db.execute(alerts_query)).mappings().all()
+    alerts_list = [dict(r) for r in rows]
+    return {"alerts": alerts_list, "total": len(alert_ids)}
 
 
 @router.post("/{case_id}/observables", response_model=CaseResponse, summary="Update observable graph")

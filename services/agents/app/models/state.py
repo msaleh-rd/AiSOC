@@ -57,6 +57,7 @@ class InvestigationState(BaseModel):
     run_id: UUID = Field(default_factory=uuid4)
     incident_id: UUID
     tenant_id: UUID
+    case_id: str | None = None
     task: AgentTask = AgentTask.INVESTIGATION
     status: AgentStatus = AgentStatus.PENDING
 
