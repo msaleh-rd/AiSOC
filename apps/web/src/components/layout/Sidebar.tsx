@@ -106,21 +106,9 @@ const SparklesIcon = () => (
   </svg>
 );
 
-const ClockIcon = () => (
-  <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
 const InboxIcon = () => (
   <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
-  </svg>
-);
-
-const ScanIcon = () => (
-  <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0120.25 6v1.5m0 9V18A2.25 2.25 0 0118 20.25h-1.5m-9 0H6A2.25 2.25 0 013.75 18v-1.5M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
@@ -130,29 +118,12 @@ const MarketplaceIcon = () => (
   </svg>
 );
 
-const DocumentReportIcon = () => (
-  <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17.25v-3.75M12 17.25V9.75M15 17.25v-1.5M19.5 19.5h-15A2.25 2.25 0 012.25 17.25V6.75A2.25 2.25 0 014.5 4.5h15a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25z" />
-  </svg>
-);
-
-const CurrencyIcon = () => (
-  <svg className="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
 const navSections: NavSection[] = [
   {
     items: [
       {
         label: 'Dashboard',
         href: '/dashboard',
-        icon: <ChartBarIcon />,
-      },
-      {
-        label: 'SOC Insights',
-        href: '/dashboards/soc-insights',
         icon: <ChartBarIcon />,
       },
     ],
@@ -193,26 +164,6 @@ const navSections: NavSection[] = [
         href: '/detection',
         icon: <EyeIcon />,
       },
-      {
-        label: 'Detection Catalog',
-        href: '/detection/catalog',
-        icon: <SearchIcon />,
-      },
-      {
-        label: 'MITRE Coverage',
-        href: '/detection/coverage',
-        icon: <ChartBarIcon />,
-      },
-      {
-        label: 'Detection Tuning',
-        href: '/detection/tuning',
-        icon: <ChartBarIcon />,
-      },
-      {
-        label: 'Shifts',
-        href: '/shifts',
-        icon: <ClockIcon />,
-      },
     ],
   },
   {
@@ -233,21 +184,6 @@ const navSections: NavSection[] = [
         href: '/copilot',
         icon: <SparklesIcon />,
       },
-      {
-        label: 'Investigation Chat',
-        href: '/investigate',
-        icon: <SparklesIcon />,
-      },
-      {
-        label: 'Coverage Advisor',
-        href: '/coverage-advisor',
-        icon: <ShieldIcon />,
-      },
-      {
-        label: 'EASM',
-        href: '/easm',
-        icon: <ScanIcon />,
-      },
     ],
   },
   {
@@ -263,75 +199,20 @@ const navSections: NavSection[] = [
         href: '/marketplace',
         icon: <MarketplaceIcon />,
       },
-      {
-        label: 'File Integrity (FIM)',
-        href: '/fim',
-        icon: <FolderIcon />,
-      },
-      {
-        label: 'Honeytokens',
-        href: '/honeytokens',
-        icon: <EyeIcon />,
-      },
-      {
-        label: 'Purple Team',
-        href: '/purple-team',
-        icon: <ShieldIcon />,
-      },
     ],
   },
   {
     title: 'Platform',
     items: [
       {
-        label: 'Get started',
-        href: '/onboarding',
-        icon: <SparklesIcon />,
-      },
-      {
         label: 'Connectors',
         href: '/connectors',
         icon: <PuzzleIcon />,
       },
       {
-        label: 'Roles & Permissions',
-        href: '/settings/rbac',
-        icon: <ShieldIcon />,
-      },
-      {
         label: 'Compliance',
         href: '/compliance',
         icon: <ShieldIcon />,
-      },
-      {
-        label: 'MSSP Dashboard',
-        href: '/mssp',
-        icon: <GlobeIcon />,
-      },
-      {
-        label: 'Team Analytics',
-        href: '/analytics/team',
-        icon: <ChartBarIcon />,
-      },
-      {
-        label: 'SLA Tracking',
-        href: '/sla',
-        icon: <ChartBarIcon />,
-      },
-      {
-        label: 'Executive Digest',
-        href: '/reports/digest',
-        icon: <DocumentReportIcon />,
-      },
-      {
-        label: 'Cost Dashboard',
-        href: '/costs',
-        icon: <CurrencyIcon />,
-      },
-      {
-        label: 'Audit Log',
-        href: '/audit',
-        icon: <EyeIcon />,
       },
       {
         label: 'Settings',
