@@ -127,8 +127,9 @@ class OpenSearchStore:
         ioc_type: str | None = None,
         source: str | None = None,
         limit: int = 20,
-    ) -> list[dict[str, Any]]:
-        """Search IOCs by value, type, or source."""
+        offset: int = 0,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        """Search IOCs by value, type, or source. Returns (total_hits, matches)."""
         must: list[dict] = []
         if value:
             must.append({"term": {"value": value}})
@@ -141,9 +142,11 @@ class OpenSearchStore:
 
         resp = await self._os.search(
             index=_IOC_INDEX,
-            body={"query": query, "size": limit, "sort": [{"last_seen": "desc"}]},
+            body={"query": query, "size": limit, "from": offset, "sort": [{"last_seen": "desc"}], "track_total_hits": True},
         )
-        return [hit["_source"] for hit in resp["hits"]["hits"]]
+        total = resp["hits"]["total"]["value"] if isinstance(resp["hits"]["total"], dict) else resp["hits"]["total"]
+        matches = [hit["_source"] for hit in resp["hits"]["hits"]]
+        return total, matches
 
     async def match_ioc_values(self, values: list[str]) -> list[str]:
         """Return the subset of ``values`` that exist in the IOC index.

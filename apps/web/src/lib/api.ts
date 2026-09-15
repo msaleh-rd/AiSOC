@@ -3077,7 +3077,7 @@ export const threatIntelApi = {
       body: JSON.stringify({ iocs }),
     }),
 
-  list: (filters: { type?: IndicatorType; tag?: string; q?: string } = {}) =>
+  list: (filters: { type?: IndicatorType; tag?: string; q?: string; offset?: number } = {}) =>
     request<{ indicators: ThreatIndicator[]; total: number }>(
       '/api/v1/threat-intel/indicators',
       { params: filters as Record<string, string> },

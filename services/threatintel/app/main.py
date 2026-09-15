@@ -403,8 +403,9 @@ async def search_iocs(
     ioc_type: str | None = None,
     source: str | None = None,
     limit: int = 20,
+    offset: int = 0,
 ) -> dict:
     """Search stored IOCs."""
     pipeline: ThreatIntelPipeline = app.state.pipeline
-    iocs = await pipeline._os.search_iocs(value=value, ioc_type=ioc_type, source=source, limit=limit)
-    return {"total": len(iocs), "iocs": iocs}
+    total, iocs = await pipeline._os.search_iocs(value=value, ioc_type=ioc_type, source=source, limit=limit, offset=offset)
+    return {"total": total, "iocs": iocs}

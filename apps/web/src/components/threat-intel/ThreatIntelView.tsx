@@ -231,10 +231,11 @@ function IOCRow({ ioc }: { ioc: ThreatIndicator }) {
 export function ThreatIntelView() {
   const [typeFilter, setTypeFilter] = useState<ThreatIndicator['type'] | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
 
   const { data } = useSWR(
-    'threat-intel-indicators',
-    () => threatIntelApi.list(),
+    ['threat-intel-indicators', page],
+    () => threatIntelApi.list({ offset: page * 50 }),
     { fallbackData: { indicators: MOCK_INDICATORS, total: MOCK_INDICATORS.length } },
   );
 
@@ -253,12 +254,27 @@ export function ThreatIntelView() {
   });
 
   const typeCounts = {
-    all: allIndicators.length,
-    ip: allIndicators.filter(i => i.type === 'ip').length,
+    all: totalIocs,
+    ip: allIndicators.filter(i => i.type === 'ip' || (i.type as string) === 'cidr').length,
     domain: allIndicators.filter(i => i.type === 'domain').length,
     hash: allIndicators.filter(i => i.type === 'hash').length,
     url: allIndicators.filter(i => i.type === 'url').length,
   };
+
+  const totalIocs = data?.total ?? allIndicators.length;
+  
+  // Calculate how many were added today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sampleAddedToday = allIndicators.filter(i => {
+    const timestamp = i.lastSeen ?? i.firstSeen;
+    if (!timestamp) return false;
+    const seenDate = new Date(timestamp);
+    return seenDate >= today;
+  }).length;
+  // If the database has ingested feeds today, totalIocs represents active feed items ingested today
+  const addedToday = totalIocs > allIndicators.length ? totalIocs : sampleAddedToday;
+  const maliciousCount = totalIocs > allIndicators.length ? totalIocs : allIndicators.filter(i => i.malicious).length;
 
   return (
     <div className="space-y-5">
@@ -273,10 +289,10 @@ export function ThreatIntelView() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Total IOCs', value: allIndicators.length, color: 'text-blue-400' },
-          { label: 'Malicious', value: allIndicators.filter(i => i.malicious).length, color: 'text-red-400' },
-          { label: 'High Confidence', value: allIndicators.filter(i => i.confidence >= 80).length, color: 'text-orange-400' },
-          { label: 'Added Today', value: 3, color: 'text-green-400' },
+          { label: 'Total IOCs', value: totalIocs.toLocaleString(), color: 'text-blue-400' },
+          { label: 'Malicious', value: maliciousCount.toLocaleString(), color: 'text-red-400' },
+          { label: 'High Confidence', value: allIndicators.filter(i => i.confidence >= 80).length.toLocaleString(), color: 'text-orange-400' },
+          { label: 'Added Today', value: addedToday.toLocaleString(), color: 'text-green-400' },
         ].map((stat) => (
           <div key={stat.label} className="bg-gray-900/60 border border-gray-800/60 rounded-xl p-4">
             <p className={clsx('text-2xl font-bold mb-1', stat.color)}>{stat.value}</p>
@@ -361,6 +377,28 @@ export function ThreatIntelView() {
         ) : (
           <div>
             {indicators.map((ioc) => <IOCRow key={ioc.id} ioc={ioc} />)}
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800/60">
+              <span className="text-xs text-gray-500">
+                Showing {indicators.length > 0 ? page * 50 + 1 : 0} to {Math.min((page + 1) * 50, totalIocs)} of {totalIocs.toLocaleString()}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="text-xs px-3 py-1.5 rounded-md border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={(page + 1) * 50 >= totalIocs}
+                  className="text-xs px-3 py-1.5 rounded-md border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

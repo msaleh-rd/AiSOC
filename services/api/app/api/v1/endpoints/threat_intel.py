@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,6 +114,70 @@ class FeedOut(FeedCreate):
 # ---------------------------------------------------------------------------
 # IOC endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/indicators")
+async def list_indicators(
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(require_permission("threat_intel:read"))],
+    type: str | None = Query(None),
+    q: str | None = Query(None),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    from app.core.config import settings
+    import httpx
+    import structlog
+
+    if not settings.THREATINTEL_SERVICE_URL:
+        return {"indicators": [], "total": 0}
+        
+    async with httpx.AsyncClient() as client:
+        params = {"limit": 50, "offset": offset}
+        if type:
+            params["ioc_type"] = type
+        if q:
+            params["value"] = q
+            
+        try:
+            resp = await client.get(
+                f"{settings.THREATINTEL_SERVICE_URL}/api/v1/iocs/search",
+                params=params,
+                timeout=settings.THREATINTEL_SERVICE_TIMEOUT_SECONDS,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # threatintel /api/v1/iocs/search returns: {"total": X, "iocs": [...]}
+            # Map "iocs" to "indicators" and convert source -> sources if necessary
+            raw_iocs = data.get("iocs", [])
+            indicators = []
+            for item in raw_iocs:
+                # The frontend expects a 'sources' array, but backend often stores 'source' string or array
+                source = item.get("source")
+                sources = item.get("sources")
+                if not sources and source:
+                    sources = [source]
+                elif not sources:
+                    sources = []
+                    
+                indicators.append({
+                    "id": item.get("id", str(uuid.uuid4())),
+                    "type": item.get("type", "ip"),
+                    "value": item.get("value", ""),
+                    "confidence": item.get("confidence", 50),
+                    "severity": item.get("severity", "medium"),
+                    "tags": item.get("tags", []),
+                    "sources": sources,
+                    "firstSeen": item.get("first_seen"),
+                    "lastSeen": item.get("last_seen"),
+                    "description": item.get("description"),
+                    "country": item.get("country"),
+                    "malicious": item.get("malicious", True)
+                })
+            
+            return {"indicators": indicators, "total": data.get("total", 0)}
+        except Exception as exc:
+            structlog.get_logger(__name__).error("threatintel.indicators_proxy_failed", error=str(exc))
+            return {"indicators": [], "total": 0}
 
 
 @router.get("/iocs", response_model=list[IOCOut])
