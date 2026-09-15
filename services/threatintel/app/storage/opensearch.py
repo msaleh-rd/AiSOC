@@ -142,7 +142,7 @@ class OpenSearchStore:
 
         resp = await self._os.search(
             index=_IOC_INDEX,
-            body={"query": query, "size": limit, "from": offset, "sort": [{"last_seen": "desc"}], "track_total_hits": True},
+            body={"query": query, "size": limit, "from": offset, "sort": [{"last_seen": "desc"}, {"value.keyword": "asc"}], "track_total_hits": True},
         )
         total = resp["hits"]["total"]["value"] if isinstance(resp["hits"]["total"], dict) else resp["hits"]["total"]
         matches = [hit["_source"] for hit in resp["hits"]["hits"]]
