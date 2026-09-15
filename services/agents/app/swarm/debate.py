@@ -51,6 +51,11 @@ def hold_debate(
         # Explicit criteria: evidence coverage (the support score already blends
         # keyword + technique coverage minus contradictions) + a bounded prior.
         final = max(0.0, min(1.0, 0.8 * r.support_score + 0.2 * prior))
+        # Surface technique corroboration alongside keyword evidence so the
+        # findings/replay UI shows WHY a hypothesis won.
+        evidence = list(r.evidence) + [
+            f"technique:{t}" for t in r.technique_hits if f"technique:{t}" not in r.evidence
+        ]
         scored.append(
             RankedHypothesis(
                 key=r.key,
@@ -58,12 +63,27 @@ def hold_debate(
                 benign=r.benign,
                 score=round(final, 4),
                 confidence=0.0,  # filled after ranking (margin-based)
-                evidence=r.evidence,
+                evidence=evidence,
                 contradictions=r.contradictions,
             )
         )
 
     scored.sort(key=lambda h: h.score, reverse=True)
+
+    # No-evidence guard: if even the best hypothesis gathered ZERO support,
+    # the honest outcome is "no hypothesis is supported" — not an arbitrary
+    # first-of-ties winner reported at 0.50 confidence. Return winner=None so
+    # callers report insufficient evidence instead of a fabricated verdict.
+    if not scored or scored[0].score <= 0.0:
+        payload = {
+            "step_type": "debate",
+            "hypotheses": [asdict(h) for h in scored],
+            "winner": None,
+            "winner_label": None,
+            "winner_confidence": 0.0,
+            "insufficient_evidence": True,
+        }
+        return DebateOutcome(ranked=scored, winner=None, ledger_payload=payload)
 
     # Confidence for the top hypothesis is the margin over the runner-up,
     # clamped to [0.05, 0.95] so we never claim certainty.

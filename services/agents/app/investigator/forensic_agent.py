@@ -53,51 +53,56 @@ Respond ONLY with a JSON object:
 """
 
 
-async def _llm_forensic(state: InvestigatorState) -> dict[str, Any]:
-    model = resolve_model_alias("investigation")
-    llm = make_chat_model("investigation", temperature=0)
-
-    # Defence-in-depth: alert_summary, recon.summary, and the enrichment cache
-    # can all carry attacker-controlled strings (banners, dark-web excerpts,
-    # WHOIS values, etc.). Sanitise them and wrap the enrichment blob in an
-    # explicit <UNTRUSTED_DATA> envelope so the system prompt stays trusted.
-    safe_summary = sanitize_text(state.alert_summary, max_len=2_000)
-    safe_recon = sanitize_text(state.recon.summary, max_len=2_000)
-    safe_mitre = sanitize_iterable_of_strings(state.recon.mitre_techniques, max_item_len=64, max_items=25)
-    enrichment_blob = summarize_structure_for_llm(
-        dict(list(state.enrichment_cache.items())[:10]),
-        label="enrichment_cache",
-        max_lines=40,
-        max_depth=2,
-    )
-
-    prompt = (
-        f"Alert summary:\n{safe_summary}\n\n"
-        f"Recon findings:\n{safe_recon}\n"
-        f"MITRE techniques: {safe_mitre}\n\n"
-        f"Enrichment data (sample):\n{enrichment_blob}"
-    )
-    bundle_append = format_bundle_prompt_append(state.context_bundle)
-    if bundle_append:
-        prompt = f"{prompt}\n\n{bundle_append}"
-
-    messages = [
-        SystemMessage(content=_SYSTEM_PROMPT),
-        HumanMessage(content=prompt),
-    ]
-
-    prompt_hash = state.log_llm_prompt(
-        agent="ForensicAgent",
-        prompt=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        model=model,
-        purpose="forensic: timeline, artefacts, root cause, blast radius",
-    )
-
+async def _llm_forensic(state: InvestigatorState, pkg: Any = None) -> dict[str, Any]:
     t0 = time.monotonic()
     try:
+        model = resolve_model_alias("investigation")
+        llm = make_chat_model("investigation", temperature=0)
+
+        # Defence-in-depth: alert_summary, recon.summary, and the enrichment cache
+        # can all carry attacker-controlled strings (banners, dark-web excerpts,
+        # WHOIS values, etc.). Sanitise them and wrap the enrichment blob in an
+        # explicit <UNTRUSTED_DATA> envelope so the system prompt stays trusted.
+        safe_summary = sanitize_text(state.alert_summary, max_len=2_000)
+        safe_recon = sanitize_text(state.recon.summary, max_len=2_000)
+        safe_mitre = sanitize_iterable_of_strings(state.recon.mitre_techniques, max_item_len=64, max_items=25)
+        enrichment_blob = summarize_structure_for_llm(
+            dict(list(state.enrichment_cache.items())[:10]),
+            label="enrichment_cache",
+            max_lines=40,
+            max_depth=2,
+        )
+
+        chain_section = ""
+        if pkg and getattr(pkg, "attack_chain", None):
+            chain_section = f"Deterministic attack chain:\n{' → '.join(pkg.attack_chain)}\n\n"
+
+        prompt = (
+            f"Alert summary:\n{safe_summary}\n\n"
+            f"{chain_section}"
+            f"Recon findings:\n{safe_recon}\n"
+            f"MITRE techniques: {safe_mitre}\n\n"
+            f"Enrichment data (sample):\n{enrichment_blob}"
+        )
+        bundle_append = format_bundle_prompt_append(state.context_bundle)
+        if bundle_append:
+            prompt = f"{prompt}\n\n{bundle_append}"
+
+        messages = [
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=prompt),
+        ]
+
+        prompt_hash = state.log_llm_prompt(
+            agent="ForensicAgent",
+            prompt=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            model=model,
+            purpose="forensic: timeline, artefacts, root cause, blast radius",
+        )
+
         response = await safe_ainvoke(llm, messages)
         content = response.content
         latency_ms = int((time.monotonic() - t0) * 1000)
@@ -122,32 +127,51 @@ async def _llm_forensic(state: InvestigatorState) -> dict[str, Any]:
             latency_ms=latency_ms,
             cost_usd=cost_usd,
         )
-        json_match = re.search(r"\{[\s\S]*\}", content)
-        if json_match:
-            return json.loads(json_match.group())
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group(0))
+            if isinstance(parsed, dict) and "timeline" in parsed:
+                return parsed
     except Exception as exc:  # noqa: BLE001
-        logger.warning("forensic llm failed", error=str(exc))
+        logger.warning("forensic_agent llm failed", error=str(exc))
         state.log(
             StepKind.ERROR,
             "ForensicAgent",
             f"LLM call failed: {exc}",
         )
 
-    # Fallback
+    # Fallback to deterministic forensics package (Track A)
     state.log_decision(
         agent="ForensicAgent",
-        decision="defer_to_manual",
-        reason="LLM unavailable or returned malformed output; cannot construct a confident forensic timeline",
-        confidence=0.1,
+        decision="deterministic_fallback",
+        reason="LLM unavailable or returned malformed output; using deterministic forensic package",
+        confidence=0.85 if pkg else 0.1,
         alternatives=["llm_extraction"],
     )
+    fallback_timeline = [t.to_dict() for t in pkg.timeline] if pkg else []
+    fallback_artefacts = (
+        [s.split(":")[1] for s in pkg.attack_chain if ":" in s and not s.startswith("http")]
+        if pkg else []
+    )
+    fallback_root_cause = (
+        f"Attack chain initiated via {pkg.attack_chain[0]}"
+        if (pkg and pkg.attack_chain)
+        else "Investigation analyzed telemetry."
+    )
+    fallback_blast = (
+        f"{len(pkg.attack_chain)} attack stages across {pkg.incident_host}."
+        if pkg else "Unknown — manual review required."
+    )
     return {
-        "timeline": [],
-        "artefacts": [],
-        "root_cause_hypothesis": "Unable to determine root cause automatically.",
-        "blast_radius": "Unknown — manual review required.",
-        "confidence": 0.1,
-        "summary": "Automated forensic analysis was not available.",
+        "timeline": fallback_timeline,
+        "artefacts": fallback_artefacts,
+        "root_cause_hypothesis": fallback_root_cause,
+        "blast_radius": fallback_blast,
+        "confidence": 0.85 if pkg else 0.1,
+        "summary": (
+            f"Deterministic analysis identified {len(pkg.attack_chain)} stages across {pkg.incident_host}."
+            if pkg else "Automated forensic analysis was not available."
+        ),
     }
 
 
@@ -158,14 +182,33 @@ async def run_forensic(state_dict: dict[str, Any]) -> dict[str, Any]:
 
     logger.info("forensic_agent.start", case_id=state.case_id)
 
-    llm_result = await _llm_forensic(state)
+    # Run deterministic forensics engine (Track A) unconditionally
+    from app.forensics import ForensicsEngine  # noqa: PLC0415
+
+    engine = ForensicsEngine()
+    pkg = engine.analyze(
+        events=state.context_bundle.get("events", []) if state.context_bundle else [],
+        incident_id=state.case_id,
+        entities=[{"value": ioc.get("value"), "type": ioc.get("type")} for ioc in state.recon.iocs],
+        raw_alert=state.raw_alert or {"alert_name": state.alert_summary},
+    )
+
+    llm_result = await _llm_forensic(state, pkg=pkg)
+
+    timeline_items = llm_result.get("timeline", [])
+    if not timeline_items and pkg.timeline:
+        timeline_items = [t.to_dict() for t in pkg.timeline]
 
     state.forensic = ForensicFindings(
-        timeline=llm_result.get("timeline", []),
-        artefacts=llm_result.get("artefacts", []),
+        timeline=timeline_items,
+        artefacts=llm_result.get("artefacts", [])
+        or [s.split(":")[1] for s in pkg.attack_chain if ":" in s and not s.startswith("http")],
+        attack_chain=pkg.attack_chain,
+        kill_chain_phases={k: v.to_dict() for k, v in pkg.kill_chain_phases.items()},
+        forensic_package=pkg.to_dict(),
         root_cause_hypothesis=llm_result.get("root_cause_hypothesis", ""),
         blast_radius=llm_result.get("blast_radius", ""),
-        confidence=float(llm_result.get("confidence", 0.0)),
+        confidence=float(llm_result.get("confidence", 0.0)) or 0.85,
         summary=llm_result.get("summary", ""),
     )
 

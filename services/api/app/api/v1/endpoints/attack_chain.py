@@ -69,16 +69,26 @@ async def get_attack_chain(
         raise HTTPException(status_code=400, detail=f"unknown window: {window}")
 
     case_row = (await db.execute(select(Case).where(Case.id == case_id, Case.tenant_id == user.tenant_id))).scalar_one_or_none()
-    if case_row is None:
-        raise HTTPException(status_code=404, detail="case_not_found")
+    alert_ids: list[Any] = []
+    if case_row is not None:
+        alert_ids = case_row.alert_ids or []
+    else:
+        # Fall back to canonical aisoc_cases table
+        aisoc_row = (await db.execute(
+            text("SELECT id, alert_ids FROM aisoc_cases WHERE id = :id AND tenant_id = :tenant_id"),
+            {"id": case_id, "tenant_id": user.tenant_id},
+        )).mappings().first()
+        if aisoc_row is None:
+            raise HTTPException(status_code=404, detail="case_not_found")
+        alert_ids = list(aisoc_row.get("alert_ids") or [])
 
     # Pick the seed alert: earliest event_time linked to the case. We
     # prefer ``case.alert_ids`` (denormalised) but fall back to a probe
     # on ``alerts.case_id`` if that list is empty so a freshly-linked
     # case still resolves.
     seed_alert_id: uuid.UUID | None = None
-    if case_row.alert_ids:
-        candidate_ids = [uuid.UUID(str(a)) if not isinstance(a, uuid.UUID) else a for a in case_row.alert_ids]
+    if alert_ids:
+        candidate_ids = [uuid.UUID(str(a)) if not isinstance(a, uuid.UUID) else a for a in alert_ids]
         seed_row = (
             await db.execute(
                 select(Alert)

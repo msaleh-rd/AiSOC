@@ -55,6 +55,7 @@ from app.models.state import AgentStatus, InvestigationState
 from app.routing.model_router import is_deterministic_mode
 from app.security.llm_resolver import resolve_llm_config
 from app.workers.business_context import BusinessContextApplier
+from app.workers.case_grouping import auto_group_alert
 
 logger = structlog.get_logger()
 
@@ -84,6 +85,8 @@ _METRICS = {
     "persist_retries": 0,
     "dead_lettered": 0,
     "errors": 0,
+    "cases_grouped": 0,
+    "cases_created": 0,
 }
 
 
@@ -428,6 +431,31 @@ class FusedAlertTriageWorker:
                 )
                 _METRICS["outcome_written"] += 1
 
+        # Automated Case Correlation (World-Class SOC):
+        # Group alert into an active Case container by shared entity / attack chain,
+        # or auto-promote to a new Case so related alerts never sit isolated.
+        case_info: dict[str, Any] | None = None
+        if state.status is not AgentStatus.COMPLETED and _truthy("AISOC_AUTO_CASE_CORRELATION", "1"):
+            pool = await ledger_module.get_pool()
+            if pool is not None:
+                with contextlib.suppress(Exception):
+                    async with pool.acquire() as conn:
+                        alert_uuid = _coerce_uuid((state.raw_alert or {}).get("id"), fallback=str(state.run_id))
+                        case_info = await auto_group_alert(
+                            conn,
+                            alert_id=alert_uuid,
+                            tenant_id=state.tenant_id,
+                            raw_alert=state.raw_alert or {},
+                            verdict=str(verdict) if verdict else None,
+                        )
+                        if case_info:
+                            if case_info.get("action") == "grouped":
+                                _METRICS["cases_grouped"] += 1
+                            elif case_info.get("action") == "created":
+                                _METRICS["cases_created"] += 1
+                            if case_info.get("case_id"):
+                                state.case_id = str(case_info["case_id"])
+
         # Issue #569: route escalations (anything NOT auto-closed — TP,
         # low-confidence, needs_review) through the full investigation graph.
         # High-confidence FP/BTP already terminated (status COMPLETED) and
@@ -440,6 +468,7 @@ class FusedAlertTriageWorker:
             "run_id": str(state.run_id),
             "incident_id": str(state.incident_id),
             "tenant_id": str(state.tenant_id),
+            "case_id": state.case_id,
             "verdict": verdict,
             "confidence": confidence,
             "tier": tier,

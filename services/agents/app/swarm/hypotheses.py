@@ -20,6 +20,11 @@ class Hypothesis:
     techniques: frozenset[str] = frozenset()
     # Whether this hypothesis is a "benign" explanation (competes with the malicious ones).
     benign: bool = False
+    # Prior belief in [0, 1]. Static hypotheses use a neutral 0.5; the
+    # LLM-generated path sets this from the model's own stated confidence so
+    # scoring is grounded in the generator's assessment rather than a flat
+    # constant that lets zero-evidence hypotheses tie and win by list order.
+    prior: float = 0.5
 
 
 HYPOTHESES: list[Hypothesis] = [
@@ -55,4 +60,26 @@ HYPOTHESES: list[Hypothesis] = [
         contradicts_keywords=frozenset({"ransom note", "exfiltration to unknown", "mimikatz"}),
         benign=True,
     ),
+    Hypothesis(
+        key="network_recon",
+        label="Network reconnaissance / sniffing",
+        supports_keywords=frozenset({"promiscuous", "sniffing", "packet capture", "tcpdump", "wireshark", "port scan", "nmap", "arp spoof", "network scan"}),
+        contradicts_keywords=frozenset({"span port", "network sensor", "monitoring appliance"}),
+        techniques=frozenset({"T1040", "T1046", "T1595", "T1557"}),
+    ),
+    Hypothesis(
+        key="benign_security_tooling",
+        label="Benign security tooling / monitoring agent",
+        supports_keywords=frozenset({"suricata", "zeek", "ids sensor", "network sensor", "span port", "monitoring agent", "wazuh agent", "vulnerability scan", "authorized scan"}),
+        contradicts_keywords=frozenset({"unknown process", "unauthorized", "mimikatz", "ransom note"}),
+        benign=True,
+    ),
+    Hypothesis(
+        key="ingress_tool_transfer",
+        label="Ingress tool transfer / binary download",
+        supports_keywords=frozenset({"download", "curl", "wget", "payload", "dropper", "elf", "executable", "ingress", "binary", "donotcry", "staged tool"}),
+        contradicts_keywords=frozenset({"package update", "apt-get", "trusted repo"}),
+        techniques=frozenset({"T1105", "T1204", "T1059"}),
+    ),
 ]
+

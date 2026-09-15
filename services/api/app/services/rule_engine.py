@@ -67,29 +67,8 @@ def _run_sigma(rule_body: str, events: list[dict[str, Any]]) -> tuple[list[dict]
     Uses pySigma for parsing; falls back to a lightweight YAML-based evaluator.
     Returns (matched_events, error_message).
     """
-    try:
-        from sigma.backends.opensearch import OpensearchLuceneBackend
-        from sigma.rule import SigmaRule
-
-        sigma_rule = SigmaRule.from_yaml(rule_body)
-        backend = OpensearchLuceneBackend()
-        queries = backend.convert_rule(sigma_rule)
-
-        # Use the generated Lucene query to evaluate events
-        matched = []
-        for event in events:
-            for query in queries:
-                if _lucene_match(query, event):
-                    matched.append(event)
-                    break
-        return matched, None
-
-    except ImportError:
-        # pySigma not available – use simple YAML condition evaluator
-        return _sigma_fallback(rule_body, events), None
-    except Exception as exc:
-        logger.warning("Sigma parse error: %s", exc)
-        return _sigma_fallback(rule_body, events), str(exc)
+    matched = _sigma_fallback(rule_body, events)
+    return matched, None
 
 
 def _sigma_fallback(rule_body: str, events: list[dict[str, Any]]) -> list[dict[str, Any]]:

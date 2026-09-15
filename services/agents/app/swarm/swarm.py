@@ -61,14 +61,50 @@ class HypothesisResult:
     tokens_spent: int = 0
 
 
+_TECHNIQUE_ID_RE = re.compile(r"T\d{4}(?:\.\d{3})?")
+
+
 def _signal_text(signal: dict) -> str:
-    parts = [str(signal.get("alert_summary", "")), str(signal.get("title", "")), str(signal.get("raw", ""))]
+    """Concatenate every textual evidence source in the signal.
+
+    Includes the platform-evidence entities (related alerts collected by the
+    evidence phase) so hypotheses are scored against the full corpus of
+    sibling telemetry, not just the single triggering alert's summary.
+    """
+    parts = [str(signal.get("alert_summary", "")), str(signal.get("title", "")), str(signal.get("raw", "")), str(signal.get("message", ""))]
+    for entity in signal.get("entities") or []:
+        if isinstance(entity, dict):
+            for key in ("title", "action", "event_type", "value"):
+                if entity.get(key):
+                    parts.append(str(entity[key]))
     return " ".join(parts).lower()
+
+
+def _collect_techniques(signal: dict) -> set[str]:
+    """Extract bare MITRE technique IDs from every technique-bearing field.
+
+    ``mitre_mappings`` entries arrive as decorated strings (e.g.
+    ``"T1040: Unknown"``) which never equal a hypothesis's bare ``"T1040"`` —
+    regex out the IDs so technique corroboration actually fires.
+    Related-alert entities contribute their techniques too.
+    """
+    found: set[str] = set()
+    for field in ("techniques", "mitre_techniques", "mitre_mappings"):
+        for t in signal.get(field) or []:
+            found.update(_TECHNIQUE_ID_RE.findall(str(t).upper()))
+    for entity in signal.get("entities") or []:
+        if isinstance(entity, dict):
+            for field in ("mitre_techniques", "techniques"):
+                for t in entity.get(field) or []:
+                    found.update(_TECHNIQUE_ID_RE.findall(str(t).upper()))
+            if entity.get("mitre_technique_id"):
+                found.update(_TECHNIQUE_ID_RE.findall(str(entity["mitre_technique_id"]).upper()))
+    return found
 
 
 def _evaluate(hypothesis: Hypothesis, signal: dict, budget: int) -> HypothesisResult:
     text = _signal_text(signal)
-    techniques = {t.upper() for t in (signal.get("techniques") or signal.get("mitre_techniques") or [])}
+    techniques = _collect_techniques(signal)
 
     evidence = sorted(kw for kw in hypothesis.supports_keywords if kw in text)
     contradictions = sorted(kw for kw in hypothesis.contradicts_keywords if kw in text)
@@ -105,7 +141,7 @@ async def run_swarm(
     signal: dict,
     *,
     hypotheses: list[Hypothesis] | None = None,
-    max_agents: int = 5,
+    max_agents: int = 8,
     per_agent_budget: int = DEFAULT_PER_AGENT_TOKEN_BUDGET,
 ) -> list[HypothesisResult]:
     """Fan out up to ``max_agents`` hypothesis agents in parallel."""
@@ -222,6 +258,10 @@ async def _generate_hypotheses_llm(
             generated: list[Hypothesis] = []
             for item in items[:max_hypotheses]:
                 key = str(item.get("hypothesis", "unknown")).lower().replace(" ", "_")[:40]
+                try:
+                    prior = max(0.0, min(1.0, float(item.get("confidence", 0.5))))
+                except (TypeError, ValueError):
+                    prior = 0.5
                 generated.append(Hypothesis(
                     key=key,
                     label=str(item.get("hypothesis", "Unknown")),
@@ -229,6 +269,7 @@ async def _generate_hypotheses_llm(
                     contradicts_keywords=frozenset(item.get("contradicting_keywords", [])),
                     techniques=frozenset(item.get("supporting_techniques", [])),
                     benign=bool(item.get("is_benign", False)),
+                    prior=prior,
                 ))
 
             if generated:
@@ -259,10 +300,7 @@ async def _score_hypothesis_llm(
     await asyncio.sleep(0)  # yield for concurrency
 
     text = _signal_text(signal)
-    observed_techniques = {
-        t.upper()
-        for t in (signal.get("techniques") or signal.get("mitre_techniques") or [])
-    }
+    observed_techniques = _collect_techniques(signal)
     supporting = {t.upper() for t in hypothesis.techniques}
     overlap = len(observed_techniques & supporting)
     total_supporting = max(len(supporting), 1)
@@ -272,8 +310,13 @@ async def _score_hypothesis_llm(
     contradictions = sorted(kw for kw in hypothesis.contradicts_keywords if kw.lower() in text)
     contradiction_penalty = min(0.3, len(contradictions) * 0.1)
 
-    # Combined score.
-    score = max(0.0, min(1.0, 0.6 * evidence_overlap + 0.4 * 0.5 - contradiction_penalty))
+    # Combined score: evidence overlap dominates; the generator's own stated
+    # confidence acts as a bounded prior (previously a flat 0.4*0.5 constant
+    # that let zero-evidence hypotheses tie at 0.2 and win by list order).
+    score = max(
+        0.0,
+        min(1.0, 0.6 * evidence_overlap + 0.4 * hypothesis.prior - contradiction_penalty),
+    )
 
     return HypothesisResult(
         key=hypothesis.key,
@@ -293,7 +336,7 @@ async def _score_hypothesis_llm(
 async def run_swarm_llm(
     signal: dict,
     *,
-    max_agents: int = 5,
+    max_agents: int = 7,
     per_agent_budget: int = DEFAULT_PER_AGENT_TOKEN_BUDGET,
 ) -> list[HypothesisResult]:
     """LLM-backed swarm: generate hypotheses dynamically, then score concurrently.

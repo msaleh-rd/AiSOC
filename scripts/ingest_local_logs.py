@@ -49,7 +49,7 @@ from typing import Any
 
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 DEFAULT_INGEST_URL = "http://localhost:8081"
-BATCH_SIZE = 500
+BATCH_SIZE = 100
 
 # Wazuh 0-15 rule level -> AiSOC 5-tier ladder. Mirrors
 # services/connectors/app/connectors/wazuh.py _SEVERITY_BANDS so an operator
@@ -198,12 +198,25 @@ def post_batch(
             "X-Tenant-ID": tenant_id,
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"ingest POST failed ({exc.code}): {detail}") from exc
+    # Retry with backoff — the Go ingest service's graph writer can
+    # transiently stall on Neo4j under burst load, dropping the TCP
+    # connection before responding.
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"ingest POST failed ({exc.code}): {detail}") from exc
+        except (ConnectionError, OSError) as exc:
+            if attempt < max_retries - 1:
+                wait = 2 ** (attempt + 1)
+                print(f"  ! connection error (attempt {attempt + 1}/{max_retries}), retrying in {wait}s: {exc}", file=sys.stderr)
+                import time
+                time.sleep(wait)
+            else:
+                raise
 
 
 def ingest_events(

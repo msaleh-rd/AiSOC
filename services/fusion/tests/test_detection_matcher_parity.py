@@ -16,7 +16,17 @@ from pathlib import Path
 import pytest
 from app.services.detection_matcher import matches as vendored_matches
 
-_REPO = Path(__file__).resolve().parents[3]
+def _find_repo_root() -> Path:
+    cur = Path(__file__).resolve()
+    for p in (cur, *cur.parents):
+        if (p / "scripts" / "generate_detections.py").is_file():
+            return p
+    if Path("/app/scripts").is_dir():
+        return Path("/app")
+    parents = cur.parents
+    return parents[3] if len(parents) > 3 else parents[-1]
+
+_REPO = _find_repo_root()
 
 
 def _load_canonical():
@@ -34,8 +44,12 @@ def _fixture_pairs() -> list[tuple[dict, dict]]:
     """Return (match_when, event) pairs from the exported ruleset is not
     possible (no fixtures there); instead read the committed fixtures dir."""
     fixtures_dir = _REPO / "detections" / "fixtures"
-    ruleset = _REPO / "services" / "fusion" / "app" / "data" / "detection_ruleset.json"
-    rules = {r["slug"]: r["match_when"] for r in json.loads(ruleset.read_text())["rules"]}
+    ruleset = (
+        Path("/app/app/data/detection_ruleset.json")
+        if Path("/app/app/data/detection_ruleset.json").is_file()
+        else _REPO / "services" / "fusion" / "app" / "data" / "detection_ruleset.json"
+    )
+    rules = {r["slug"]: r["match_when"] for r in json.loads(ruleset.read_text(encoding="utf-8"))["rules"]}
     pairs: list[tuple[dict, dict]] = []
     for kind in ("positive", "negative"):
         d = fixtures_dir / kind
@@ -67,8 +81,12 @@ def test_vendored_matcher_matches_canonical_over_all_fixtures():
 def test_positive_fixtures_fire_and_negatives_do_not():
     """Sanity: the vendored matcher upholds the fixture contract directly."""
     fixtures_dir = _REPO / "detections" / "fixtures"
-    ruleset = _REPO / "services" / "fusion" / "app" / "data" / "detection_ruleset.json"
-    rules = {r["slug"]: r["match_when"] for r in json.loads(ruleset.read_text())["rules"]}
+    ruleset = (
+        Path("/app/app/data/detection_ruleset.json")
+        if Path("/app/app/data/detection_ruleset.json").is_file()
+        else _REPO / "services" / "fusion" / "app" / "data" / "detection_ruleset.json"
+    )
+    rules = {r["slug"]: r["match_when"] for r in json.loads(ruleset.read_text(encoding="utf-8"))["rules"]}
     checked = 0
     for f in sorted((fixtures_dir / "positive").glob("*.json")):
         mw = rules.get(f.stem)

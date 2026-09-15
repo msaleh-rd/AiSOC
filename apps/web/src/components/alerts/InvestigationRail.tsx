@@ -244,7 +244,9 @@ function RailHeader({
           <>
             <span>·</span>
             <span className="font-mono text-gray-400">
-              risk {Math.round(alert.riskScore)}
+              {/* riskScore is a 0–1 float; Math.round would collapse it to
+                  0/1. Render two decimals to match AlertDetailView. */}
+              risk {Number(alert.riskScore.toFixed(2))}
             </span>
           </>
         )}

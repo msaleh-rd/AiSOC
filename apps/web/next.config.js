@@ -30,6 +30,13 @@ const OSQUERY_TLS_HOST = process.env.OSQUERY_TLS_URL || 'http://localhost:8090';
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@isoc/ui', '@isoc/types', '@isoc/report-card'],
+  // LLM-backed endpoints (Deep Explain, copilot chat, investigations) can
+  // legitimately take minutes on slow local models. Next's rewrite proxy
+  // defaults to a 30s upstream timeout and kills the socket mid-response
+  // ("network error" in the UI) — raise it to 5 minutes.
+  experimental: {
+    proxyTimeout: 300_000,
+  },
   // pnpm monorepo: anchor Turbopack at the repository root so it can resolve
   // the hoisted `next` package via apps/web/node_modules/next (symlink into
   // the root .pnpm store). Setting this to __dirname caused Turbopack to
@@ -161,6 +168,13 @@ const nextConfig = {
       {
         source: '/api/v1/copilot',
         destination: `${AGENTS_HOST}/api/v1/copilot`,
+      },
+      // Deep Explain — structured NDJSON alert walkthrough (agents service,
+      // services/agents/app/api/explain.py). Without this rewrite the POST
+      // falls through to the core-API catch-all and 404s.
+      {
+        source: '/api/v1/explain',
+        destination: `${AGENTS_HOST}/api/v1/explain`,
       },
       // Hunt corpus management (plural /hunts)
       {

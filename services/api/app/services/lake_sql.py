@@ -346,9 +346,8 @@ def _direct_tables(select: exp.Select) -> list[exp.Table]:
     """
     out: list[exp.Table] = []
 
-    # sqlglot stores the FROM clause under args["from"]. Using the args
-    # dict key is the canonical way to access it regardless of version.
-    from_expr = select.args.get("from")
+    # sqlglot stores the FROM clause under args["from"] (or args["from_"] in newer versions).
+    from_expr = select.args.get("from") or select.args.get("from_")
     if from_expr is not None:
         _collect_direct_tables(from_expr, out)
 

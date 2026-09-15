@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { casesApi, type Case, type CasesResponse } from '@/lib/api';
+import { casesApi, realtimeApi, type Case, type CasesResponse } from '@/lib/api';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { EmptyState, EmptyStateIcons } from '@/components/ui/EmptyState';
@@ -51,13 +51,14 @@ function CaseCard({ c }: { c: Case }) {
   const sts = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.open;
   const displayId = c.caseNumber ?? `${c.id ?? ''}`.slice(-6);
   const detailHref = `/cases/${encodeURIComponent(c.caseNumber ?? c.id)}`;
+  const alertCount = c.alertCount ?? c.alertIds?.length ?? 0;
 
   return (
     <Link href={detailHref} className="block">
       <div className="bg-gray-900/60 border border-gray-800/60 rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all group">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={clsx('text-xs font-medium px-2 py-0.5 rounded border', sev.className)}>
                 {sev.label}
               </span>
@@ -65,12 +66,35 @@ function CaseCard({ c }: { c: Case }) {
                 <span className={clsx('w-1.5 h-1.5 rounded-full', sts.dot)} />
                 {sts.label}
               </span>
+              {c.autoCorrelated && (
+                <span
+                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 uppercase tracking-wide"
+                  title={c.correlationReason ?? 'Auto-correlated by the correlation engine'}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  Auto-Correlated
+                </span>
+              )}
+              {alertCount > 1 && (
+                <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  {alertCount} alerts grouped
+                </span>
+              )}
             </div>
             <h3 className="text-sm font-medium text-gray-200 group-hover:text-white truncate">{c.title}</h3>
             <div className="flex items-center gap-3 mt-2">
               <span className="text-xs text-gray-500">#{displayId}</span>
               <span className="text-xs text-gray-500">·</span>
-              <span className="text-xs text-gray-500">{c.alertCount ?? 0} alerts</span>
+              <span className="text-xs text-gray-500">{alertCount} alerts</span>
+              {c.correlationReason && (
+                <>
+                  <span className="text-xs text-gray-500">·</span>
+                  <span className="text-xs text-cyan-400/70" title={c.correlationReason}>{c.correlationReason}</span>
+                </>
+              )}
               {c.assignee && (
                 <>
                   <span className="text-xs text-gray-500">·</span>
@@ -129,6 +153,8 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   const [search, setSearch] = useState('');
   const [newCaseOpen, setNewCaseOpen] = useState(false);
 
+  const [autoCorrelatedFilter, setAutoCorrelatedFilter] = useState(false);
+
   const { data: casesData, isLoading, mutate } = useSWR(
     ['cases', statusFilter, severityFilter],
     () => casesApi.list({ status: statusFilter !== 'all' ? statusFilter : undefined }),
@@ -136,14 +162,74 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
   );
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [reCorrelating, setReCorrelating] = useState(false);
+
+  // Subscribe to realtime case updates (live severity escalation notifications)
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let closed = false;
+
+    void (async () => {
+      let token: string;
+      try {
+        ({ token } = await realtimeApi.ticket());
+      } catch {
+        return;
+      }
+      if (closed) return;
+      const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${wsProto}://${window.location.host}/ws/cases?token=${encodeURIComponent(token)}`;
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data as string) as Record<string, unknown>;
+            if (msg.type === 'case.updated') {
+              if (msg.event_type === 'escalation') {
+                const caseNum = String(
+                  msg.case_number || (msg.case_id ? String(msg.case_id).slice(0, 8) : ''),
+                );
+                const newSev = String(msg.severity || '').toUpperCase();
+                const oldSev = String(msg.old_severity || '').toUpperCase();
+                toast(
+                  `⚠️ Case ${caseNum} escalated from ${oldSev} to ${newSev}`,
+                  {
+                    icon: '🚨',
+                    duration: 6000,
+                    style: {
+                      background: '#1e1b4b',
+                      color: '#e0e7ff',
+                      border: '1px solid #4338ca',
+                    },
+                  },
+                );
+              }
+              void mutate();
+            }
+          } catch {
+            // ignore malformed payloads
+          }
+        };
+      } catch {
+        // ws not available; polling covers updates
+      }
+    })();
+
+    return () => {
+      closed = true;
+      if (ws) ws.close();
+    };
+  }, [mutate]);
 
   const cases = (casesData?.cases || []).filter((c) => {
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (severityFilter !== 'all' && c.severity !== severityFilter) return false;
+    if (autoCorrelatedFilter && !c.autoCorrelated) return false;
     return true;
   });
 
   const allCases = casesData?.cases ?? [];
+  const autoCorrelatedCount = allCases.filter(c => c.autoCorrelated).length;
   const statCounts = {
     all: allCases.length,
     open: allCases.filter(c => c.status === 'open').length,
@@ -161,6 +247,39 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           <p className="text-sm text-gray-500 mt-0.5">Manage security investigations and incidents</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              setReCorrelating(true);
+              try {
+                const res = await casesApi.reCorrelate({ windowHours: 24 });
+                if (res.orphan_count === 0) {
+                  toast.success('No orphan alerts found to correlate in the last 24h');
+                } else {
+                  toast.success(
+                    `Re-correlated ${res.orphan_count} orphan alert(s): ${res.cases_created} new case(s), ${res.cases_grouped} grouped`,
+                  );
+                }
+                void mutate();
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Re-correlation failed');
+              } finally {
+                setReCorrelating(false);
+              }
+            }}
+            disabled={reCorrelating}
+            className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-medium px-3.5 py-2 rounded-lg border border-gray-700/60 transition-colors"
+            title="Scan for orphan alerts from the last 24h and correlate them into Cases"
+          >
+            {reCorrelating ? (
+              <div className="w-4 h-4 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {reCorrelating ? 'Re-Correlating…' : 'Re-Correlate Alerts'}
+          </button>
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
@@ -241,6 +360,31 @@ export function CasesView({ initialCases }: CasesViewProps = {}) {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+
+        <button
+          onClick={() => setAutoCorrelatedFilter(!autoCorrelatedFilter)}
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
+            autoCorrelatedFilter
+              ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+              : 'bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-600'
+          )}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Auto-Correlated
+          {autoCorrelatedCount > 0 && (
+            <span className={clsx(
+              'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+              autoCorrelatedFilter
+                ? 'bg-cyan-500/25 text-cyan-200'
+                : 'bg-gray-800 text-gray-500'
+            )}>
+              {autoCorrelatedCount}
+            </span>
+          )}
+        </button>
 
         <span className="text-xs text-gray-500">{cases.length} cases</span>
       </div>

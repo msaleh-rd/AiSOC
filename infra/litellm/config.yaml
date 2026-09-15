@@ -140,7 +140,10 @@ litellm_settings:
   require_auth_for_metrics_endpoint: false
   # Never wait forever on a stalled provider — fall through to AiSOC's own
   # deterministic path instead of hanging the alert drawer.
-  request_timeout: 60
+  # 180s accommodates local models (e.g. GPT-OSS 20B on LM Studio at
+  # ~10-12 t/s) which need 90-120s for a full triage prompt. Cloud APIs
+  # finish in <10s regardless.
+  request_timeout: 180
 
 # ── Router: retries + cross-model fallbacks ───────────────────────────────────
 # model_pins.py documents that "the LiteLLM gateway owns any model-level

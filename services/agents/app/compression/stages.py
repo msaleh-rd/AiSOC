@@ -9,7 +9,7 @@ deterministic.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.compression.models import CorrelatedEvent, MitreTechnique
@@ -294,6 +294,10 @@ def normalise_event(raw: dict[str, Any]) -> CorrelatedEvent:
             ts = datetime.utcnow()
     else:
         ts = datetime.utcnow()
+    # Normalise everything to naive UTC — mixing tz-aware DB timestamps with
+    # the naive utcnow() fallbacks makes sorting/windowing raise TypeError.
+    if ts.tzinfo is not None:
+        ts = ts.astimezone(UTC).replace(tzinfo=None)
 
     entity = (
         raw.get("entity_id")

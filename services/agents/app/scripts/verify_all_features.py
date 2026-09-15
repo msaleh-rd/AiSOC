@@ -20,11 +20,17 @@ from datetime import datetime, timedelta
 import json
 import os
 import sys
+from pathlib import Path
 from uuid import uuid4
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 # Ensure local test/verification can initialize chat models without live credentials
 os.environ.setdefault("OPENAI_API_KEY", "mock-eval-key")
 os.environ.setdefault("OTEL_EXPORTER", "console")
+os.environ.setdefault("LITELLM_URL", "http://localhost:4000")
 
 
 def banner(title: str) -> None:
@@ -286,16 +292,17 @@ async def verify_react_supervisor(compressed_events: list[dict], rca_findings: d
 
     supervisor = ReActSupervisor()
 
-    # Iteration 1: Initial state (entities populated, no compressed events) -> supervisor chooses compress_events
+    # Iteration 1: Initial state (entities populated, no compressed events) -> supervisor chooses gather_evidence or compress_events
     d1 = await supervisor.decide(state)
     print(f"    Cycle 1 Decision: action='{d1.action}', goal='{d1.specific_goal}'")
     assert d1.action in ("gather_evidence", "compress_events")
 
     # Simulate evidence gathered & compressed events populated
+    state.record_action(d1.action)
     state.add_finding("Extracted 3 endpoints and 2 user accounts")
     state.compressed_events = compressed_events
 
-    # Iteration 2: With compressed events (rca_conf < 0.70) -> supervisor chooses perform_rca
+    # Iteration 2: With compressed events (rca_conf < 0.70) -> supervisor chooses perform_rca, run_swarm, or specialist
     d2 = await supervisor.decide(state)
     print(f"    Cycle 2 Decision: action='{d2.action}', goal='{d2.specific_goal}'")
     assert d2.action in ("perform_rca", "run_swarm", "run_specialist")
@@ -303,6 +310,7 @@ async def verify_react_supervisor(compressed_events: list[dict], rca_findings: d
     # Simulate RCA populated (confidence 0.88 >= 0.75) — override the real
     # RCA output's confidence (which may be < 0.75 depending on the synthetic
     # graph) so the supervisor's finalize threshold is met deterministically.
+    state.record_action(d2.action)
     rca_override = dict(rca_findings)
     rca_override["confidence"] = 0.88
     state.rca_findings = rca_override
@@ -316,7 +324,19 @@ async def verify_react_supervisor(compressed_events: list[dict], rca_findings: d
     # Step B: Test the compiled LangGraph workflow execution
     print("\n[+] Step B: Executing compiled Supervised Graph workflow...")
     graph = get_supervised_graph()
-    initial_dict = state.to_dict()
+    workflow_state = InvestigationState(
+        incident_id=uuid4(),
+        tenant_id=uuid4(),
+        alert_summary="Compromised service account performing lateral movement and database exfiltration",
+        severity="high",
+        entities=[
+            {"type": "user", "id": "user-svc-admin"},
+            {"type": "host", "id": "host-web-01"},
+            {"type": "host", "id": "host-db-primary"},
+        ],
+        mitre_mappings=["T1059.001", "T1021.002", "T1048"],
+    )
+    initial_dict = workflow_state.to_dict()
 
     final_output = await graph.ainvoke(initial_dict)
 

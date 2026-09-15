@@ -1337,6 +1337,48 @@ export interface Case {
   dueAt?: string;
   timeline?: CaseTimelineEvent[];
   tasks?: CaseTask[];
+  /** True when the case was auto-created by the correlation engine. */
+  autoCorrelated?: boolean;
+  /** Human-readable reason for the correlation (e.g. "shared host: web-srv-01"). */
+  correlationReason?: string;
+  /** Primary entity the case is anchored to (e.g. "host:web-srv-01"). */
+  primaryEntity?: string;
+  /** Raw JSONB tags object from the backend (preserved for correlation metadata). */
+  rawTags?: Record<string, unknown>;
+}
+
+export interface CaseSynthesisResult {
+  case_id: string;
+  case_number?: string | null;
+  total_alerts: number;
+  sources: string[];
+  severity_breakdown: Record<string, number>;
+  compromised_entities: {
+    hosts: string[];
+    ips: string[];
+    users: string[];
+  };
+  kill_chain_progression: Array<{
+    step: number;
+    alert_id: string;
+    title: string;
+    severity: string;
+    source: string;
+    timestamp: string;
+    techniques: string[];
+    hosts: string[];
+    ips: string[];
+    users: string[];
+  }>;
+  mitre_techniques: string[];
+  root_cause_summary: string;
+  recommended_containment: Array<{
+    action: string;
+    target: string;
+    priority: string;
+    description: string;
+  }>;
+  synthesized_at: string;
 }
 
 // The backend uses a 6-state lifecycle (`new | triaged | investigating |
@@ -1490,16 +1532,36 @@ function normalizeCase(raw: unknown): Case {
   const r = (raw ?? {}) as Record<string, unknown>;
   const tagsRaw = r.tags;
   let tags: string[] | undefined;
+  let rawTags: Record<string, unknown> | undefined;
+  let autoCorrelated = false;
+  let primaryEntity: string | undefined;
+  let correlationReason: string | undefined;
+
   if (Array.isArray(tagsRaw)) {
     tags = tagsRaw.map((t) => String(t));
-  } else if (
-    tagsRaw &&
-    typeof tagsRaw === 'object' &&
-    Array.isArray((tagsRaw as Record<string, unknown>).labels)
-  ) {
-    tags = ((tagsRaw as Record<string, unknown>).labels as unknown[]).map((t) =>
-      String(t),
-    );
+  } else if (tagsRaw && typeof tagsRaw === 'object') {
+    const tagsObj = tagsRaw as Record<string, unknown>;
+    rawTags = tagsObj;
+    // Extract labels for backward-compat display
+    if (Array.isArray(tagsObj.labels)) {
+      tags = (tagsObj.labels as unknown[]).map((t) => String(t));
+    }
+    // Extract auto-correlation metadata from JSONB tags
+    if (tagsObj.auto_created === true || tagsObj.autoCreated === true) {
+      autoCorrelated = true;
+    }
+    if (typeof tagsObj.primary_entity === 'string' && tagsObj.primary_entity) {
+      primaryEntity = tagsObj.primary_entity;
+      // Build human-readable correlation reason from the primary entity
+      const [kind, ...rest] = primaryEntity.split(':');
+      const entity = rest.join(':');
+      correlationReason = entity ? `Shared ${kind}: ${entity}` : `Correlated by ${kind}`;
+    }
+    if (typeof tagsObj.chain_id === 'string' && tagsObj.chain_id) {
+      correlationReason = correlationReason
+        ? `${correlationReason} + attack chain`
+        : 'Correlated attack chain';
+    }
   }
 
   const alertIds = Array.isArray(r.alert_ids)
@@ -1565,6 +1627,10 @@ function normalizeCase(raw: unknown): Case {
       ? (r.timeline as CaseTimelineEvent[])
       : undefined,
     tasks: Array.isArray(r.tasks) ? (r.tasks as CaseTask[]) : undefined,
+    autoCorrelated,
+    correlationReason,
+    primaryEntity,
+    rawTags,
   };
 }
 
@@ -1681,6 +1747,35 @@ export const casesApi = {
       method: 'PATCH',
       body: JSON.stringify(task),
     }),
+
+  /** Fetch all alerts linked to this case via the correlation engine. */
+  getAlerts: async (caseId: string) => {
+    try {
+      const raw = await request<unknown>(`/api/v1/cases/${caseId}/alerts`);
+      // Backend may return {alerts: [...]} envelope or a bare array.
+      if (Array.isArray(raw)) return raw as Array<Record<string, unknown>>;
+      if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).alerts)) {
+        return (raw as Record<string, unknown>).alerts as Array<Record<string, unknown>>;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Fetch system comments (includes auto-correlation audit entries). */
+  getComments: async (caseId: string) => {
+    try {
+      const raw = await request<unknown>(`/api/v1/cases/${caseId}/comments`);
+      if (Array.isArray(raw)) return raw as Array<Record<string, unknown>>;
+      if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).comments)) {
+        return (raw as Record<string, unknown>).comments as Array<Record<string, unknown>>;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
 
   investigate: (caseId: string, alertSummary?: string) =>
     request<{ run_id: string; case_id: string; status: string; message: string }>(
@@ -1847,6 +1942,80 @@ export const casesApi = {
     document.body.removeChild(a);
     // Hold the blob URL long enough for the new tab to read it, then release.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  },
+
+  /**
+   * Fetch aggregate correlation and case statistics for the tenant.
+   */
+  getStats: () =>
+    request<{
+      total: number;
+      auto_correlated: number;
+      manual: number;
+      avg_alerts_per_case: number;
+      by_severity: Record<string, number>;
+      by_status: Record<string, number>;
+    }>('/api/v1/cases/stats'),
+
+  /**
+   * Trigger re-correlation of orphan alerts across a wider lookback window.
+   */
+  reCorrelate: (params?: { windowHours?: number; minSeverity?: string }) => {
+    const queryParams: Record<string, string> = {};
+    if (params?.windowHours !== undefined) queryParams.window_hours = String(params.windowHours);
+    if (params?.minSeverity !== undefined) queryParams.min_severity = params.minSeverity;
+    return request<{
+      orphan_count: number;
+      correlated_count: number;
+      cases_created: number;
+      cases_grouped: number;
+    }>('/api/v1/cases/re-correlate', {
+      method: 'POST',
+      params: queryParams,
+    });
+  },
+
+  /**
+   * Merge a source case into a target case.
+   */
+  mergeCase: async (targetCaseId: string, sourceCaseId: string) => {
+    const raw = await request<unknown>(
+      `/api/v1/cases/${encodeURIComponent(targetCaseId)}/merge`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ source_case_id: sourceCaseId }),
+      },
+    );
+    return normalizeCase(raw);
+  },
+
+  /**
+   * Split selected alerts out of a case into a new case container.
+   */
+  splitCase: async (caseId: string, alertIds: string[], title?: string) => {
+    const raw = await request<unknown>(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/split`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          alert_ids: alertIds,
+          ...(title ? { title } : {}),
+        }),
+      },
+    );
+    return normalizeCase(raw);
+  },
+
+  /**
+   * Run cross-alert forensic synthesis on all alerts linked to this case.
+   */
+  synthesize: async (caseId: string): Promise<CaseSynthesisResult> => {
+    return request<CaseSynthesisResult>(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/synthesize`,
+      {
+        method: 'POST',
+      },
+    );
   },
 };
 

@@ -30,14 +30,13 @@ describe('Sidebar', () => {
   it('renders the AiSOC mark and the major nav sections', () => {
     render(<Sidebar />);
 
-    // Brand
-    expect(screen.getByText('Ai')).toBeInTheDocument();
+    // Brand logo + Intelligence section heading
+    expect(screen.getAllByText('Intelligence')).toHaveLength(2);
     expect(screen.getByText('SOC')).toBeInTheDocument();
 
     // Section headings — Dashboard sits in an unlabelled lead section,
     // everything else is grouped under one of these four titles.
     expect(screen.getByText('Threat Operations')).toBeInTheDocument();
-    expect(screen.getByText('Intelligence')).toBeInTheDocument();
     expect(screen.getByText('Automation')).toBeInTheDocument();
     expect(screen.getByText('Platform')).toBeInTheDocument();
   });

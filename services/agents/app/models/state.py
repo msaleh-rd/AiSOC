@@ -57,6 +57,7 @@ class InvestigationState(BaseModel):
     run_id: UUID = Field(default_factory=uuid4)
     incident_id: UUID
     tenant_id: UUID
+    case_id: str | None = None
     task: AgentTask = AgentTask.INVESTIGATION
     status: AgentStatus = AgentStatus.PENDING
 
@@ -99,6 +100,8 @@ class InvestigationState(BaseModel):
     compressed_events: list[dict[str, Any]] = Field(default_factory=list)
     # Output from the PageRank RCA engine.
     rca_findings: dict[str, Any] = Field(default_factory=dict)
+    # Output from the deterministic ForensicsEngine (Track A).
+    forensic_package: dict[str, Any] = Field(default_factory=dict)
     # Per-action iteration counter (e.g. {"gather_evidence": 2, "perform_rca": 1}).
     action_counts: dict[str, int] = Field(default_factory=dict)
     # Supervisor decision audit trail (appended by each supervisor step).
@@ -108,6 +111,12 @@ class InvestigationState(BaseModel):
 
     def add_finding(self, finding: str) -> None:
         self.findings.append(finding)
+
+    def record_action(self, action: str) -> None:
+        counts = dict(self.action_counts or {})
+        counts[action] = counts.get(action, 0) + 1
+        self.action_counts = counts
+        self.iteration_count += 1
 
     def to_dict(self) -> dict:
         return self.model_dump(mode="json")
