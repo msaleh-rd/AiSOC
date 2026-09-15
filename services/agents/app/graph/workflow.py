@@ -447,20 +447,96 @@ async def finalize_response_node(state: dict) -> dict:
 
     d = s.to_dict()
 
-    # Ensure recon, forensic, responder dictionaries are populated for the frontend tabs
-    if s.forensic_package:
-        d["forensic"] = s.forensic_package
+    # Per-phase cards for the console (Recon / Forensic / Response).
+    # Shapes match CaseWorkspace.tsx:
+    #   recon.{summary, iocs[{type,value}], mitre_techniques[]}
+    #   forensic.{summary, root_cause_hypothesis, confidence, ...package}
+    #   responder.{summary, recommended_actions[{action,rationale}], risk_level}
+    iocs = [
+        {"type": i.get("ioc_type", "ioc"), "value": i.get("value", "")}
+        for i in (s.threat_intel.get("pending_iocs") or [])
+        if isinstance(i, dict) and i.get("value")
+    ]
+    related_alerts = sum(
+        1 for e in (s.entities or []) if isinstance(e, dict) and e.get("alert_id")
+    )
+    hosts = sorted(
+        {
+            str(e.get("value"))
+            for e in (s.entities or [])
+            if isinstance(e, dict) and e.get("entity_type") == "host" and e.get("value")
+        }
+    )
+    recon_bits = [f"{len(iocs)} IOC(s) extracted"]
+    if related_alerts:
+        recon_bits.append(f"{related_alerts} related platform alert(s) collected")
+    if hosts:
+        recon_bits.append(f"host(s): {', '.join(hosts[:3])}")
     d["recon"] = {
-        "entities": s.entities or [],
-        "findings": s.findings[:5] if s.findings else [],
+        "summary": "; ".join(recon_bits) + ".",
+        "iocs": iocs[:10],
+        "mitre_techniques": list(s.mitre_mappings or [])[:10],
     }
-    actions = [
+
+    rca = s.rca_findings or {}
+    forensic = dict(s.forensic_package or {})
+    forensic_bits: list[str] = []
+    for prefix in ("Platform evidence:", "Compression:", "Swarm"):
+        note = next((f for f in s.findings if f.startswith(prefix)), None)
+        if note:
+            forensic_bits.append(note)
+    forensic["summary"] = (
+        " · ".join(forensic_bits)
+        or "No forensic evidence was collected for this run."
+    )
+    if rca.get("narrative"):
+        forensic["root_cause_hypothesis"] = str(rca["narrative"])
+    elif rca.get("root_cause_entity"):
+        forensic["root_cause_hypothesis"] = (
+            f"Root cause: {rca['root_cause_entity']} "
+            f"(attack type: {rca.get('attack_type', 'unknown')})"
+        )
+    if isinstance(rca.get("confidence"), (int, float)):
+        forensic["confidence"] = float(rca["confidence"])
+    d["forensic"] = forensic
+
+    # Responder risk follows the verdict, not raw confidence: a benign
+    # auto-close at 0.92 confidence is LOW risk, not high.
+    verdict = (s.verdict or "needs_review").lower()
+    if "benign" in verdict or "false_positive" in verdict:
+        risk = "low"
+    elif "true_positive" in verdict or "malicious" in verdict:
+        risk = "high"
+    else:
+        risk = "medium"
+    rationale = next(
+        (
+            f.removeprefix("Auto-triage rationale: ")
+            for f in s.findings
+            if f.startswith("Auto-triage rationale:")
+        ),
+        "",
+    )
+    responder_summary = (
+        f"Verdict: {s.verdict or 'needs_review'} (confidence {s.confidence:.0%})."
+    )
+    if rationale:
+        responder_summary += f" {rationale}"
+    raw_actions = [
         a.to_dict() if hasattr(a, "to_dict") else a
         for a in (s.proposed_actions or [])
     ]
+    actions = [
+        {
+            "action": a.get("description") or a.get("action_type", ""),
+            "rationale": a.get("rationale", ""),
+        }
+        for a in raw_actions[:6]
+        if isinstance(a, dict)
+    ]
     d["responder"] = {
-        "summary": s.alert_summary,
-        "risk_level": "high" if s.confidence >= 0.8 else "medium",
+        "summary": responder_summary[:600],
+        "risk_level": risk,
         "recommended_actions": actions,
     }
 
