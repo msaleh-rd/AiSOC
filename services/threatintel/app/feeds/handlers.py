@@ -10,8 +10,10 @@ AiSOC — open-source AI Security Operations Center (MIT License)
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import structlog
 
 from app.clients.cisa_kev import CisaKevClient
@@ -143,3 +145,134 @@ async def handle_cisa_kev_feed(
 
     except Exception as exc:
         logger.error("CISA KEV feed handler failed", error=str(exc))
+
+
+# ─── Zero-credential public feeds (auto-on, no API key) ──────────────────────
+#
+# OpenPhish + Spamhaus DROP need no credentials, so a fresh install gets
+# live, auto-updating intel out of the box alongside CISA KEV. Fetch and
+# parse are split so tests can exercise parsing without network.
+
+_OPENPHISH_URL = "https://openphish.com/feed.txt"
+_SPAMHAUS_DROP_URL = "https://www.spamhaus.org/drop/drop_v4.json"
+
+
+class OpenPhishClient:
+    """OpenPhish community feed — one confirmed phishing URL per line."""
+
+    def __init__(self, url: str = _OPENPHISH_URL) -> None:
+        self._url = url
+
+    async def fetch(self) -> list[dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                resp = await client.get(self._url, follow_redirects=True)
+                resp.raise_for_status()
+                iocs = self.parse(resp.text)
+                logger.info("OpenPhish fetched", count=len(iocs))
+                return iocs
+            except Exception as exc:
+                logger.error("OpenPhish fetch failed", error=str(exc))
+                return []
+
+    def parse(self, body: str) -> list[dict[str, Any]]:
+        iocs: list[dict[str, Any]] = []
+        for line in body.splitlines():
+            url = line.strip()
+            if not url or not url.lower().startswith(("http://", "https://")):
+                continue
+            iocs.append(
+                {
+                    "type": "url",
+                    "value": url,
+                    "description": "Confirmed phishing URL (OpenPhish community feed)",
+                    "source": "openphish",
+                    "source_ref": f"openphish:{url}",
+                    "tags": ["phishing", "openphish"],
+                    "tlp": "white",
+                }
+            )
+        return iocs
+
+
+class SpamhausDropClient:
+    """Spamhaus DROP — hijacked / criminal-controlled netblocks (JSON Lines)."""
+
+    def __init__(self, url: str = _SPAMHAUS_DROP_URL) -> None:
+        self._url = url
+
+    async def fetch(self) -> list[dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                resp = await client.get(self._url, follow_redirects=True)
+                resp.raise_for_status()
+                iocs = self.parse(resp.text)
+                logger.info("Spamhaus DROP fetched", count=len(iocs))
+                return iocs
+            except Exception as exc:
+                logger.error("Spamhaus DROP fetch failed", error=str(exc))
+                return []
+
+    def parse(self, body: str) -> list[dict[str, Any]]:
+        iocs: list[dict[str, Any]] = []
+        for line in body.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            # The feed's trailing line is a metadata record, not a netblock.
+            cidr = entry.get("cidr")
+            if not isinstance(cidr, str) or not cidr:
+                continue
+            sblid = entry.get("sblid", "")
+            iocs.append(
+                {
+                    "type": "cidr",
+                    "value": cidr,
+                    "description": "Hostile netblock on the Spamhaus Don't Route Or Peer list",
+                    "sbl_id": sblid,
+                    "rir": entry.get("rir", ""),
+                    "source": "spamhaus-drop",
+                    "source_ref": f"spamhaus-drop:{sblid or cidr}",
+                    "tags": ["drop", "spamhaus", "netblock"],
+                    "tlp": "white",
+                }
+            )
+        return iocs
+
+
+async def handle_openphish_feed(
+    client: OpenPhishClient,
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch the OpenPhish community feed and ingest URL IOCs."""
+    logger.info("Polling OpenPhish feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="openphish")
+            logger.info("OpenPhish IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("OpenPhish feed handler failed", error=str(exc))
+
+
+async def handle_spamhaus_drop_feed(
+    client: SpamhausDropClient,
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch the Spamhaus DROP list and ingest netblock IOCs."""
+    logger.info("Polling Spamhaus DROP feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="spamhaus-drop")
+            logger.info("Spamhaus DROP IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("Spamhaus DROP feed handler failed", error=str(exc))

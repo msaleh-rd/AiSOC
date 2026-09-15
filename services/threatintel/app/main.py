@@ -33,9 +33,13 @@ from app.clients.otx import OtxClient
 from app.clients.taxii import TaxiiClient
 from app.config import settings
 from app.feeds.handlers import (
+    OpenPhishClient,
+    SpamhausDropClient,
     handle_cisa_kev_feed,
     handle_misp_feed,
+    handle_openphish_feed,
     handle_otx_feed,
+    handle_spamhaus_drop_feed,
     handle_taxii_feed,
 )
 from app.feeds.pipeline import ThreatIntelPipeline
@@ -234,6 +238,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             feed_name="cisa-kev",
             handler=partial(handle_cisa_kev_feed, client=kev_client, pipeline=pipeline),
             interval_seconds=settings.CISA_KEV_POLL_INTERVAL,
+        )
+
+    # OpenPhish + Spamhaus DROP — zero-credential public feeds, on by
+    # default so fresh installs have live TI. Same air-gap contract as KEV.
+    if settings.OPENPHISH_ENABLED and _airgap_check_feed_url("openphish", settings.OPENPHISH_URL):
+        scheduler.register(
+            feed_name="openphish",
+            handler=partial(
+                handle_openphish_feed,
+                client=OpenPhishClient(settings.OPENPHISH_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.OPENPHISH_POLL_INTERVAL,
+        )
+    if settings.SPAMHAUS_DROP_ENABLED and _airgap_check_feed_url("spamhaus-drop", settings.SPAMHAUS_DROP_URL):
+        scheduler.register(
+            feed_name="spamhaus-drop",
+            handler=partial(
+                handle_spamhaus_drop_feed,
+                client=SpamhausDropClient(settings.SPAMHAUS_DROP_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.SPAMHAUS_DROP_POLL_INTERVAL,
         )
 
     scheduler.start()

@@ -62,6 +62,8 @@ class TestPublicFeedsBlocked:
             "https://misp.example-public.com/events/restSearch",
             "https://taxii.opencti.io/taxii2/",
             "https://feeds.example-public.net/stix",
+            "https://openphish.com/feed.txt",
+            "https://www.spamhaus.org/drop/drop_v4.json",
         ],
     )
     def test_public_feed_is_blocked(self, airgapped, url):

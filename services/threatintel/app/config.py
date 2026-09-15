@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     # Legacy alias
     CISA_POLL_INTERVAL: int = 86400
 
+    # Zero-credential public feeds — enabled by default so a fresh install
+    # has live, auto-updating intel; air-gap policy still blocks them when
+    # AISOC_AIRGAPPED=1 and the host is not allowlisted.
+    OPENPHISH_ENABLED: bool = True
+    OPENPHISH_URL: str = "https://openphish.com/feed.txt"
+    OPENPHISH_POLL_INTERVAL: int = 43200  # 12 h — free-tier refresh cadence
+    SPAMHAUS_DROP_ENABLED: bool = True
+    SPAMHAUS_DROP_URL: str = "https://www.spamhaus.org/drop/drop_v4.json"
+    SPAMHAUS_DROP_POLL_INTERVAL: int = 43200  # 12 h
+
     # Air-gap egress policy (Tier 3.1).
     # When enabled, public threat-intel feeds (OTX, CISA KEV, MISP/TAXII/
     # OpenCTI hosted on the public Internet) will refuse to register at
