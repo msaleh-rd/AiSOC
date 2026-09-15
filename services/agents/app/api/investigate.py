@@ -225,6 +225,39 @@ async def _persist_report_artifact(run_uuid: UUID, tenant_ref: str, report_md: s
         logger.warning("report_artifact_persist_failed", run_id=str(run_uuid), error=str(exc))
 
 
+async def _persist_alert_verdict(case_id: str, tenant_ref: str, state_data: dict[str, Any]) -> None:
+    """Surface the run's verdict on the alert row (no-op for case-scoped runs).
+
+    Alert-panel investigations arrive with ``case_id`` set to the alert UUID,
+    so the ledger helper resolves the row; genuine case ids match no alert and
+    the update is skipped. Detection confidence is never touched — this only
+    fills the AI-owned columns (and ``disposition`` when still unset).
+    """
+    verdict = state_data.get("verdict")
+    if not verdict:
+        return
+    recommendations: list[Any] = []
+    responder = state_data.get("responder") or {}
+    if isinstance(responder, dict):
+        raw = responder.get("recommended_actions")
+        if isinstance(raw, list):
+            recommendations = raw
+    findings = [f for f in (state_data.get("findings") or []) if isinstance(f, str) and f.strip()]
+    try:
+        from app.investigator import ledger as ledger_module
+
+        await ledger_module.persist_interactive_verdict(
+            alert_id=case_id,
+            tenant_ref=tenant_ref,
+            verdict=str(verdict),
+            confidence=float(state_data.get("confidence") or 0.0),
+            summary="\n".join(findings) or None,
+            recommendations=recommendations,
+        )
+    except Exception as exc:  # noqa: BLE001 — verdict surfacing is best-effort
+        logger.warning("alert_verdict_persist_failed", case_id=case_id, error=str(exc))
+
+
 async def _load_report_artifact(run_id: str) -> str | None:
     """Read a run's stored Markdown report back out of the ledger."""
     try:
@@ -303,6 +336,7 @@ async def _run_and_store(run_id: str, case_id: str, req: InvestigateRequest) -> 
                 await _persist_report_artifact(
                     run_uuid, req.tenant_id, state_data.get("report_md", "")
                 )
+                await _persist_alert_verdict(case_id, req.tenant_id, state_data)
                 await _emit_event(
                     run_id,
                     req.tenant_id,

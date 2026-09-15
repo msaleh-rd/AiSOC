@@ -566,8 +566,12 @@ export interface Alert {
   confidenceScore?: number;
   confidenceRationale?: ConfidenceFactor[];
   ledgerRunId?: string;
-  /** Analyst-corrected verdict (Tier 1.5 override loop). */
-  disposition?: 'true_positive' | 'false_positive' | 'benign' | 'escalate' | null;
+  /** AI verdict on the alert: auto-triage or interactive investigation
+   * write-back, later overridable by an analyst via the feedback loop. */
+  disposition?: 'true_positive' | 'false_positive' | 'benign' | 'escalate' | 'needs_review' | null;
+  /** The AI's confidence (0-1) in its own verdict — independent of the
+   * fusion-computed detection confidence above. */
+  aiScore?: number | null;
   // ─── Investigation Rail envelope (W6) ─────────────────────────────────────
   //
   // The list endpoint never populates these — they're only present
@@ -778,6 +782,7 @@ function normalizeAlert(raw: unknown): Alert {
     confidenceRationale,
     ledgerRunId: pickStr('ledger_run_id', 'ledgerRunId'),
     disposition: (r.disposition ?? null) as Alert['disposition'],
+    aiScore: pickNum('ai_score', 'aiScore') ?? null,
     narrative: (r.narrative as string | null | undefined) ?? null,
     relatedEntities,
     miniTimeline,

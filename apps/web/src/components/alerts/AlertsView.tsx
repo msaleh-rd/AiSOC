@@ -67,6 +67,35 @@ function ConfidencePill({ label }: { label: ConfidenceLabel }) {
   );
 }
 
+// AI verdict pill — the investigation outcome (auto-triage or interactive
+// run), rendered as a separate signal beside detection confidence rather than
+// overwriting it: detection confidence stays the immutable fuse-time score.
+const VERDICT_ROW_CONFIG: Record<string, { label: string; cls: string }> = {
+  true_positive: { label: 'AI: TP', cls: 'text-red-400 bg-red-500/10 border-red-500/20' },
+  malicious: { label: 'AI: MALICIOUS', cls: 'text-red-400 bg-red-500/10 border-red-500/20' },
+  suspicious: { label: 'AI: SUSPICIOUS', cls: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+  escalate: { label: 'AI: ESCALATE', cls: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+  needs_review: { label: 'AI: REVIEW', cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
+  benign: { label: 'AI: BENIGN', cls: 'text-green-400 bg-green-500/10 border-green-500/20' },
+  false_positive: { label: 'AI: FP', cls: 'text-gray-400 bg-gray-500/10 border-gray-500/20' },
+};
+
+function VerdictPill({ verdict, score }: { verdict: string; score?: number | null }) {
+  const cfg = VERDICT_ROW_CONFIG[verdict] ?? {
+    label: `AI: ${verdict.replace(/_/g, ' ').toUpperCase()}`,
+    cls: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
+  };
+  const pct = typeof score === 'number' ? ` (${Math.round(score * 100)}%)` : '';
+  return (
+    <span
+      className={clsx('text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border shrink-0', cfg.cls)}
+      title={`AI investigation verdict${pct} — independent of detection confidence`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SeverityDot({ severity }: { severity: string }) {
@@ -202,6 +231,7 @@ function AlertRow({
 
       <div className="flex items-center gap-2 shrink-0">
         {alert.confidenceLabel && <ConfidencePill label={alert.confidenceLabel} />}
+        {alert.disposition && <VerdictPill verdict={alert.disposition} score={alert.aiScore} />}
         <SeverityBadge severity={alert.severity} />
         <StatusBadge status={alert.status} />
         <span className="text-xs text-gray-600 w-24 text-right" suppressHydrationWarning>

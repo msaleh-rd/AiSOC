@@ -146,6 +146,42 @@ function ConfidenceChip({ label, score }: { label: ConfidenceLabel; score?: numb
   );
 }
 
+// AI verdict chip — the investigation outcome, rendered beside (never instead
+// of) the fuse-time detection confidence. The two are independent signals:
+// detection confidence is the deterministic scorer's trust in the detection;
+// this is the agent's disposition after actually investigating.
+const AI_VERDICT_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
+  true_positive: { label: 'AI: True Positive', badge: 'bg-red-500/10 text-red-300 ring-red-500/30', dot: 'bg-red-500' },
+  malicious: { label: 'AI: Malicious', badge: 'bg-red-500/10 text-red-300 ring-red-500/30', dot: 'bg-red-500' },
+  suspicious: { label: 'AI: Suspicious', badge: 'bg-orange-500/10 text-orange-300 ring-orange-500/30', dot: 'bg-orange-500' },
+  escalate: { label: 'AI: Escalate', badge: 'bg-orange-500/10 text-orange-300 ring-orange-500/30', dot: 'bg-orange-500' },
+  needs_review: { label: 'AI: Needs Review', badge: 'bg-yellow-500/10 text-yellow-300 ring-yellow-500/30', dot: 'bg-yellow-500' },
+  benign: { label: 'AI: Benign', badge: 'bg-green-500/10 text-green-300 ring-green-500/30', dot: 'bg-green-500' },
+  false_positive: { label: 'AI: False Positive', badge: 'bg-gray-500/10 text-gray-300 ring-gray-500/30', dot: 'bg-gray-500' },
+};
+
+function AiVerdictChip({ verdict, score }: { verdict: string; score?: number | null }) {
+  const cfg = AI_VERDICT_CONFIG[verdict] ?? {
+    label: `AI: ${verdict.replace(/_/g, ' ')}`,
+    badge: 'bg-purple-500/10 text-purple-300 ring-purple-500/30',
+    dot: 'bg-purple-500',
+  };
+  const pct = typeof score === 'number' ? Math.round(score * 100) : null;
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded ring-1 ring-inset',
+        cfg.badge,
+      )}
+      title="AI investigation verdict — independent of detection confidence"
+    >
+      <span className={clsx('w-2 h-2 rounded-full', cfg.dot)} />
+      {cfg.label}
+      {pct !== null && <span className="opacity-70 font-mono">· {pct}%</span>}
+    </span>
+  );
+}
+
 function ConfidenceFactorBar({ factor }: { factor: ConfidenceFactor }) {
   const pct = Math.max(0, Math.min(1, factor.contribution / Math.max(factor.weight, 0.001)));
   const widthPct = Math.round(pct * 100);
@@ -293,7 +329,7 @@ function LedgerEvidenceChain({ runId }: { runId: string }) {
 
 // ─── AI Investigation Panel ───────────────────────────────────────────────────
 
-function AIInvestigation({ alertId }: { alertId: string }) {
+function AIInvestigation({ alertId, onComplete }: { alertId: string; onComplete?: () => void }) {
   const [investigation, setInvestigation] = useState<AgentInvestigation | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -335,6 +371,9 @@ function AIInvestigation({ alertId }: { alertId: string }) {
             if (inv.status === 'completed' || inv.status === 'failed') {
               stopPolling();
               setIsRunning(false);
+              // The completed run wrote its verdict back onto the alert row —
+              // refetch so the AI-verdict chip appears without a reload.
+              if (inv.status === 'completed') onComplete?.();
             }
           } catch (err) {
             consecutiveFailures += 1;
@@ -881,6 +920,9 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
                 score={alert.confidenceScore}
               />
             )}
+            {alert.disposition && (
+              <AiVerdictChip verdict={alert.disposition} score={alert.aiScore} />
+            )}
             <span className="text-xs text-gray-500">Risk Score: <span className="text-white font-bold">{Number(alert.riskScore.toFixed(2))}</span></span>
           </div>
           <h1 className="text-lg font-semibold text-gray-100">{alert.title}</h1>
@@ -1049,7 +1091,7 @@ export function AlertDetailView({ alertId }: { alertId: string }) {
           {/* Right column - 1/3 */}
           <div className="space-y-4">
             <Section title="AI Investigation">
-              <AIInvestigation alertId={alertId} />
+              <AIInvestigation alertId={alertId} onComplete={() => void mutate()} />
             </Section>
 
             <Section title="Verdict & feedback">

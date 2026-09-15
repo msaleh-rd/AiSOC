@@ -524,6 +524,71 @@ async def persist_auto_triage(
         raise LedgerPersistError(str(exc)) from exc
 
 
+async def persist_interactive_verdict(
+    *,
+    alert_id: str,
+    tenant_ref: str,
+    verdict: str,
+    confidence: float,
+    summary: str | None = None,
+    recommendations: list[Any] | None = None,
+) -> bool:
+    """Surface an interactive investigation's verdict on the alert row.
+
+    Same write contract as :func:`persist_auto_triage`'s alert update, with two
+    deliberate differences: it never auto-resolves the alert, and it never
+    overwrites an existing ``disposition`` (an analyst correction via the
+    feedback endpoint must win over a later AI re-run). The AI-owned columns
+    (``ai_score`` / ``ai_summary`` / ``ai_recommendations``) always reflect the
+    most recent run.
+
+    Best-effort: no DB, unknown tenant, or a non-UUID alert id (case-scoped
+    runs) => no-op returning ``False``.
+    """
+    verdict = (verdict or "").strip()
+    alert_uuid = _coerce_uuid(alert_id)
+    if not verdict or alert_uuid is None:
+        return False
+    pool = await get_pool()
+    if pool is None:
+        return False
+    try:
+        async with pool.acquire() as conn:
+            tenant_id = await _resolve_tenant_id(conn, tenant_ref)
+            if tenant_id is None:
+                logger.debug("ledger.verdict_skip", reason="unknown_tenant", tenant_ref=tenant_ref)
+                return False
+            await _set_rls_context(conn, tenant_id)
+            result = await conn.execute(
+                """
+                UPDATE alerts
+                   SET disposition = COALESCE(disposition, $3),
+                       ai_score = $4,
+                       ai_summary = $5,
+                       ai_recommendations = $6::jsonb,
+                       updated_at = now()
+                 WHERE id = $1 AND tenant_id = $2
+                """,
+                alert_uuid,
+                tenant_id,
+                verdict[:50],
+                float(confidence),
+                (summary or "")[:8000] or None,
+                json.dumps(recommendations or []),
+            )
+        written = result == "UPDATE 1"
+        if written:
+            logger.info(
+                "ledger.interactive_verdict_persisted",
+                alert_id=str(alert_uuid),
+                verdict=verdict,
+            )
+        return written
+    except Exception as exc:  # noqa: BLE001 — verdict surfacing is best-effort
+        logger.warning("ledger.interactive_verdict_failed", alert_id=str(alert_id), error=str(exc))
+        return False
+
+
 async def record_suppression(
     *,
     tenant_ref: str,
