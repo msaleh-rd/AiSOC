@@ -14,7 +14,7 @@
     "./styles": "./dist/styles.css"
   },
   "scripts": {
-    "build": "tsc && cp src/styles.css dist/styles.css 2>/dev/null || true",
+    "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },
