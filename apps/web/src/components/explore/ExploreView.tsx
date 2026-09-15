@@ -163,6 +163,7 @@ function EventsExplorer() {
       if (!trimmed) return;
       setTranslating(true);
       setError(null);
+      try {
         const res = await nlQueryApi.translate({ question: trimmed });
         const qLower = trimmed.toLowerCase();
         let generated = sql;
