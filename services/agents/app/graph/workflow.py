@@ -10,6 +10,8 @@ graph-aware Attack-Path agent that walks Neo4j to compute blast radius.
 
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 from langgraph.graph import END, StateGraph
 
@@ -435,6 +437,137 @@ async def perform_rca_node(state: dict) -> dict:
     return s.to_dict()
 
 
+async def parallel_analysis_node(state: dict) -> dict:
+    """Run the three analysis tracks concurrently, then fuse their verdicts.
+
+    Track A — kill-chain phase hunts (deterministic, anchor-chained; ported
+    from sxsecurityinvestigator's orchestration layer).
+    Track B — competing-hypothesis swarm (LLM).
+    Track C — root cause analysis (PageRank + causal walkback + narrative).
+
+    Fusion rules keep the output honest:
+    * compliance/SCA noise is tagged first and excluded from hypothesis text,
+    * a swarm winner with <2 evidence signals needs kill-chain corroboration
+      or it is reported as an uncorroborated hypothesis,
+    * an RCA attack_type with no supporting phase verdict is labeled
+      uncorroborated.
+    """
+    s = _from_dict(state)
+
+    # Tag compliance noise before any track consumes the corpus.
+    try:
+        from app.forensics.noise import tag_noise  # noqa: PLC0415
+
+        noise_count, signal_count = tag_noise(s.entities)
+        if noise_count:
+            s.add_finding(
+                f"Noise filter: {noise_count} compliance/maintenance event(s) "
+                f"tagged (kept for context, excluded from hypothesis matching); "
+                f"{signal_count} signal event(s) remain"
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("supervised.noise_tagging_failed", error=str(exc))
+
+    base_findings = set(s.findings)
+    base_state = s.to_dict()
+
+    async def _hunt_track():
+        from app.forensics.phase_hunts import run_phase_hunts  # noqa: PLC0415
+
+        return await run_phase_hunts(s.entities, raw_alert=s.raw_alert)
+
+    async def _swarm_track():
+        from app.swarm import hold_debate, run_swarm_llm  # noqa: PLC0415
+
+        signal = {
+            "alert_summary": s.alert_summary,
+            "techniques": s.mitre_mappings,
+            "entities": s.entities,
+            **(s.raw_alert or {}),
+        }
+        results = await run_swarm_llm(signal)
+        return hold_debate(results)
+
+    hunts, swarm_outcome, rca_state = await asyncio.gather(
+        _hunt_track(),
+        _swarm_track(),
+        perform_rca_node(dict(base_state)),
+        return_exceptions=True,
+    )
+
+    # ── Track A: kill-chain phase verdicts ──
+    phase_verdicts: dict = {}
+    if isinstance(hunts, BaseException):
+        s.add_finding(f"Phase hunts failed: {hunts}")
+        logger.warning("supervised.phase_hunts_failed", error=str(hunts))
+    else:
+        from app.forensics.phase_hunts import summarize_phase_verdicts  # noqa: PLC0415
+
+        phase_verdicts = hunts
+        pkg = dict(s.forensic_package or {})
+        pkg["kill_chain_phases"] = {k: v.to_dict() for k, v in hunts.items()}
+        s.forensic_package = pkg
+        s.add_finding(summarize_phase_verdicts(hunts))
+
+    # ── Track C: RCA (merged before swarm so fusion can inspect it) ──
+    if isinstance(rca_state, BaseException):
+        s.add_finding(f"RCA failed: {rca_state}")
+        logger.warning("supervised.parallel_rca_failed", error=str(rca_state))
+    else:
+        s.rca_findings = rca_state.get("rca_findings") or {}
+        for f in rca_state.get("findings") or []:
+            if f not in base_findings:
+                s.add_finding(f)
+        # An attack_type with no confirmed/likely phase verdict is a guess.
+        at = str(s.rca_findings.get("attack_type") or "")
+        pv = phase_verdicts.get(at)
+        if at and at != "unknown" and (
+            pv is None or pv.status not in ("confirmed", "likely")
+        ):
+            s.rca_findings["attack_type"] = f"{at} (uncorroborated)"
+
+    # ── Track B: swarm + corroboration fusion ──
+    if isinstance(swarm_outcome, BaseException):
+        s.add_finding(f"Swarm failed: {swarm_outcome}")
+        logger.warning("supervised.parallel_swarm_failed", error=str(swarm_outcome))
+    else:
+        winner = swarm_outcome.winner
+        if winner is None:
+            s.add_finding(
+                "Swarm: no hypothesis gained evidentiary support — no verdict asserted"
+            )
+        else:
+            winner_techs = {
+                e.split("technique:", 1)[1]
+                for e in winner.evidence
+                if e.startswith("technique:")
+            }
+            corroborated = any(
+                v.status in ("confirmed", "likely")
+                and bool(winner_techs & set(v.mitre_techniques))
+                for v in phase_verdicts.values()
+            )
+            weak = len(winner.evidence) < 2
+            if weak and not corroborated:
+                s.add_finding(
+                    f"Swarm: top hypothesis '{winner.label}' has only "
+                    f"{len(winner.evidence)} evidence signal(s) and no "
+                    f"kill-chain corroboration — uncorroborated, not asserted"
+                )
+            else:
+                evidence_bits = list(winner.evidence)[:6]
+                note = (
+                    f" — evidence: {', '.join(evidence_bits)}" if evidence_bits else ""
+                )
+                corr = " (kill-chain corroborated)" if corroborated else ""
+                s.add_finding(
+                    f"Swarm winner: {winner.label} "
+                    f"(confidence: {winner.confidence:.2f}){note}{corr}"
+                )
+
+    return s.to_dict()
+
+
 async def finalize_response_node(state: dict) -> dict:
     """Generate final response plan and close the investigation."""
     s = _from_dict(state)
@@ -481,7 +614,7 @@ async def finalize_response_node(state: dict) -> dict:
     rca = s.rca_findings or {}
     forensic = dict(s.forensic_package or {})
     forensic_bits: list[str] = []
-    for prefix in ("Platform evidence:", "Compression:", "Swarm"):
+    for prefix in ("Platform evidence:", "Compression:", "Noise filter:", "Kill chain:", "Swarm"):
         note = next((f for f in s.findings if f.startswith(prefix)), None)
         if note:
             forensic_bits.append(note)
@@ -568,6 +701,8 @@ def _supervisor_route(state: dict) -> str:
         return "swarm"
     if action == "perform_rca":
         return "rca"
+    if action == "parallel_analysis":
+        return "parallel"
     return "finalize"
 
 
@@ -585,6 +720,7 @@ def build_supervised_graph() -> StateGraph:
     graph.add_node("compress_events", compress_events_node)
     graph.add_node("run_swarm", run_swarm_node)
     graph.add_node("perform_rca", perform_rca_node)
+    graph.add_node("parallel_analysis", parallel_analysis_node)
     graph.add_node("finalize_response", finalize_response_node)
 
     graph.set_entry_point("auto_triage")
@@ -605,6 +741,7 @@ def build_supervised_graph() -> StateGraph:
             "compress": "compress_events",
             "swarm": "run_swarm",
             "rca": "perform_rca",
+            "parallel": "parallel_analysis",
             "finalize": "finalize_response",
         },
     )
@@ -614,6 +751,7 @@ def build_supervised_graph() -> StateGraph:
     graph.add_edge("compress_events", "supervisor")
     graph.add_edge("run_swarm", "supervisor")
     graph.add_edge("perform_rca", "supervisor")
+    graph.add_edge("parallel_analysis", "supervisor")
     graph.add_edge("finalize_response", END)
 
     return graph.compile()

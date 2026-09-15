@@ -64,16 +64,29 @@ class HypothesisResult:
 _TECHNIQUE_ID_RE = re.compile(r"T\d{4}(?:\.\d{3})?")
 
 
+def _keyword_pattern(keyword: str) -> re.Pattern[str]:
+    """Word-boundary pattern so ``usb`` never matches ``usb-storage``.
+
+    Hyphen counts as a word character here: CIS benchmark text like
+    "Ensure usb-storage kernel module is not available" must NOT support
+    an insider-exfiltration hypothesis via a bare ``usb`` substring hit.
+    """
+    return re.compile(rf"(?<![\w-]){re.escape(keyword.strip())}(?![\w-])")
+
+
 def _signal_text(signal: dict) -> str:
     """Concatenate every textual evidence source in the signal.
 
     Includes the platform-evidence entities (related alerts collected by the
     evidence phase) so hypotheses are scored against the full corpus of
     sibling telemetry, not just the single triggering alert's summary.
+    Noise-tagged entities (compliance/SCA scan output — see
+    :mod:`app.forensics.noise`) are excluded: benchmark text is context,
+    not attack evidence.
     """
     parts = [str(signal.get("alert_summary", "")), str(signal.get("title", "")), str(signal.get("raw", "")), str(signal.get("message", ""))]
     for entity in signal.get("entities") or []:
-        if isinstance(entity, dict):
+        if isinstance(entity, dict) and not entity.get("noise"):
             for key in ("title", "action", "event_type", "value"):
                 if entity.get(key):
                     parts.append(str(entity[key]))
@@ -106,8 +119,12 @@ def _evaluate(hypothesis: Hypothesis, signal: dict, budget: int) -> HypothesisRe
     text = _signal_text(signal)
     techniques = _collect_techniques(signal)
 
-    evidence = sorted(kw for kw in hypothesis.supports_keywords if kw in text)
-    contradictions = sorted(kw for kw in hypothesis.contradicts_keywords if kw in text)
+    evidence = sorted(
+        kw for kw in hypothesis.supports_keywords if _keyword_pattern(kw).search(text)
+    )
+    contradictions = sorted(
+        kw for kw in hypothesis.contradicts_keywords if _keyword_pattern(kw).search(text)
+    )
     tech_hits = sorted(techniques & {t.upper() for t in hypothesis.techniques})
 
     # Deterministic support score: keyword coverage + technique corroboration,
@@ -141,7 +158,7 @@ async def run_swarm(
     signal: dict,
     *,
     hypotheses: list[Hypothesis] | None = None,
-    max_agents: int = 8,
+    max_agents: int = 7,
     per_agent_budget: int = DEFAULT_PER_AGENT_TOKEN_BUDGET,
 ) -> list[HypothesisResult]:
     """Fan out up to ``max_agents`` hypothesis agents in parallel."""

@@ -1,4 +1,4 @@
-﻿###############################################################################
+###############################################################################
 # AiSOC - AI Security Operations Center
 # Docker Compose - Full Development Stack
 # AiSOC — open-source under MIT License
@@ -164,7 +164,7 @@ services:
       - node.name=aisoc-node-1
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
       - DISABLE_INSTALL_DEMO_CONFIG=true
       - DISABLE_SECURITY_PLUGIN=true
     ulimits:
@@ -177,8 +177,8 @@ services:
       - "127.0.0.1:9200:9200"
     networks:
       - aisoc
-    mem_limit: 1g
-    mem_reservation: 768m
+    mem_limit: 2g
+    mem_reservation: 1g
 
   qdrant:
     image: qdrant/qdrant:v1.7.0

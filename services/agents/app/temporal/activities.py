@@ -72,6 +72,13 @@ async def perform_rca_activity(state: dict[str, Any]) -> dict[str, Any]:
     return await perform_rca_node(state)
 
 
+@activity.defn(name="parallel_analysis")
+async def parallel_analysis_activity(state: dict[str, Any]) -> dict[str, Any]:
+    from app.graph.workflow import parallel_analysis_node
+
+    return await parallel_analysis_node(state)
+
+
 @activity.defn(name="finalize_response")
 async def finalize_response_activity(state: dict[str, Any]) -> dict[str, Any]:
     from app.graph.workflow import finalize_response_node

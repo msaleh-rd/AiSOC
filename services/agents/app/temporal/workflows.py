@@ -32,6 +32,10 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 _ACTIVITY_TIMEOUT = timedelta(minutes=3)
+# parallel_analysis fans out swarm-LLM + RCA-narrative-LLM + phase hunts in
+# one activity; single-model backends (LM Studio) serialize the LLM calls,
+# so the combined leg needs more headroom than a single-track phase.
+_PARALLEL_ANALYSIS_TIMEOUT = timedelta(minutes=8)
 _ACTIVITY_RETRY_POLICY = RetryPolicy(
     maximum_attempts=5,
     # A pydantic ValidationError (e.g. a non-UUID incident_id/tenant_id
@@ -48,12 +52,14 @@ _APPROVAL_TIMEOUT = timedelta(hours=1)
 # Phases that repeat in the adaptive re-investigation loop when confidence
 # stays below threshold — mirrors the supervised graph's ReAct posture, but
 # as a bounded, durable, queryable loop rather than an open-ended one.
+# ``parallel_analysis`` runs the kill-chain phase hunts, the hypothesis
+# swarm, and RCA concurrently inside one activity, then fuses their verdicts
+# (replaces the previous serial run_swarm → perform_rca legs).
 _INVESTIGATION_PHASES = (
     "triage",
     "gather_evidence",
     "compress_events",
-    "run_swarm",
-    "perform_rca",
+    "parallel_analysis",
 )
 
 
@@ -90,10 +96,6 @@ class InvestigationWorkflow:
             "verdict": self._state.get("verdict"),
             "confidence": self._state.get("confidence"),
             "findings_count": len(self._state.get("findings", []) or []),
-            "supervisor_history": self._state.get("supervisor_history", []),
-            "supervisor_action": self._state.get("_supervisor_action"),
-            "supervisor_goal": self._state.get("_supervisor_goal"),
-            "iteration": self._state.get("iteration_count", 0),
         }
 
     # ------------------------------------------------------------------
@@ -103,7 +105,7 @@ class InvestigationWorkflow:
     @workflow.run
     async def run(self, request: dict[str, Any]) -> dict[str, Any]:
         confidence_threshold = float(request.get("confidence_threshold", _DEFAULT_CONFIDENCE_THRESHOLD))
-        max_iterations = int(request.get("max_iterations", 10))
+        max_reinvestigations = int(request.get("max_reinvestigations", _DEFAULT_MAX_REINVESTIGATIONS))
 
         state: dict[str, Any] = {
             "run_id": workflow.info().workflow_id,
@@ -117,35 +119,26 @@ class InvestigationWorkflow:
             "confidence": 0.0,
         }
 
-        # Phase 0 — auto-triage (provides early assessment / baseline verdict).
+        # Phase 0 — auto-triage. Mirrors the LangGraph pipeline's early exit:
+        # a high-confidence auto-closed verdict skips the rest of the run.
         state = await self._run_phase("auto_triage", state)
-        state["status"] = "running"
+        if state.get("status") == "completed":
+            self._phase = "completed"
+            return state
 
-        # Phase 1 — initial triage
-        state = await self._run_phase("triage", state)
+        attempt = 0
+        while True:
+            for phase in _INVESTIGATION_PHASES:
+                state = await self._run_phase(phase, state)
 
-        # Autonomous ReAct Supervisor loop (matches LangGraph supervised graph
-        # and D:\projects\ai-assisted-soc):
-        # Instead of a static sequence, the supervisor evaluates the investigation
-        # blackboard, detects evidence gaps, and selects the next activity dynamically.
-        iteration = 0
-        while iteration < max_iterations:
-            iteration += 1
-            state = await self._run_phase("supervisor", state)
-            action = state.get("_supervisor_action", "finalize_response")
-
-            if action == "finalize_response":
+            confidence = float(state.get("confidence", 0.0) or 0.0)
+            attempt += 1
+            if confidence >= confidence_threshold or attempt > max_reinvestigations:
                 break
-            elif action in ("gather_evidence", "run_specialist"):
-                state = await self._run_phase("gather_evidence", state)
-            elif action == "compress_events":
-                state = await self._run_phase("compress_events", state)
-            elif action == "run_swarm":
-                state = await self._run_phase("run_swarm", state)
-            elif action == "perform_rca":
-                state = await self._run_phase("perform_rca", state)
-            else:
-                break
+            state.setdefault("findings", []).append(
+                f"Re-investigating (attempt {attempt}): confidence {confidence:.2f} "
+                f"below threshold {confidence_threshold:.2f}"
+            )
 
         # HITL approval gate — only when the investigation proposed actions
         # that require sign-off (mirrors ProposedAction.requires_approval).
@@ -167,10 +160,13 @@ class InvestigationWorkflow:
     async def _run_phase(self, name: str, state: dict[str, Any]) -> dict[str, Any]:
         self._phase = name
         self._state = state
+        timeout = (
+            _PARALLEL_ANALYSIS_TIMEOUT if name == "parallel_analysis" else _ACTIVITY_TIMEOUT
+        )
         result = await workflow.execute_activity(
             name,
             state,
-            start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            start_to_close_timeout=timeout,
             retry_policy=_ACTIVITY_RETRY_POLICY,
         )
         self._state = result

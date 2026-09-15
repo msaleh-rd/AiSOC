@@ -253,6 +253,8 @@ export function ThreatIntelView() {
     return true;
   });
 
+  const totalIocs = data?.total ?? allIndicators.length;
+
   const typeCounts = {
     all: totalIocs,
     ip: allIndicators.filter(i => i.type === 'ip' || (i.type as string) === 'cidr').length,
@@ -260,8 +262,6 @@ export function ThreatIntelView() {
     hash: allIndicators.filter(i => i.type === 'hash').length,
     url: allIndicators.filter(i => i.type === 'url').length,
   };
-
-  const totalIocs = data?.total ?? allIndicators.length;
   
   // Calculate how many were added today
   const today = new Date();

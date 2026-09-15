@@ -128,7 +128,7 @@ async def lookup_iocs(request: Request, body: IOCLookupRequest) -> IOCLookupResp
 
     for indicator in body.indicators:
         try:
-            matches = await os_store.search_iocs(value=indicator, limit=10)
+            _, matches = await os_store.search_iocs(value=indicator, limit=10)
             found = len(matches) > 0
             if found:
                 total_found += 1
@@ -160,7 +160,7 @@ async def lookup_iocs(request: Request, body: IOCLookupRequest) -> IOCLookupResp
 async def get_ioc(request: Request, ioc_type: str, value: str) -> dict[str, Any]:
     """Quick single-indicator lookup by type and value."""
     os_store = request.app.state.os_store
-    matches = await os_store.search_iocs(value=value, ioc_type=ioc_type, limit=10)
+    _, matches = await os_store.search_iocs(value=value, ioc_type=ioc_type, limit=10)
     return {
         "indicator": value,
         "type": ioc_type,

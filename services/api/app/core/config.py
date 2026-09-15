@@ -178,6 +178,9 @@ class Settings(BaseSettings):
     CONNECTORS_SERVICE_URL: str = "http://connectors:8087"
     CONNECTORS_SERVICE_TIMEOUT_SECONDS: float = 15.0
 
+    THREATINTEL_SERVICE_URL: str = "http://threatintel:8005"
+    THREATINTEL_SERVICE_TIMEOUT_SECONDS: float = 30.0
+
     # Public ingest base URL — surfaced in the wizard's "Reveal push URL"
     # response so operators get a copy-pasteable curl example. Empty
     # falls back to a relative path; production deployments should

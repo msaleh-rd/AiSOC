@@ -109,12 +109,17 @@ def hold_debate(
         )
 
     winner = ranked[0] if ranked else None
+    # A winner backed by fewer than 2 independent signals (keywords +
+    # technique hits) is a *weak* hypothesis — callers must corroborate it
+    # against another analysis track before asserting it as a finding.
+    weak = bool(winner) and len(winner.evidence) < 2
     payload = {
         "step_type": "debate",
         "hypotheses": [asdict(h) for h in ranked],
         "winner": winner.key if winner else None,
         "winner_label": winner.label if winner else None,
         "winner_confidence": winner.confidence if winner else 0.0,
+        "weak_evidence": weak,
     }
     return DebateOutcome(ranked=ranked, winner=winner, ledger_payload=payload)
 

@@ -122,7 +122,7 @@ def test_lookup_iocs():
 
     async def mock_search(value, limit=10):
         if value == "198.51.100.50":
-            return [
+            return (1, [
                 {
                     "type": "ipv4-addr",
                     "value": "198.51.100.50",
@@ -130,8 +130,8 @@ def test_lookup_iocs():
                     "malware_family": "Cobalt Strike",
                     "confidence": 95,
                 }
-            ]
-        return []
+            ])
+        return (0, [])
 
     os_store.search_iocs = AsyncMock(side_effect=mock_search)
 
