@@ -19,6 +19,7 @@ Endpoints
 from __future__ import annotations
 
 import json
+import os
 import textwrap
 import uuid
 from datetime import UTC, datetime
@@ -32,6 +33,7 @@ from sqlalchemy import text
 from app.api.v1.deps import AuthUser
 from app.core.config import settings
 from app.db.rls import TenantDBSession
+from app.services.model_aliases import resolve_model_alias
 
 router = APIRouter(prefix="/detection-loop", tags=["detection_rules", "detection_loop"])
 
@@ -109,13 +111,16 @@ async def _llm_draft_sigma(
         },
         indent=2,
     )
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
+    model = os.getenv("LLM_MODEL") or resolve_model_alias("nl")
+    completions_url = f"{base_url.rstrip('/')}/chat/completions"
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                completions_url,
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": model,
                     "response_format": {"type": "json_object"},
                     "messages": [
                         {"role": "system", "content": _SYS_PROMPT},

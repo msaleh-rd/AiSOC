@@ -22,6 +22,7 @@ Endpoints
 
 from __future__ import annotations
 
+import os
 import sys
 import uuid
 from datetime import UTC, datetime
@@ -245,7 +246,8 @@ async def _translate(
     if not api_key:
         return deterministic, "deterministic"
 
-    completions_url = "https://api.openai.com/v1/chat/completions"
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
+    completions_url = f"{base_url.rstrip('/')}/chat/completions"
     try:
         enforce_airgap_for_url(completions_url)
     except AirgapViolation:

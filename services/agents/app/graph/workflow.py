@@ -387,10 +387,34 @@ async def perform_rca_node(state: dict) -> dict:
         rca = PageRankRCA()
         result = rca.analyze(graph, target, events)
         s.rca_findings = result.to_dict()
+
+        # sxsecurityinvestigator: Causal Walkback & Process Ancestry validation
+        try:
+            from app.forensics.walkback import CausalWalkback
+            from app.forensics.process_tree import build_process_trees
+
+            all_raw = []
+            if s.raw_alert:
+                all_raw.append(s.raw_alert)
+            if s.compressed_events:
+                all_raw.extend(s.compressed_events)
+
+            build_process_trees(all_raw)
+            walkback = CausalWalkback()
+            wb_result = walkback.analyze(s.raw_alert or {}, s.compressed_events or [])
+            if wb_result.confidence > result.confidence or not graph.edges:
+                s.rca_findings["root_cause_entity"] = wb_result.root_cause_candidate
+                s.rca_findings["attack_type"] = wb_result.attack_type
+                s.rca_findings["confidence"] = wb_result.confidence
+                s.rca_findings["walkback_chain"] = [step.to_dict() for step in wb_result.chain]
+                s.rca_findings["contributing_factors"] = wb_result.contributing_factors
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("supervised.walkback_analysis_failed", error=str(exc))
+
         s.add_finding(
-            f"RCA: root cause is '{result.root_cause_entity}' "
-            f"(confidence: {result.confidence:.2f}, "
-            f"blast radius: {result.estimated_blast_radius})"
+            f"RCA: root cause is '{s.rca_findings.get('root_cause_entity')}' "
+            f"(confidence: {s.rca_findings.get('confidence', 0.0):.2f}, "
+            f"attack type: {s.rca_findings.get('attack_type', 'unknown')})"
         )
 
         # Best-effort LLM synthesis of the causal candidates into an
@@ -420,7 +444,39 @@ async def finalize_response_node(state: dict) -> dict:
             s.rca_findings = {}
         s.rca_findings["attack_chain"] = s.forensic_package["attack_chain"]
     s.add_finding("Investigation finalized by supervisor")
-    return s.to_dict()
+
+    d = s.to_dict()
+
+    # Ensure recon, forensic, responder dictionaries are populated for the frontend tabs
+    if s.forensic_package:
+        d["forensic"] = s.forensic_package
+    d["recon"] = {
+        "entities": s.entities or [],
+        "findings": s.findings[:5] if s.findings else [],
+    }
+    actions = [
+        a.to_dict() if hasattr(a, "to_dict") else a
+        for a in (s.proposed_actions or [])
+    ]
+    d["responder"] = {
+        "summary": s.alert_summary,
+        "risk_level": "high" if s.confidence >= 0.8 else "medium",
+        "recommended_actions": actions,
+    }
+
+    try:
+        from app.orchestrator.report import render_router_report
+
+        report_md, report_html = render_router_report(s)
+        if s.forensic_package and s.forensic_package.get("markdown_report"):
+            forensic_md = s.forensic_package["markdown_report"]
+            if forensic_md and forensic_md not in report_md:
+                report_md = f"{report_md}\n\n---\n\n{forensic_md}"
+        d["report_md"] = report_md
+        d["report_html"] = report_html
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("finalize_response.report_render_failed", error=str(exc))
+    return d
 
 
 def _supervisor_route(state: dict) -> str:

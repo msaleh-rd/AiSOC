@@ -28,6 +28,7 @@ async def _main() -> None:
         perform_rca_activity,
         record_ledger_event_activity,
         run_swarm_activity,
+        supervisor_activity,
         triage_activity,
     )
     from app.temporal.client import TASK_QUEUE, temporal_target_host
@@ -41,6 +42,7 @@ async def _main() -> None:
         activities=[
             auto_triage_activity,
             triage_activity,
+            supervisor_activity,
             gather_evidence_activity,
             compress_events_activity,
             run_swarm_activity,

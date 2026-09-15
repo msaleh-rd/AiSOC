@@ -279,6 +279,7 @@ class Settings(BaseSettings):
     REDIS_POOL_SIZE: int = 20
 
     # ClickHouse
+    CLICKHOUSE_URL: str = ""
     CLICKHOUSE_HOST: str = "localhost"
     CLICKHOUSE_PORT: int = 9000
     CLICKHOUSE_DATABASE: str = "aisoc"
@@ -615,6 +616,31 @@ class Settings(BaseSettings):
             )
             object.__setattr__(self, "ENV", environment_raw)
 
+        return self
+
+    @model_validator(mode="after")
+    def _reconcile_clickhouse_url(self) -> "Settings":
+        """Populate CLICKHOUSE_HOST/PORT/USER/PASSWORD from CLICKHOUSE_URL if set."""
+        import os
+        from urllib.parse import urlparse
+
+        raw_url = (self.CLICKHOUSE_URL or "").strip() or os.getenv("CLICKHOUSE_URL", "").strip()
+        if raw_url:
+            try:
+                u = urlparse(raw_url)
+                if u.hostname and (self.CLICKHOUSE_HOST == "localhost" or not self.CLICKHOUSE_HOST):
+                    object.__setattr__(self, "CLICKHOUSE_HOST", u.hostname)
+                if u.username and self.CLICKHOUSE_USER in ("default", ""):
+                    object.__setattr__(self, "CLICKHOUSE_USER", u.username)
+                if u.password and not self.CLICKHOUSE_PASSWORD:
+                    object.__setattr__(self, "CLICKHOUSE_PASSWORD", u.password)
+                db = u.path.lstrip("/")
+                if db and self.CLICKHOUSE_DATABASE in ("aisoc", ""):
+                    object.__setattr__(self, "CLICKHOUSE_DATABASE", db)
+                if u.port and u.port not in (8123, 80, 443):
+                    object.__setattr__(self, "CLICKHOUSE_PORT", u.port)
+            except Exception:
+                pass
         return self
 
     # Convenience predicates so callers don't need to import the module

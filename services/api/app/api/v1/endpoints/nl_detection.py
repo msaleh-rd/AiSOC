@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.api.v1.deps import AuthUser, DBSession, require_permission
 from app.core.airgap import AirgapViolation, enforce_airgap_for_url
+from app.services.model_aliases import resolve_model_alias
 from app.models.detection_proposal import DetectionRuleProposal
 from app.services.detection_eval import evaluate_candidate_rule
 from app.services.fixture_synth import derive_fixtures_from_sigma
@@ -134,7 +135,9 @@ async def _llm_translate(request: NLDetectionRequest) -> dict[str, str | None]:
         f"Return JSON with keys matching the platform names (sigma, kql, spl, esql)."
     )
 
-    completions_url = "https://api.openai.com/v1/chat/completions"
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
+    model = os.getenv("LLM_MODEL") or resolve_model_alias("nl")
+    completions_url = f"{base_url.rstrip('/')}/chat/completions"
     try:
         enforce_airgap_for_url(completions_url)
     except AirgapViolation as exc:
@@ -144,12 +147,12 @@ async def _llm_translate(request: NLDetectionRequest) -> dict[str, str | None]:
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 completions_url,
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+                    "model": model,
                     "messages": [
                         {"role": "system", "content": _SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},
@@ -169,7 +172,7 @@ async def _llm_translate(request: NLDetectionRequest) -> dict[str, str | None]:
                 "kql": rules.get("kql") if "kql" in request.target_platforms else None,
                 "spl": rules.get("spl") if "spl" in request.target_platforms else None,
                 "esql": rules.get("esql") if "esql" in request.target_platforms else None,
-                "_model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+                "_model": model,
             }
     except Exception as exc:
         logger.warning("nl_detection.llm_error", error=str(exc))

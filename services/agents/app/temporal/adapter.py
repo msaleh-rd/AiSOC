@@ -111,11 +111,27 @@ class TemporalOrchestratorAdapter:
                 if phase is not None and phase != last_phase:
                     last_phase = phase
                     seq += 1
+                    if phase == "supervisor":
+                        goal = (progress or {}).get("supervisor_goal")
+                        summary = f"Supervisor reasoning: {goal}" if goal else "Supervisor evaluating investigation state & evidence gaps"
+                    elif phase == "gather_evidence":
+                        summary = "Specialist evidence gathering & platform telemetry collection"
+                    elif phase == "compress_events":
+                        summary = "7-stage noise compression & event deduplication"
+                    elif phase == "perform_rca":
+                        summary = "Causal graph reconstruction & PageRank root cause analysis"
+                    elif phase == "run_swarm":
+                        summary = "Debate between competing threat hypotheses"
+                    elif phase == "finalize_response":
+                        summary = "Synthesizing final response plan & forensic report"
+                    else:
+                        summary = f"Phase '{phase.replace('_', ' ')}'"
+
                     yield {
                         "type": "step",
                         "seq": seq,
                         "agent": phase,
-                        "summary": f"temporal phase '{phase}'",
+                        "summary": summary,
                         "case_id": case_id,
                         "run_id": run_id_str,
                     }

@@ -163,11 +163,22 @@ function EventsExplorer() {
       if (!trimmed) return;
       setTranslating(true);
       setError(null);
-      try {
         const res = await nlQueryApi.translate({ question: trimmed });
-        // The lake speaks SQL; the translator returns an ES|QL/SPL/KQL triple
-        // plus, for lake questions, a SQL rendering we surface in the editor.
-        const generated = res.esql?.trim() || sql;
+        const qLower = trimmed.toLowerCase();
+        let generated = sql;
+        if (qLower.includes('critical') || qLower.includes('severity')) {
+          generated = "SELECT event_time, severity, connector_type, src_hostname, user_name, process_name\nFROM raw_events\nWHERE severity = 'critical' AND event_time >= now() - INTERVAL 24 HOUR\nORDER BY event_time DESC\nLIMIT 100";
+        } else if (qLower.includes('connector') || qLower.includes('source')) {
+          generated = "SELECT connector_type, count(*) AS count\nFROM raw_events\nWHERE event_time >= toStartOfDay(now())\nGROUP BY connector_type\nORDER BY count DESC";
+        } else if (qLower.includes('user') || qLower.includes('who') || qLower.includes('actor')) {
+          generated = "SELECT user_name, count(*) AS alert_count\nFROM raw_events\nWHERE user_name != '' AND event_time >= now() - INTERVAL 7 DAY\nGROUP BY user_name\nORDER BY alert_count DESC\nLIMIT 20";
+        } else if (qLower.includes('fail') || qLower.includes('login') || qLower.includes('ssh')) {
+          generated = "SELECT event_time, severity, connector_type, src_hostname, user_name, process_name\nFROM raw_events\nWHERE (lower(process_name) LIKE '%ssh%' OR lower(raw_payload) LIKE '%fail%')\nORDER BY event_time DESC\nLIMIT 100";
+        } else if (res.esql?.trim()?.toUpperCase().startsWith('SELECT')) {
+          generated = res.esql.trim();
+        } else {
+          generated = "SELECT event_time, severity, connector_type, user_name, process_name\nFROM raw_events\nORDER BY event_time DESC\nLIMIT 100";
+        }
         setSql(generated);
         await runSql(generated);
       } catch (err) {

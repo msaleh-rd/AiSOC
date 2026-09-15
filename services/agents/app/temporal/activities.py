@@ -36,6 +36,14 @@ async def triage_activity(state: dict[str, Any]) -> dict[str, Any]:
     return await triage_node(state)
 
 
+@activity.defn(name="supervisor")
+async def supervisor_activity(state: dict[str, Any]) -> dict[str, Any]:
+    from app.graph.workflow import supervisor_node
+
+    return await supervisor_node(state)
+
+
+
 @activity.defn(name="gather_evidence")
 async def gather_evidence_activity(state: dict[str, Any]) -> dict[str, Any]:
     from app.graph.workflow import gather_evidence_node

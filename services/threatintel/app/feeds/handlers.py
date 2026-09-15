@@ -276,3 +276,84 @@ async def handle_spamhaus_drop_feed(
 
     except Exception as exc:
         logger.error("Spamhaus DROP feed handler failed", error=str(exc))
+
+
+# ─── abuse.ch URLhaus Feed Handler ───────────────────────────────────────────
+
+
+async def handle_urlhaus_feed(
+    client: "UrlhausClient",
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch URLhaus malware-distribution URLs and ingest IOCs."""
+    logger.info("Polling URLhaus feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="urlhaus")
+            logger.info("URLhaus IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("URLhaus feed handler failed", error=str(exc))
+
+
+# ─── abuse.ch ThreatFox Feed Handler ─────────────────────────────────────────
+
+
+async def handle_threatfox_feed(
+    client: "ThreatFoxClient",
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch ThreatFox malware-family IOCs and ingest."""
+    logger.info("Polling ThreatFox feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="threatfox")
+            logger.info("ThreatFox IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("ThreatFox feed handler failed", error=str(exc))
+
+
+# ─── abuse.ch Feodo Tracker Feed Handler ──────────────────────────────────────
+
+
+async def handle_feodotracker_feed(
+    client: "FeodoTrackerClient",
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch Feodo Tracker botnet C2 IPs and ingest."""
+    logger.info("Polling Feodo Tracker feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="feodotracker")
+            logger.info("Feodo Tracker IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("Feodo Tracker feed handler failed", error=str(exc))
+
+
+# ─── Tor Exit Node Feed Handler ──────────────────────────────────────────────
+
+
+async def handle_tor_exit_feed(
+    client: "TorExitClient",
+    pipeline: ThreatIntelPipeline,
+) -> None:
+    """Fetch Tor exit node IPs and ingest."""
+    logger.info("Polling Tor exit node feed")
+
+    try:
+        iocs = await client.fetch()
+        if iocs:
+            stats = await pipeline.ingest_iocs(iocs, source="tor-exit")
+            logger.info("Tor exit node IOCs ingested", **stats)
+
+    except Exception as exc:
+        logger.error("Tor exit node feed handler failed", error=str(exc))
+

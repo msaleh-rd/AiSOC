@@ -90,6 +90,10 @@ class InvestigationWorkflow:
             "verdict": self._state.get("verdict"),
             "confidence": self._state.get("confidence"),
             "findings_count": len(self._state.get("findings", []) or []),
+            "supervisor_history": self._state.get("supervisor_history", []),
+            "supervisor_action": self._state.get("_supervisor_action"),
+            "supervisor_goal": self._state.get("_supervisor_goal"),
+            "iteration": self._state.get("iteration_count", 0),
         }
 
     # ------------------------------------------------------------------
@@ -99,7 +103,7 @@ class InvestigationWorkflow:
     @workflow.run
     async def run(self, request: dict[str, Any]) -> dict[str, Any]:
         confidence_threshold = float(request.get("confidence_threshold", _DEFAULT_CONFIDENCE_THRESHOLD))
-        max_reinvestigations = int(request.get("max_reinvestigations", _DEFAULT_MAX_REINVESTIGATIONS))
+        max_iterations = int(request.get("max_iterations", 10))
 
         state: dict[str, Any] = {
             "run_id": workflow.info().workflow_id,
@@ -113,26 +117,35 @@ class InvestigationWorkflow:
             "confidence": 0.0,
         }
 
-        # Phase 0 — auto-triage. Mirrors the LangGraph pipeline's early exit:
-        # a high-confidence auto-closed verdict skips the rest of the run.
+        # Phase 0 — auto-triage (provides early assessment / baseline verdict).
         state = await self._run_phase("auto_triage", state)
-        if state.get("status") == "completed":
-            self._phase = "completed"
-            return state
+        state["status"] = "running"
 
-        attempt = 0
-        while True:
-            for phase in _INVESTIGATION_PHASES:
-                state = await self._run_phase(phase, state)
+        # Phase 1 — initial triage
+        state = await self._run_phase("triage", state)
 
-            confidence = float(state.get("confidence", 0.0) or 0.0)
-            attempt += 1
-            if confidence >= confidence_threshold or attempt > max_reinvestigations:
+        # Autonomous ReAct Supervisor loop (matches LangGraph supervised graph
+        # and D:\projects\ai-assisted-soc):
+        # Instead of a static sequence, the supervisor evaluates the investigation
+        # blackboard, detects evidence gaps, and selects the next activity dynamically.
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            state = await self._run_phase("supervisor", state)
+            action = state.get("_supervisor_action", "finalize_response")
+
+            if action == "finalize_response":
                 break
-            state.setdefault("findings", []).append(
-                f"Re-investigating (attempt {attempt}): confidence {confidence:.2f} "
-                f"below threshold {confidence_threshold:.2f}"
-            )
+            elif action in ("gather_evidence", "run_specialist"):
+                state = await self._run_phase("gather_evidence", state)
+            elif action == "compress_events":
+                state = await self._run_phase("compress_events", state)
+            elif action == "run_swarm":
+                state = await self._run_phase("run_swarm", state)
+            elif action == "perform_rca":
+                state = await self._run_phase("perform_rca", state)
+            else:
+                break
 
         # HITL approval gate — only when the investigation proposed actions
         # that require sign-off (mirrors ProposedAction.requires_approval).

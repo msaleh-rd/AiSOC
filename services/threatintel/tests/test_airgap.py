@@ -64,6 +64,10 @@ class TestPublicFeedsBlocked:
             "https://feeds.example-public.net/stix",
             "https://openphish.com/feed.txt",
             "https://www.spamhaus.org/drop/drop_v4.json",
+            "https://urlhaus.abuse.ch/downloads/csv_recent/",
+            "https://threatfox.abuse.ch/export/json/recent/",
+            "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
+            "https://check.torproject.org/torbulkexitlist",
         ],
     )
     def test_public_feed_is_blocked(self, airgapped, url):

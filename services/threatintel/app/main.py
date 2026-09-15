@@ -27,20 +27,29 @@ from app._health import install_health_routes
 from app.actors.attribution import ThreatActorAttributionEngine
 from app.airgap import airgap_status, is_host_allowed_for_airgap
 from app.api.actor_attribution import router as actor_attribution_router
+from app.api.feeds import router as feeds_router
 from app.clients.cisa_kev import CisaKevClient
+from app.clients.feodotracker import FeodoTrackerClient
 from app.clients.misp import MispClient
 from app.clients.otx import OtxClient
 from app.clients.taxii import TaxiiClient
+from app.clients.threatfox import ThreatFoxClient
+from app.clients.tor_exit import TorExitClient
+from app.clients.urlhaus import UrlhausClient
 from app.config import settings
 from app.feeds.handlers import (
     OpenPhishClient,
     SpamhausDropClient,
     handle_cisa_kev_feed,
+    handle_feodotracker_feed,
     handle_misp_feed,
     handle_openphish_feed,
     handle_otx_feed,
     handle_spamhaus_drop_feed,
     handle_taxii_feed,
+    handle_threatfox_feed,
+    handle_tor_exit_feed,
+    handle_urlhaus_feed,
 )
 from app.feeds.pipeline import ThreatIntelPipeline
 from app.feeds.scheduler import FeedScheduler
@@ -192,7 +201,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     kev_client = CisaKevClient()
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
-    scheduler = FeedScheduler(pipeline)
+    scheduler = FeedScheduler(
+        pipeline,
+        run_on_startup=settings.FEED_RUN_ON_STARTUP,
+        startup_stagger_seconds=settings.FEED_STARTUP_STAGGER_SECONDS,
+    )
 
     # Register TAXII feeds (skipped entirely if the configured TAXII server
     # is on the public Internet and AISOC_AIRGAPPED=1 — this prevents even
@@ -263,6 +276,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             interval_seconds=settings.SPAMHAUS_DROP_POLL_INTERVAL,
         )
 
+    # URLhaus — abuse.ch malware-distribution URLs
+    if settings.URLHAUS_ENABLED and _airgap_check_feed_url("urlhaus", settings.URLHAUS_URL):
+        scheduler.register(
+            feed_name="urlhaus",
+            handler=partial(
+                handle_urlhaus_feed,
+                client=UrlhausClient(settings.URLHAUS_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.URLHAUS_POLL_INTERVAL,
+        )
+
+    # ThreatFox — abuse.ch malware-family IOCs
+    if settings.THREATFOX_ENABLED and _airgap_check_feed_url("threatfox", settings.THREATFOX_URL):
+        scheduler.register(
+            feed_name="threatfox",
+            handler=partial(
+                handle_threatfox_feed,
+                client=ThreatFoxClient(settings.THREATFOX_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.THREATFOX_POLL_INTERVAL,
+        )
+
+    # Feodo Tracker — abuse.ch botnet C2 IPs
+    if settings.FEODOTRACKER_ENABLED and _airgap_check_feed_url("feodotracker", settings.FEODOTRACKER_URL):
+        scheduler.register(
+            feed_name="feodotracker",
+            handler=partial(
+                handle_feodotracker_feed,
+                client=FeodoTrackerClient(settings.FEODOTRACKER_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.FEODOTRACKER_POLL_INTERVAL,
+        )
+
+    # Tor Project — bulk exit node list
+    if settings.TOR_EXIT_ENABLED and _airgap_check_feed_url("tor-exit", settings.TOR_EXIT_URL):
+        scheduler.register(
+            feed_name="tor-exit",
+            handler=partial(
+                handle_tor_exit_feed,
+                client=TorExitClient(settings.TOR_EXIT_URL),
+                pipeline=pipeline,
+            ),
+            interval_seconds=settings.TOR_EXIT_POLL_INTERVAL,
+        )
+
     scheduler.start()
 
     # Store refs for health endpoint
@@ -315,6 +376,7 @@ app.mount("/metrics", metrics_app)
 
 # Threat actor attribution router (v0)
 app.include_router(actor_attribution_router)
+app.include_router(feeds_router)
 
 
 @app.get("/health")

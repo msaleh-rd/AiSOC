@@ -3,6 +3,10 @@ Tool: MITRE ATT&CK framework lookups.
 Provides context for tactics, techniques, and suggested mitigations.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 import structlog
 
 logger = structlog.get_logger()
@@ -49,18 +53,22 @@ _MITRE_MITIGATIONS = {
 }
 
 
-def lookup_technique(technique_id: str) -> dict:
+def lookup_technique(technique_id: Any) -> dict:
     """Look up a MITRE ATT&CK technique by ID."""
-    tech = _MITRE_TECHNIQUES.get(technique_id)
+    if isinstance(technique_id, dict):
+        tid = str(technique_id.get("id") or technique_id.get("technique_id") or technique_id.get("technique") or "")
+    else:
+        tid = str(technique_id or "")
+    tech = _MITRE_TECHNIQUES.get(tid)
     if not tech:
-        return {"id": technique_id, "name": "Unknown", "tactic": "Unknown"}
+        return {"id": tid, "name": "Unknown", "tactic": "Unknown"}
     tactic_id = tech["tactic"]
     return {
-        "id": technique_id,
+        "id": tid,
         "name": tech["name"],
         "tactic_id": tactic_id,
         "tactic_name": _MITRE_TACTICS.get(tactic_id, "Unknown"),
-        "mitigations": _MITRE_MITIGATIONS.get(technique_id, []),
+        "mitigations": _MITRE_MITIGATIONS.get(tid, []),
     }
 
 
@@ -72,13 +80,15 @@ def lookup_tactic(tactic_id: str) -> dict:
     }
 
 
-def map_techniques_to_kill_chain(technique_ids: list[str]) -> dict:
+def map_techniques_to_kill_chain(technique_ids: list[Any]) -> dict:
     """Map a list of technique IDs to kill chain phases."""
     result: dict[str, list[str]] = {}
-    for tid in technique_ids:
-        info = lookup_technique(tid)
+    for tid_raw in technique_ids:
+        info = lookup_technique(tid_raw)
+        tid = info.get("id", str(tid_raw))
         tactic = info.get("tactic_name", "Unknown")
         if tactic not in result:
             result[tactic] = []
         result[tactic].append(f"{tid}: {info['name']}")
     return result
+

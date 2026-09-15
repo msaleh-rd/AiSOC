@@ -94,6 +94,31 @@ class Settings(BaseSettings):
     SPAMHAUS_DROP_URL: str = "https://www.spamhaus.org/drop/drop_v4.json"
     SPAMHAUS_DROP_POLL_INTERVAL: int = 43200  # 12 h
 
+    # abuse.ch URLhaus — malware distribution URLs (CSV, zero-credential)
+    URLHAUS_ENABLED: bool = True
+    URLHAUS_URL: str = "https://urlhaus.abuse.ch/downloads/csv_recent/"
+    URLHAUS_POLL_INTERVAL: int = 1800  # 30 min
+
+    # abuse.ch ThreatFox — IOCs by malware family (JSON, zero-credential)
+    THREATFOX_ENABLED: bool = True
+    THREATFOX_URL: str = "https://threatfox.abuse.ch/export/json/recent/"
+    THREATFOX_POLL_INTERVAL: int = 1800  # 30 min
+
+    # abuse.ch Feodo Tracker — active botnet C2 IPs (JSON, zero-credential)
+    FEODOTRACKER_ENABLED: bool = True
+    FEODOTRACKER_URL: str = "https://feodotracker.abuse.ch/downloads/ipblocklist.json"
+    FEODOTRACKER_POLL_INTERVAL: int = 3600  # 1 h
+
+    # Tor Project — bulk exit node IP list (zero-credential)
+    TOR_EXIT_ENABLED: bool = True
+    TOR_EXIT_URL: str = "https://check.torproject.org/torbulkexitlist"
+    TOR_EXIT_POLL_INTERVAL: int = 3600  # 1 h
+
+    # Startup behaviour — run feeds immediately on boot (staggered) rather
+    # than waiting for their full interval before the first poll.
+    FEED_RUN_ON_STARTUP: bool = True
+    FEED_STARTUP_STAGGER_SECONDS: int = 5
+
     # Air-gap egress policy (Tier 3.1).
     # When enabled, public threat-intel feeds (OTX, CISA KEV, MISP/TAXII/
     # OpenCTI hosted on the public Internet) will refuse to register at

@@ -1703,6 +1703,44 @@ async def case_auto_postmortem(
 
 
 @router.get(
+    "/{case_id}/investigations/{run_id}/report.md",
+    summary="Download investigation Markdown report",
+)
+async def case_investigation_report_md(
+    case_id: str,
+    run_id: str,
+    user: AuthUser,
+) -> Response:
+    safe_run_id = quote(run_id, safe="")
+    resp = await _agents_proxy("GET", f"/api/v1/investigations/{safe_run_id}/report.md")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return Response(
+        content=resp.content,
+        media_type="text/markdown; charset=utf-8",
+    )
+
+
+@router.get(
+    "/{case_id}/investigations/{run_id}/report.html",
+    summary="Download investigation HTML report",
+)
+async def case_investigation_report_html(
+    case_id: str,
+    run_id: str,
+    user: AuthUser,
+) -> Response:
+    safe_run_id = quote(run_id, safe="")
+    resp = await _agents_proxy("GET", f"/api/v1/investigations/{safe_run_id}/report.html")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return Response(
+        content=resp.content,
+        media_type="text/html; charset=utf-8",
+    )
+
+
+@router.get(
     "/{case_id}/investigations/{run_id}/report.pdf",
     summary="Download investigation PDF report",
 )
