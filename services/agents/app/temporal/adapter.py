@@ -111,27 +111,11 @@ class TemporalOrchestratorAdapter:
                 if phase is not None and phase != last_phase:
                     last_phase = phase
                     seq += 1
-                    if phase == "supervisor":
-                        goal = (progress or {}).get("supervisor_goal")
-                        summary = f"Supervisor reasoning: {goal}" if goal else "Supervisor evaluating investigation state & evidence gaps"
-                    elif phase == "gather_evidence":
-                        summary = "Specialist evidence gathering & platform telemetry collection"
-                    elif phase == "compress_events":
-                        summary = "7-stage noise compression & event deduplication"
-                    elif phase == "perform_rca":
-                        summary = "Causal graph reconstruction & PageRank root cause analysis"
-                    elif phase == "run_swarm":
-                        summary = "Debate between competing threat hypotheses"
-                    elif phase == "finalize_response":
-                        summary = "Synthesizing final response plan & forensic report"
-                    else:
-                        summary = f"Phase '{phase.replace('_', ' ')}'"
-
                     yield {
                         "type": "step",
                         "seq": seq,
                         "agent": phase,
-                        "summary": summary,
+                        "summary": f"temporal phase '{phase}'",
                         "case_id": case_id,
                         "run_id": run_id_str,
                     }
@@ -185,7 +169,14 @@ class TemporalOrchestratorAdapter:
         Mirrors :class:`app.graph.adapter.GraphOrchestratorAdapter` — both
         share the same :class:`app.models.state.InvestigationState` shape,
         so the same deterministic renderer applies.
+
+        Only fills the reports in when the workflow didn't already produce
+        them: ``finalize_response_node`` renders the router report AND appends
+        the deterministic forensic markdown (timeline / kill chain), so
+        re-rendering here would silently drop the forensic section.
         """
+        if result.get("report_md"):
+            return result
         try:
             from app.models.state import InvestigationState
             from app.orchestrator.report import render_router_report

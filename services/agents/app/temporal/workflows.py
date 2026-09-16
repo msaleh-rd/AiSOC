@@ -120,11 +120,23 @@ class InvestigationWorkflow:
         }
 
         # Phase 0 — auto-triage. Mirrors the LangGraph pipeline's early exit:
-        # a high-confidence auto-closed verdict skips the rest of the run.
+        # a high-confidence auto-closed verdict skips the rest of the run —
+        # but ONLY for automatic alert-stream triage. When an analyst
+        # explicitly requested this investigation (the case "Investigate
+        # with agent" button), the whole point is the full pipeline: keep
+        # the auto-triage verdict as a finding and continue so evidence,
+        # kill-chain hunts, swarm/RCA and the forensic report all run.
+        analyst_requested = bool(request.get("analyst_requested", True))
         state = await self._run_phase("auto_triage", state)
         if state.get("status") == "completed":
-            self._phase = "completed"
-            return state
+            if not analyst_requested:
+                self._phase = "completed"
+                return state
+            state["status"] = "running"
+            state.setdefault("findings", []).append(
+                "Auto-triage recommended closure, but analyst requested a full "
+                "investigation — continuing through all phases"
+            )
 
         attempt = 0
         while True:
