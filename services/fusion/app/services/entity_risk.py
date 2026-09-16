@@ -194,15 +194,32 @@ class EntityRiskEngine:
         return await self._load(str(tenant_id), entity_type, entity_value)
 
     async def stats(self, tenant_id: UUID | str) -> dict:
-        """Return queue-level metrics for the dashboard."""
+        """Return queue-level metrics for the dashboard.
+
+        Computed from the same entity records the queue endpoint serves, so
+        the header numbers always agree with the rows below them. (The old
+        implementation counted the ``promoted`` Redis set — which expires
+        wholesale after ``rba_window_seconds`` even though each record's
+        ``promoted_at`` is sticky — and never reported ``alert_count``,
+        so the UI showed "Promoted 0 / Contributing alerts 0" above a queue
+        full of PROMOTED entities.)
+        """
         topn_key = _TOPN_KEY + str(tenant_id)
-        promoted_key = _PROMOTED_KEY + str(tenant_id)
         total = await self._redis.zcard(topn_key)
-        promoted = await self._redis.zcard(promoted_key)
-        # Score histogram (≥80, 50–80, 20–50, <20).
         bands = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        promoted = 0
+        alert_count = 0
         members = await self._redis.zrevrange(topn_key, 0, self._max_top - 1, withscores=True)
-        for _m, score in members:
+        for member, _zscore in members:
+            entity = member.decode() if isinstance(member, bytes | bytearray) else member
+            entity_type, _, entity_value = entity.partition("::")
+            rec = await self._load(str(tenant_id), entity_type, entity_value)
+            if rec is None:
+                continue
+            if rec.promoted_at is not None:
+                promoted += 1
+            alert_count += rec.alert_count
+            score = rec.score
             if score >= 80:
                 bands["critical"] += 1
             elif score >= 50:
@@ -215,6 +232,7 @@ class EntityRiskEngine:
             "tracked_entities": total,
             "promoted_entities": promoted,
             "score_bands": bands,
+            "alert_count": alert_count,
             "threshold": self._threshold,
         }
 
