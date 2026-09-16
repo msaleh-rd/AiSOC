@@ -70,6 +70,10 @@ class InvestigationWorkflow:
     def __init__(self) -> None:
         self._state: dict[str, Any] = {}
         self._phase: str = "pending"
+        # Every phase entered, in order — the adapter replays this into step
+        # events. Sampling the current phase alone misses fast phases that
+        # complete between the adapter's 2-second polls.
+        self._phase_history: list[str] = []
         self._awaiting_approval: bool = False
         self._approved: bool | None = None
 
@@ -92,6 +96,7 @@ class InvestigationWorkflow:
         """
         return {
             "phase": self._phase,
+            "phase_history": list(self._phase_history),
             "awaiting_approval": self._awaiting_approval,
             "verdict": self._state.get("verdict"),
             "confidence": self._state.get("confidence"),
@@ -171,6 +176,7 @@ class InvestigationWorkflow:
 
     async def _run_phase(self, name: str, state: dict[str, Any]) -> dict[str, Any]:
         self._phase = name
+        self._phase_history.append(name)
         self._state = state
         timeout = (
             _PARALLEL_ANALYSIS_TIMEOUT if name == "parallel_analysis" else _ACTIVITY_TIMEOUT

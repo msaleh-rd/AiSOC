@@ -99,7 +99,7 @@ class TemporalOrchestratorAdapter:
             return
 
         result_task = asyncio.ensure_future(handle.result())
-        last_phase: str | None = None
+        emitted = 0
         seq = 0
         try:
             while not result_task.done():
@@ -107,9 +107,14 @@ class TemporalOrchestratorAdapter:
                     progress = await handle.query("get_progress")
                 except Exception:  # noqa: BLE001 — query races with completion are expected
                     progress = None
-                phase = progress.get("phase") if progress else None
-                if phase is not None and phase != last_phase:
-                    last_phase = phase
+                # Replay the workflow's full phase history: sampling only the
+                # *current* phase misses fast phases that complete between
+                # polls, so the audit log showed 3 steps for an 8-phase run.
+                history = (progress or {}).get("phase_history") or []
+                if not history and progress and progress.get("phase"):
+                    history = [progress["phase"]]
+                for phase in history[emitted:]:
+                    emitted += 1
                     seq += 1
                     yield {
                         "type": "step",
@@ -122,6 +127,22 @@ class TemporalOrchestratorAdapter:
                 await asyncio.wait({result_task}, timeout=_POLL_INTERVAL_SECONDS)
 
             result = await result_task
+            # Final catch-up: phases that finished after the last poll.
+            try:
+                progress = await handle.query("get_progress")
+                for phase in ((progress or {}).get("phase_history") or [])[emitted:]:
+                    emitted += 1
+                    seq += 1
+                    yield {
+                        "type": "step",
+                        "seq": seq,
+                        "agent": phase,
+                        "summary": f"temporal phase '{phase}'",
+                        "case_id": case_id,
+                        "run_id": run_id_str,
+                    }
+            except Exception:  # noqa: BLE001 — best-effort backfill
+                pass
         except Exception as exc:  # noqa: BLE001
             logger.exception("temporal_adapter.run_failed", run_id=run_id_str)
             yield {
