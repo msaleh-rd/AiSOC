@@ -55,6 +55,7 @@ VALID_ACTIONS = frozenset({
     "compress_events",
     "run_swarm",
     "perform_rca",
+    "parallel_analysis",
     "finalize_response",
 })
 
@@ -211,11 +212,14 @@ class ReActSupervisor:
             "- compress_events: Run 7-stage noise compression on collected events\n"
             "- run_swarm: Run competing hypothesis swarm for complex cases\n"
             "- perform_rca: Run PageRank root cause analysis on the causal graph\n"
+            "- parallel_analysis: Run kill-chain phase hunts + hypothesis swarm + RCA "
+            "concurrently and fuse their verdicts (preferred over separate "
+            "run_swarm/perform_rca once events are compressed)\n"
             "- finalize_response: Generate final response plan and close investigation\n\n"
             "RULES:\n"
             "- You MUST select finalize_response when RCA confidence >= 0.75\n"
-            "- You MUST select compress_events before perform_rca\n"
-            "- If events are already compressed (Compressed: yes) and RCA confidence < 0.70, select perform_rca or run_swarm\n"
+            "- You MUST select compress_events before perform_rca or parallel_analysis\n"
+            "- If events are already compressed (Compressed: yes) and RCA confidence < 0.70, select parallel_analysis\n"
             "- You MUST select finalize_response if all action budgets are exhausted\n"
             "- Each action can run at most 3 times\n\n"
             "CURRENT STATE:\n"
@@ -302,14 +306,15 @@ class ReActSupervisor:
                 specific_goal="Compress collected evidence into high-signal timeline",
             )
 
-        # Phase 3: Run RCA if confidence is low.
+        # Phase 3: Run the fused analysis (kill-chain hunts + swarm + RCA)
+        # if confidence is low.
         rca_conf = (state.rca_findings or {}).get("confidence", 0.0)
-        if rca_conf < 0.70 and counts.get("perform_rca", 0) < max_iter:
+        if rca_conf < 0.70 and counts.get("parallel_analysis", 0) < max_iter:
             return SupervisorDecision(
-                assessment="Compressed timeline ready. Running root cause analysis.",
-                thought="Timeline ready. Performing RCA and attack chain reconstruction.",
-                action="perform_rca",
-                specific_goal="Reconstruct attack chain and score causal confidence",
+                assessment="Compressed timeline ready. Running fused analysis.",
+                thought="Timeline ready. Running kill-chain hunts, hypothesis swarm and RCA concurrently.",
+                action="parallel_analysis",
+                specific_goal="Reconstruct attack chain, test hypotheses, and score causal confidence",
             )
 
         # Phase 4: Finalize.
@@ -367,8 +372,8 @@ class ReActSupervisor:
             )
             return self._heuristic_fallback(state)
 
-        # Can't run RCA without compressed events.
-        if decision.action == "perform_rca" and not state.compressed_events:
+        # Can't run RCA / fused analysis without compressed events.
+        if decision.action in ("perform_rca", "parallel_analysis") and not state.compressed_events:
             decision.action = "compress_events"
             decision.specific_goal = "Must compress events before RCA"
 

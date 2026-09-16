@@ -46,26 +46,20 @@ _ACTIVITY_RETRY_POLICY = RetryPolicy(
     non_retryable_error_types=["ValidationError"],
 )
 _DEFAULT_CONFIDENCE_THRESHOLD = 0.6
-_DEFAULT_MAX_REINVESTIGATIONS = 2
+_DEFAULT_MAX_ITERATIONS = 10
 _APPROVAL_TIMEOUT = timedelta(hours=1)
-
-# Phases that repeat in the adaptive re-investigation loop when confidence
-# stays below threshold — mirrors the supervised graph's ReAct posture, but
-# as a bounded, durable, queryable loop rather than an open-ended one.
-# ``parallel_analysis`` runs the kill-chain phase hunts, the hypothesis
-# swarm, and RCA concurrently inside one activity, then fuses their verdicts
-# (replaces the previous serial run_swarm → perform_rca legs).
-_INVESTIGATION_PHASES = (
-    "triage",
-    "gather_evidence",
-    "compress_events",
-    "parallel_analysis",
-)
 
 
 @workflow.defn(name="InvestigationWorkflow")
 class InvestigationWorkflow:
-    """Durable 5-phase investigation: Triage → Evidence → Compression → RCA → Response."""
+    """Durable ReAct-supervised investigation.
+
+    auto_triage → triage → [supervisor → chosen action]* → finalize_response.
+    The supervisor evaluates the investigation blackboard each iteration and
+    selects the next activity dynamically (gather_evidence / compress_events /
+    run_swarm / perform_rca / parallel_analysis / finalize_response), matching
+    the LangGraph supervised graph — not a static phase list.
+    """
 
     def __init__(self) -> None:
         self._state: dict[str, Any] = {}
@@ -101,6 +95,9 @@ class InvestigationWorkflow:
             "verdict": self._state.get("verdict"),
             "confidence": self._state.get("confidence"),
             "findings_count": len(self._state.get("findings", []) or []),
+            "supervisor_history": self._state.get("supervisor_history", []),
+            "supervisor_action": self._state.get("_supervisor_action"),
+            "supervisor_goal": self._state.get("_supervisor_goal"),
         }
 
     # ------------------------------------------------------------------
@@ -109,8 +106,7 @@ class InvestigationWorkflow:
 
     @workflow.run
     async def run(self, request: dict[str, Any]) -> dict[str, Any]:
-        confidence_threshold = float(request.get("confidence_threshold", _DEFAULT_CONFIDENCE_THRESHOLD))
-        max_reinvestigations = int(request.get("max_reinvestigations", _DEFAULT_MAX_REINVESTIGATIONS))
+        max_iterations = int(request.get("max_iterations", _DEFAULT_MAX_ITERATIONS))
 
         state: dict[str, Any] = {
             "run_id": workflow.info().workflow_id,
@@ -143,19 +139,32 @@ class InvestigationWorkflow:
                 "investigation — continuing through all phases"
             )
 
-        attempt = 0
-        while True:
-            for phase in _INVESTIGATION_PHASES:
-                state = await self._run_phase(phase, state)
+        # Phase 1 — initial deterministic triage.
+        state = await self._run_phase("triage", state)
 
-            confidence = float(state.get("confidence", 0.0) or 0.0)
-            attempt += 1
-            if confidence >= confidence_threshold or attempt > max_reinvestigations:
+        # Autonomous ReAct supervisor loop (matches the LangGraph supervised
+        # graph): the supervisor evaluates the investigation blackboard,
+        # detects evidence gaps, and selects the next activity dynamically.
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            state = await self._run_phase("supervisor", state)
+            action = state.get("_supervisor_action", "finalize_response")
+
+            if action == "finalize_response":
                 break
-            state.setdefault("findings", []).append(
-                f"Re-investigating (attempt {attempt}): confidence {confidence:.2f} "
-                f"below threshold {confidence_threshold:.2f}"
-            )
+            if action in ("gather_evidence", "run_specialist"):
+                state = await self._run_phase("gather_evidence", state)
+            elif action == "compress_events":
+                state = await self._run_phase("compress_events", state)
+            elif action == "run_swarm":
+                state = await self._run_phase("run_swarm", state)
+            elif action == "perform_rca":
+                state = await self._run_phase("perform_rca", state)
+            elif action == "parallel_analysis":
+                state = await self._run_phase("parallel_analysis", state)
+            else:
+                break
 
         # HITL approval gate — only when the investigation proposed actions
         # that require sign-off (mirrors ProposedAction.requires_approval).
